@@ -1,0 +1,62 @@
+# .cursor-project-rules.yaml
+# These rules are designed to guide the development of the 5G Network Slicing PoC,
+# leveraging AI-assisted development with Cursor and focusing on PoC objectives.
+
+rules:
+  - id: MOD_001
+    name: "Modularize Distinct Components"
+    description: "Separate core network simulation, AI agents, data processing, RAG, and MCP/API logic into distinct Python modules/packages."
+    rationale: "Enhances clarity, simplifies testing, facilitates parallel development, and aligns with studying component interaction."
+    cursor_assist: "Refactor existing code into modules; generate skeleton structures for new modules."
+
+  - id: VC_001
+    name: "Version Control AI Artifacts"
+    description: "Commit Python code, AI model configs, Jupyter notebooks, RAG knowledge base definitions, and dataset versions/links. Version LLM prompts if used systemically."
+    rationale: "Ensures AI project reproducibility, ability to recreate experiments, and debug issues related to data/config drift."
+    cursor_assist: "N/A (Use Git for all relevant project artifacts)."
+
+  - id: CFG_001
+    name: "Externalize Configurations"
+    description: "Store simulation settings, AI model paths, API endpoints, RAG params, dataset paths in external config files (YAML, JSON, config.py). Avoid hardcoding."
+    rationale: "Allows easy modification of experiments, batch runs, and adaptability for PoC scenarios."
+    cursor_assist: "Identify hardcoded values; refactor into a configuration loading mechanism."
+
+  - id: API_001
+    name: "Define Clear Interfaces (MCP Focus)"
+    description: "Design agent-orchestrator interaction points with clear API contracts (simulating MCP), defining data structures for requests/responses, even if initially direct Python calls."
+    rationale: "Central to PoC hypothesis on MCP; allows demonstration of messages; aids future migration and isolated agent testing."
+    cursor_assist: "Generate Pydantic models or dataclasses for API contracts."
+
+  - id: AI_ITER_001
+    name: "Iterative AI Development & Experimentation"
+    description: "Start with simple baseline AI models. Incrementally add complexity. Log experiment parameters and outcomes meticulously."
+    rationale: "Aligns with PoC Scenario 2 (baseline vs. optimized comparison); allows controlled assessment of AI techniques."
+    cursor_assist: "Discuss and brainstorm AI approaches; debug issues during iteration."
+
+  - id: RAG_001
+    name: "Develop Testable RAG Implementation"
+    description: "Ensure RAG knowledge base is well-structured and relevant. Implement retrieval/generation with inspectable intermediate outputs. Define metrics for RAG vs. baseline comparison."
+    rationale: "Crucial for PoC Scenario 2 (demonstrating RAG effectiveness); traceability and testability are key."
+    cursor_assist: "Write utility functions for knowledge base interaction; structure RAG pipeline code."
+
+  - id: POC_FOCUS_001
+    name: "Focus on Demonstrable PoC Scenarios"
+    description: "Continuously align development with specific PoC demo scenarios (time-series inference with MCP APIs, RAG effectiveness)."
+    rationale: "Keeps project scoped and ensures Build-a-thon objectives are met."
+    cursor_assist: "Use chat as a 'rubber duck' to map features to PoC scenarios."
+
+  - id: DOC_001
+    name: "Comprehensive Code Documentation"
+    description: "Generously comment complex logic (simulation, AI decisions, RAG). Use docstrings for all functions/classes."
+    rationale: "Vital for team understanding, future maintenance, and effective PoC explanation."
+    cursor_assist: "Generate docstrings; explain existing code snippets to refine into comments."
+
+  - id: CURSOR_LEVERAGE_001
+    name: "Leverage AI for Code Tasks"
+    description: "Actively use Cursor for boilerplate generation, refactoring, debugging, and translating natural language to initial code."
+    rationale: "Improves development speed and code quality; aligns with studying AI pipelines for building AI tech."
+
+  - id: LOG_001
+    name: "Plan for Data Flow and Logging"
+    description: "Map data flows clearly. Implement structured logging at key points, especially for AI decisions and (mock) MCP messages."
+    rationale: "Essential for debugging, understanding cause-effect, and collecting evidence for PoC demos." 

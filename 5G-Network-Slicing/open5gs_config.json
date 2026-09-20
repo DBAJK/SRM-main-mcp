@@ -1,0 +1,59 @@
+{
+    "open5gs_api_url": "http://localhost:3000/api",
+    "api_token": "",
+    "monitoring_interval": 10,
+    "slice_templates": {
+        "embb": {
+            "sst": 1,
+            "sd": "000001",
+            "default_qos": {
+                "qci": 9,
+                "arp": 8,
+                "gbr_ul": 0,
+                "gbr_dl": 0,
+                "mbr_ul": 1000000000,
+                "mbr_dl": 1000000000
+            }
+        },
+        "urllc": {
+            "sst": 2,
+            "sd": "000002",
+            "default_qos": {
+                "qci": 80,
+                "arp": 2,
+                "gbr_ul": 10000000,
+                "gbr_dl": 10000000,
+                "mbr_ul": 100000000,
+                "mbr_dl": 100000000
+            }
+        },
+        "mmtc": {
+            "sst": 3,
+            "sd": "000003",
+            "default_qos": {
+                "qci": 70,
+                "arp": 6,
+                "gbr_ul": 0,
+                "gbr_dl": 0,
+                "mbr_ul": 10000000,
+                "mbr_dl": 10000000
+            }
+        }
+    },
+    "ai_settings": {
+        "lstm_model_path": "models/lstm_predictor.h5",
+        "dqn_model_path": "models/dqn_classifier.h5",
+        "prediction_horizon": 10,
+        "optimization_interval": 30,
+        "enable_real_time_learning": true
+    },
+    "monitoring": {
+        "metrics_collection_interval": 5,
+        "log_level": "INFO",
+        "performance_threshold": {
+            "latency_ms": 100,
+            "packet_loss_percent": 1.0,
+            "throughput_mbps": 100
+        }
+    }
+} 

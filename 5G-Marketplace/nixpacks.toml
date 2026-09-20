@@ -1,0 +1,12 @@
+[phases.setup]
+nixPkgs = ['python311Full']
+
+[phases.install]
+cmds = [
+	'python -m ensurepip --upgrade',
+	'python -m pip install --upgrade pip',
+	'python -m pip install -r requirements-railway.txt'
+]
+
+[start]
+cmd = 'python run.py --api-port $PORT'

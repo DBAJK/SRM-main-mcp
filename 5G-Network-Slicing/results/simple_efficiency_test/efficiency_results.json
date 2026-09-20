@@ -1,0 +1,15 @@
+{
+  "static_violations": {
+    "eMBB": 76,
+    "URLLC": 89,
+    "mMTC": 71,
+    "total": 236
+  },
+  "enhanced_violations": {
+    "eMBB": 79,
+    "URLLC": 85,
+    "mMTC": 73,
+    "total": 237
+  },
+  "improvement": -0.423728813559322
+}

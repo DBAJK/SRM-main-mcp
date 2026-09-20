@@ -1,0 +1,80 @@
+2025-06-05 02:10:51,565 - main - INFO - Starting 5G Marketplace platform
+2025-06-05 02:10:51,567 - slice_selection.engine - INFO - Vendor registry registered with slice selection engine
+2025-06-05 02:10:51,568 - slice_selection.engine - INFO - AI agent registered with slice selection engine
+2025-06-05 02:10:51,568 - slice_selection.engine - INFO - Network Digital Twin registered with slice selection engine
+2025-06-05 02:10:51,569 - compliance_monitor.monitor - INFO - Network Digital Twin registered with compliance monitor
+2025-06-05 02:10:51,569 - compliance_monitor.monitor - INFO - Feedback loop registered with compliance monitor
+2025-06-05 02:10:51,570 - feedback_loop.loop - INFO - AI agent registered with feedback loop
+2025-06-05 02:10:51,571 - feedback_loop.loop - INFO - Vendor registry registered with feedback loop
+2025-06-05 02:10:51,572 - ai_agent.agent - INFO - Initializing AI agent
+2025-06-05 02:10:55,663 - ai_agent.agent - WARNING - Ollama is not available: HTTPConnectionPool(host='localhost', port=11434): Max retries exceeded with url: /api/generate (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x000001FF305E9350>: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it'))
+2025-06-05 02:10:56,779 - tensorflow - WARNING - From C:\Users\harsh\AppData\Local\Programs\Python\Python311\Lib\site-packages\keras\src\saving\legacy\saved_model\load.py:107: The name tf.gfile.Exists is deprecated. Please use tf.io.gfile.exists instead.
+
+2025-06-05 02:10:57,262 - tensorflow - WARNING - From C:\Users\harsh\AppData\Local\Programs\Python\Python311\Lib\site-packages\keras\src\utils\tf_utils.py:585: The name tf.executing_eagerly_outside_functions is deprecated. Please use tf.compat.v1.executing_eagerly_outside_functions instead.
+
+2025-06-05 02:10:58,226 - ai_agent.agent - INFO - Loaded DQN classifier from ../../5G-Network-Slicing/models\dqn_model_20250601_012010
+2025-06-05 02:11:02,776 - ai_agent.agent - INFO - Loaded LSTM predictor from ../../5G-Network-Slicing/models\lstm_model_20250601_011235
+2025-06-05 02:11:02,777 - ai_agent.agent - INFO - AI agent initialization complete
+2025-06-05 02:13:47,696 - main - INFO - Starting 5G Marketplace platform
+2025-06-05 02:13:47,697 - slice_selection.engine - INFO - Vendor registry registered with slice selection engine
+2025-06-05 02:13:47,698 - slice_selection.engine - INFO - AI agent registered with slice selection engine
+2025-06-05 02:13:47,708 - slice_selection.engine - INFO - Network Digital Twin registered with slice selection engine
+2025-06-05 02:13:47,710 - compliance_monitor.monitor - INFO - Network Digital Twin registered with compliance monitor
+2025-06-05 02:13:47,710 - compliance_monitor.monitor - INFO - Feedback loop registered with compliance monitor
+2025-06-05 02:13:47,711 - feedback_loop.loop - INFO - AI agent registered with feedback loop
+2025-06-05 02:13:47,712 - feedback_loop.loop - INFO - Vendor registry registered with feedback loop
+2025-06-05 02:13:47,712 - ai_agent.agent - INFO - Initializing AI agent
+2025-06-05 02:13:51,806 - ai_agent.agent - WARNING - Ollama is not available: HTTPConnectionPool(host='localhost', port=11434): Max retries exceeded with url: /api/generate (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x0000029273F21D90>: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it'))
+2025-06-05 02:13:52,433 - tensorflow - WARNING - From C:\Users\harsh\AppData\Local\Programs\Python\Python311\Lib\site-packages\keras\src\saving\legacy\saved_model\load.py:107: The name tf.gfile.Exists is deprecated. Please use tf.io.gfile.exists instead.
+
+2025-06-05 02:13:52,788 - tensorflow - WARNING - From C:\Users\harsh\AppData\Local\Programs\Python\Python311\Lib\site-packages\keras\src\utils\tf_utils.py:585: The name tf.executing_eagerly_outside_functions is deprecated. Please use tf.compat.v1.executing_eagerly_outside_functions instead.
+
+2025-06-05 02:13:53,626 - ai_agent.agent - INFO - Loaded DQN classifier from ../../5G-Network-Slicing/models\dqn_model_20250601_012010
+2025-06-05 02:13:58,113 - ai_agent.agent - INFO - Loaded LSTM predictor from ../../5G-Network-Slicing/models\lstm_model_20250601_011235
+2025-06-05 02:13:58,114 - ai_agent.agent - INFO - AI agent initialization complete
+2025-06-05 02:13:58,114 - ndt.simulator - INFO - Starting Network Digital Twin
+2025-06-05 02:13:58,115 - ndt.simulator - INFO - Network Digital Twin started
+2025-06-05 02:13:58,116 - compliance_monitor.monitor - INFO - Slice compliance monitoring started
+2025-06-05 02:13:58,116 - feedback_loop.loop - INFO - Feedback loop started
+2025-06-05 02:13:58,117 - main - INFO - All components initialized and started
+2025-06-05 02:13:58,117 - feedback_loop.loop - INFO - Processing feedback data
+2025-06-05 02:13:58,118 - feedback_loop.loop - INFO - Feedback data processed
+2025-06-05 02:13:58,118 - feedback_loop.loop - INFO - Updating AI agent with feedback insights
+2025-06-05 02:13:58,119 - ai_agent.agent - INFO - Updated vendor ratings for 0 vendors
+2025-06-05 02:13:58,119 - feedback_loop.loop - INFO - AI agent updated with vendor ratings
+2025-06-05 02:18:18,881 - main - INFO - Starting 5G Marketplace platform
+2025-06-05 02:18:18,883 - slice_selection.engine - INFO - Vendor registry registered with slice selection engine
+2025-06-05 02:18:18,883 - slice_selection.engine - INFO - AI agent registered with slice selection engine
+2025-06-05 02:18:18,884 - slice_selection.engine - INFO - Network Digital Twin registered with slice selection engine
+2025-06-05 02:18:18,884 - compliance_monitor.monitor - INFO - Network Digital Twin registered with compliance monitor
+2025-06-05 02:18:18,885 - compliance_monitor.monitor - INFO - Feedback loop registered with compliance monitor
+2025-06-05 02:18:18,886 - feedback_loop.loop - INFO - AI agent registered with feedback loop
+2025-06-05 02:18:18,887 - feedback_loop.loop - INFO - Vendor registry registered with feedback loop
+2025-06-05 02:18:18,887 - ai_agent.agent - INFO - Initializing AI agent
+2025-06-05 02:18:22,987 - ai_agent.agent - WARNING - Ollama is not available: HTTPConnectionPool(host='localhost', port=11434): Max retries exceeded with url: /api/generate (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x000001CBF4BD4750>: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it'))
+2025-06-05 02:18:23,559 - tensorflow - WARNING - From C:\Users\harsh\AppData\Local\Programs\Python\Python311\Lib\site-packages\keras\src\saving\legacy\saved_model\load.py:107: The name tf.gfile.Exists is deprecated. Please use tf.io.gfile.exists instead.
+
+2025-06-05 02:18:23,818 - tensorflow - WARNING - From C:\Users\harsh\AppData\Local\Programs\Python\Python311\Lib\site-packages\keras\src\utils\tf_utils.py:585: The name tf.executing_eagerly_outside_functions is deprecated. Please use tf.compat.v1.executing_eagerly_outside_functions instead.
+
+2025-06-05 02:18:24,649 - ai_agent.agent - INFO - Loaded DQN classifier from ../../5G-Network-Slicing/models\dqn_model_20250601_012010
+2025-06-05 02:18:28,946 - ai_agent.agent - INFO - Loaded LSTM predictor from ../../5G-Network-Slicing/models\lstm_model_20250601_011235
+2025-06-05 02:18:28,947 - ai_agent.agent - INFO - AI agent initialization complete
+2025-06-05 02:18:28,948 - ndt.simulator - INFO - Starting Network Digital Twin
+2025-06-05 02:18:28,949 - ndt.simulator - INFO - Network Digital Twin started
+2025-06-05 02:18:28,949 - compliance_monitor.monitor - INFO - Slice compliance monitoring started
+2025-06-05 02:18:28,950 - feedback_loop.loop - INFO - Feedback loop started
+2025-06-05 02:18:28,950 - main - INFO - All components initialized and started
+2025-06-05 02:18:28,951 - feedback_loop.loop - INFO - Processing feedback data
+2025-06-05 02:18:28,952 - feedback_loop.loop - INFO - Feedback data processed
+2025-06-05 02:18:28,952 - feedback_loop.loop - INFO - Updating AI agent with feedback insights
+2025-06-05 02:18:28,953 - ai_agent.agent - INFO - Updated vendor ratings for 0 vendors
+2025-06-05 02:18:28,954 - feedback_loop.loop - INFO - AI agent updated with vendor ratings
+2025-06-05 02:18:28,954 - main - INFO - Shutting down 5G Marketplace platform
+2025-06-05 02:18:28,955 - ndt.simulator - INFO - Simulation loop cancelled
+2025-06-05 02:18:28,955 - compliance_monitor.monitor - INFO - Monitoring loop cancelled
+2025-06-05 02:18:28,956 - feedback_loop.loop - INFO - Feedback loop cancelled
+2025-06-05 02:18:28,956 - feedback_loop.loop - INFO - Feedback loop stopped
+2025-06-05 02:18:28,957 - compliance_monitor.monitor - INFO - Slice compliance monitoring stopped
+2025-06-05 02:18:28,958 - ndt.simulator - INFO - Shutting down Network Digital Twin
+2025-06-05 02:18:28,959 - ndt.simulator - INFO - Network Digital Twin shutdown complete
+2025-06-05 02:18:28,960 - main - INFO - All components stopped

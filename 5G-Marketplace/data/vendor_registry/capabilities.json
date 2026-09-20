@@ -1,0 +1,47 @@
+{
+  "vendor-1": {
+    "slice_types": [
+      "eMBB",
+      "URLLC"
+    ],
+    "min_latency_ms": 5,
+    "max_bandwidth_mbps": 1000,
+    "max_reliability_percent": 99.999,
+    "max_devices_per_km2": 10000,
+    "features": [
+      "dynamic_scaling",
+      "qos_monitoring",
+      "traffic_isolation"
+    ]
+  },
+  "vendor-2": {
+    "slice_types": [
+      "URLLC",
+      "mMTC"
+    ],
+    "min_latency_ms": 1,
+    "max_bandwidth_mbps": 500,
+    "max_reliability_percent": 99.9999,
+    "max_devices_per_km2": 50000,
+    "features": [
+      "ultra_low_latency",
+      "massive_connectivity",
+      "edge_computing"
+    ]
+  },
+  "vendor-3": {
+    "slice_types": [
+      "mMTC",
+      "eMBB"
+    ],
+    "min_latency_ms": 10,
+    "max_bandwidth_mbps": 800,
+    "max_reliability_percent": 99.99,
+    "max_devices_per_km2": 1000000,
+    "features": [
+      "energy_efficiency",
+      "massive_connectivity",
+      "coverage_extension"
+    ]
+  }
+}

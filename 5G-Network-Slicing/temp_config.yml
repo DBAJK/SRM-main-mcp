@@ -1,0 +1,158 @@
+base_stations:
+- capacity_bandwidth: 119524268.29942448
+  coverage: 131.5301062536159
+  ratios:
+    URLLC: 0.33
+    eMBB: 0.33
+    mMTC: 0.34
+  x: !!python/object/apply:numpy.core.multiarray.scalar
+  - &id001 !!python/object/apply:numpy.dtype
+    args:
+    - f8
+    - false
+    - true
+    state: !!python/tuple
+    - 3
+    - <
+    - null
+    - null
+    - null
+    - -1
+    - -1
+    - 0
+  - !!binary |
+    BTiEy6qXakA=
+  y: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id001
+  - !!binary |
+    iNgDPnAgaEA=
+- capacity_bandwidth: 108064936.22756284
+  coverage: 178.07425801370408
+  ratios:
+    URLLC: 0.33
+    eMBB: 0.33
+    mMTC: 0.34
+  x: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id001
+  - !!binary |
+    ollyiUgihEA=
+  y: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id001
+  - !!binary |
+    GUCyY8bNZUA=
+- capacity_bandwidth: 100982904.23986696
+  coverage: 189.40446501320633
+  ratios:
+    URLLC: 0.33
+    eMBB: 0.33
+    mMTC: 0.34
+  x: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id001
+  - !!binary |
+    2pZJJh1HZkA=
+  y: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id001
+  - !!binary |
+    9zRgIkCMhUA=
+- capacity_bandwidth: 105463603.98378311
+  coverage: 192.6638010374611
+  ratios:
+    URLLC: 0.33
+    eMBB: 0.33
+    mMTC: 0.34
+  x: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id001
+  - !!binary |
+    7dDsrpKNhEA=
+  y: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id001
+  - !!binary |
+    fZbukbv5g0A=
+- capacity_bandwidth: 109279934.8612978
+  coverage: 134.84052998817822
+  ratios:
+    URLLC: 0.33
+    eMBB: 0.33
+    mMTC: 0.34
+  x: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id001
+  - !!binary |
+    drhhKcbcbEA=
+  y: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id001
+  - !!binary |
+    euTkcvJvkUA=
+clients:
+  location:
+    x:
+      distribution: uniform
+      params:
+      - 0
+      - 1000
+    y:
+      distribution: uniform
+      params:
+      - 0
+      - 1000
+  usage_frequency:
+    distribution: normal
+    divide_scale: 1.0
+    params:
+    - 0.5
+    - 0.2
+mobility_patterns:
+  random_walk:
+    client_weight: 1.0
+    distribution: normal
+    params:
+    - 0
+    - 5
+settings:
+  limit_closest_base_stations: 3
+  num_clients: 100
+  plotting_params:
+    plot_show: false
+    plotting: false
+  seed: 42
+  simulation_time: 100
+  statistics_params:
+    x:
+      max: 1000
+      min: 0
+    y:
+      max: 1000
+      min: 0
+slices:
+  URLLC:
+    bandwidth_guaranteed: 20
+    bandwidth_max: 50
+    client_weight: 0.33
+    delay_tolerance: 10
+    qos_class: 2
+    usage_pattern:
+      distribution: normal
+      params:
+      - 20
+      - 5
+  eMBB:
+    bandwidth_guaranteed: 10
+    bandwidth_max: 100
+    client_weight: 0.33
+    delay_tolerance: 100
+    qos_class: 1
+    usage_pattern:
+      distribution: normal
+      params:
+      - 50
+      - 10
+  mMTC:
+    bandwidth_guaranteed: 1
+    bandwidth_max: 10
+    client_weight: 0.34
+    delay_tolerance: 200
+    qos_class: 3
+    usage_pattern:
+      distribution: normal
+      params:
+      - 5
+      - 1

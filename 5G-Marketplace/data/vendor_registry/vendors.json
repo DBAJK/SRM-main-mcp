@@ -1,0 +1,50 @@
+{
+  "vendor-1": {
+    "vendor_id": "vendor-1",
+    "name": "TelecomPro Networks",
+    "description": "Leading provider of high-performance network slices",
+    "supported_regions": [
+      "us-east",
+      "us-west",
+      "eu-central"
+    ],
+    "registration_date": "2025-06-05T08:35:39.877749",
+    "status": "active",
+    "reputation_score": 0.5,
+    "api_url": "https://api.telecompro.example",
+    "api_key": "sample-key-1",
+    "contact_email": "contact@telecompro.example"
+  },
+  "vendor-2": {
+    "vendor_id": "vendor-2",
+    "name": "GlobalSlice Solutions",
+    "description": "Global network slice provider with focus on low latency",
+    "supported_regions": [
+      "eu-central",
+      "eu-west",
+      "asia-east"
+    ],
+    "registration_date": "2025-06-05T08:35:39.879746",
+    "status": "active",
+    "reputation_score": 0.5,
+    "api_url": "https://api.globalslice.example",
+    "api_key": "sample-key-2",
+    "contact_email": "support@globalslice.example"
+  },
+  "vendor-3": {
+    "vendor_id": "vendor-3",
+    "name": "EdgeNet Services",
+    "description": "Edge-focused network slice provider for IoT applications",
+    "supported_regions": [
+      "us-east",
+      "eu-central",
+      "asia-south"
+    ],
+    "registration_date": "2025-06-05T08:35:39.881745",
+    "status": "active",
+    "reputation_score": 0.5,
+    "api_url": "https://api.edgenet.example",
+    "api_key": "sample-key-3",
+    "contact_email": "info@edgenet.example"
+  }
+}

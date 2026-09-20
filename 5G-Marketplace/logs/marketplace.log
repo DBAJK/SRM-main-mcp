@@ -1,0 +1,158 @@
+2025-06-05 02:28:26,672 - src.main - INFO - Starting 5G Marketplace platform
+2025-06-05 02:28:26,673 - src.slice_selection.engine - INFO - Vendor registry registered with slice selection engine
+2025-06-05 02:28:26,673 - src.slice_selection.engine - INFO - AI agent registered with slice selection engine
+2025-06-05 02:28:26,674 - src.slice_selection.engine - INFO - Network Digital Twin registered with slice selection engine
+2025-06-05 02:28:26,674 - src.compliance_monitor.monitor - INFO - Network Digital Twin registered with compliance monitor
+2025-06-05 02:28:26,674 - src.compliance_monitor.monitor - INFO - Feedback loop registered with compliance monitor
+2025-06-05 02:28:26,675 - src.feedback_loop.loop - INFO - AI agent registered with feedback loop
+2025-06-05 02:28:26,690 - src.feedback_loop.loop - INFO - Vendor registry registered with feedback loop
+2025-06-05 02:28:26,692 - src.ai_agent.agent - INFO - Initializing AI agent
+2025-06-05 02:28:30,781 - src.ai_agent.agent - WARNING - Ollama is not available: HTTPConnectionPool(host='localhost', port=11434): Max retries exceeded with url: /api/generate (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x00000240C49D7C50>: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it'))
+2025-06-05 02:28:30,782 - src.ai_agent.agent - WARNING - DQN model not found at ../../5G-Network-Slicing/models\dqn_model_20250601_012010
+2025-06-05 02:28:30,783 - src.ai_agent.agent - WARNING - LSTM model not found at ../../5G-Network-Slicing/models\lstm_model_20250601_011235
+2025-06-05 02:28:30,783 - src.ai_agent.agent - INFO - AI agent initialization complete
+2025-06-05 02:28:30,784 - src.ndt.simulator - INFO - Starting Network Digital Twin
+2025-06-05 02:28:30,784 - src.ndt.simulator - INFO - Network Digital Twin started
+2025-06-05 02:28:30,785 - src.compliance_monitor.monitor - INFO - Slice compliance monitoring started
+2025-06-05 02:28:30,786 - src.feedback_loop.loop - INFO - Feedback loop started
+2025-06-05 02:28:30,788 - src.main - INFO - All components initialized and started
+2025-06-05 02:28:30,789 - src.feedback_loop.loop - INFO - Processing feedback data
+2025-06-05 02:28:30,790 - src.feedback_loop.loop - INFO - Feedback data processed
+2025-06-05 02:28:30,790 - src.feedback_loop.loop - INFO - Updating AI agent with feedback insights
+2025-06-05 02:28:30,791 - src.ai_agent.agent - INFO - Updated vendor ratings for 0 vendors
+2025-06-05 02:28:30,791 - src.feedback_loop.loop - INFO - AI agent updated with vendor ratings
+2025-06-05 02:36:25,211 - src.api.dashboard_api - ERROR - Error getting dashboard overview: object of type 'coroutine' has no len()
+2025-06-05 02:49:01,686 - src.main - INFO - Starting 5G Marketplace platform
+2025-06-05 02:49:01,687 - src.slice_selection.engine - INFO - Vendor registry registered with slice selection engine
+2025-06-05 02:49:01,687 - src.slice_selection.engine - INFO - AI agent registered with slice selection engine
+2025-06-05 02:49:01,688 - src.slice_selection.engine - INFO - Network Digital Twin registered with slice selection engine
+2025-06-05 02:49:01,688 - src.compliance_monitor.monitor - INFO - Network Digital Twin registered with compliance monitor
+2025-06-05 02:49:01,688 - src.compliance_monitor.monitor - INFO - Feedback loop registered with compliance monitor
+2025-06-05 02:49:01,689 - src.feedback_loop.loop - INFO - AI agent registered with feedback loop
+2025-06-05 02:49:01,689 - src.feedback_loop.loop - INFO - Vendor registry registered with feedback loop
+2025-06-05 02:49:01,690 - src.ai_agent.agent - INFO - Initializing AI agent
+2025-06-05 02:49:05,767 - src.ai_agent.agent - WARNING - Ollama is not available: HTTPConnectionPool(host='localhost', port=11434): Max retries exceeded with url: /api/generate (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x000001D759C3A290>: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it'))
+2025-06-05 02:49:05,769 - src.ai_agent.agent - WARNING - DQN model not found at ../../5G-Network-Slicing/models\dqn_model_20250601_012010
+2025-06-05 02:49:05,770 - src.ai_agent.agent - WARNING - LSTM model not found at ../../5G-Network-Slicing/models\lstm_model_20250601_011235
+2025-06-05 02:49:05,771 - src.ai_agent.agent - INFO - AI agent initialization complete
+2025-06-05 02:49:05,771 - src.ndt.simulator - INFO - Starting Network Digital Twin
+2025-06-05 02:49:05,772 - src.ndt.simulator - INFO - Network Digital Twin started
+2025-06-05 02:49:05,773 - src.compliance_monitor.monitor - INFO - Slice compliance monitoring started
+2025-06-05 02:49:05,773 - src.feedback_loop.loop - INFO - Feedback loop started
+2025-06-05 02:49:05,774 - src.main - INFO - All components initialized and started
+2025-06-05 02:49:05,776 - src.feedback_loop.loop - INFO - Processing feedback data
+2025-06-05 02:49:05,777 - src.feedback_loop.loop - INFO - Feedback data processed
+2025-06-05 02:49:05,777 - src.feedback_loop.loop - INFO - Updating AI agent with feedback insights
+2025-06-05 02:49:05,778 - src.ai_agent.agent - INFO - Updated vendor ratings for 0 vendors
+2025-06-05 02:49:05,779 - src.feedback_loop.loop - INFO - AI agent updated with vendor ratings
+2025-06-05 02:49:05,784 - src.main - INFO - Shutting down 5G Marketplace platform
+2025-06-05 02:49:05,784 - src.feedback_loop.loop - INFO - Feedback loop cancelled
+2025-06-05 02:49:05,785 - src.feedback_loop.loop - INFO - Feedback loop stopped
+2025-06-05 02:49:05,786 - src.compliance_monitor.monitor - INFO - Monitoring loop cancelled
+2025-06-05 02:49:05,787 - src.compliance_monitor.monitor - INFO - Slice compliance monitoring stopped
+2025-06-05 02:49:05,787 - src.ndt.simulator - INFO - Shutting down Network Digital Twin
+2025-06-05 02:49:05,788 - src.ndt.simulator - INFO - Simulation loop cancelled
+2025-06-05 02:49:05,789 - src.ndt.simulator - INFO - Network Digital Twin shutdown complete
+2025-06-05 02:49:05,789 - src.main - INFO - All components stopped
+2025-06-05 03:49:46,441 - src.feedback_loop.loop - INFO - Processing feedback data
+2025-06-05 03:49:46,442 - src.feedback_loop.loop - INFO - Feedback data processed
+2025-06-05 03:49:46,443 - src.feedback_loop.loop - INFO - Updating AI agent with feedback insights
+2025-06-05 03:49:46,444 - src.ai_agent.agent - INFO - Updated vendor ratings for 0 vendors
+2025-06-05 03:49:46,444 - src.feedback_loop.loop - INFO - AI agent updated with vendor ratings
+2025-06-05 08:24:28,501 - src.feedback_loop.loop - INFO - Processing feedback data
+2025-06-05 08:24:28,974 - src.feedback_loop.loop - INFO - Feedback data processed
+2025-06-05 08:24:28,975 - src.feedback_loop.loop - INFO - Updating AI agent with feedback insights
+2025-06-05 08:24:28,976 - src.ai_agent.agent - INFO - Updated vendor ratings for 0 vendors
+2025-06-05 08:24:28,977 - src.feedback_loop.loop - INFO - AI agent updated with vendor ratings
+2025-06-05 08:32:49,859 - src.ai_agent.agent - INFO - Using model directory: G:\5g_sliced\5G-Network-Slicing\models
+2025-06-05 08:32:49,947 - src.main - INFO - Starting 5G Marketplace platform
+2025-06-05 08:32:49,947 - src.slice_selection.engine - INFO - Vendor registry registered with slice selection engine
+2025-06-05 08:32:49,948 - src.slice_selection.engine - INFO - AI agent registered with slice selection engine
+2025-06-05 08:32:49,948 - src.slice_selection.engine - INFO - Network Digital Twin registered with slice selection engine
+2025-06-05 08:32:49,949 - src.compliance_monitor.monitor - INFO - Network Digital Twin registered with compliance monitor
+2025-06-05 08:32:49,949 - src.compliance_monitor.monitor - INFO - Feedback loop registered with compliance monitor
+2025-06-05 08:32:49,950 - src.feedback_loop.loop - INFO - AI agent registered with feedback loop
+2025-06-05 08:32:49,950 - src.feedback_loop.loop - INFO - Vendor registry registered with feedback loop
+2025-06-05 08:32:49,950 - src.ai_agent.agent - INFO - Initializing AI agent
+2025-06-05 08:32:54,047 - src.ai_agent.agent - WARNING - Ollama is not available: HTTPConnectionPool(host='localhost', port=11434): Max retries exceeded with url: /api/generate (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x000002C05FCE2450>: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it'))
+2025-06-05 08:32:54,048 - src.ai_agent.agent - INFO - Attempting to load DQN model from G:\5g_sliced\5G-Network-Slicing\models\dqn_model_20250601_012010
+2025-06-05 08:32:54,048 - src.ai_agent.agent - INFO - DQN model directory contains: ['assets', 'fingerprint.pb', 'keras_metadata.pb', 'saved_model.pb', 'variables']
+2025-06-05 08:32:54,479 - tensorflow - WARNING - From C:\Users\harsh\AppData\Local\Programs\Python\Python311\Lib\site-packages\keras\src\saving\legacy\saved_model\load.py:107: The name tf.gfile.Exists is deprecated. Please use tf.io.gfile.exists instead.
+
+2025-06-05 08:32:54,784 - tensorflow - WARNING - From C:\Users\harsh\AppData\Local\Programs\Python\Python311\Lib\site-packages\keras\src\utils\tf_utils.py:585: The name tf.executing_eagerly_outside_functions is deprecated. Please use tf.compat.v1.executing_eagerly_outside_functions instead.
+
+2025-06-05 08:32:55,612 - src.ai_agent.agent - INFO - Successfully loaded DQN classifier from G:\5g_sliced\5G-Network-Slicing\models\dqn_model_20250601_012010
+2025-06-05 08:32:55,613 - src.ai_agent.agent - INFO - Attempting to load LSTM model from G:\5g_sliced\5G-Network-Slicing\models\lstm_model_20250601_011235
+2025-06-05 08:32:55,613 - src.ai_agent.agent - INFO - LSTM model directory contains: ['assets', 'fingerprint.pb', 'keras_metadata.pb', 'saved_model.pb', 'variables']
+2025-06-05 08:32:59,356 - src.ai_agent.agent - INFO - Successfully loaded LSTM predictor from G:\5g_sliced\5G-Network-Slicing\models\lstm_model_20250601_011235
+2025-06-05 08:32:59,357 - src.ai_agent.agent - INFO - AI agent initialization complete
+2025-06-05 08:32:59,357 - src.ndt.simulator - INFO - Starting Network Digital Twin
+2025-06-05 08:32:59,358 - src.ndt.simulator - INFO - Network Digital Twin started
+2025-06-05 08:32:59,358 - src.compliance_monitor.monitor - INFO - Slice compliance monitoring started
+2025-06-05 08:32:59,358 - src.feedback_loop.loop - INFO - Feedback loop started
+2025-06-05 08:32:59,359 - src.main - INFO - All components initialized and started
+2025-06-05 08:32:59,359 - src.feedback_loop.loop - INFO - Processing feedback data
+2025-06-05 08:32:59,360 - src.feedback_loop.loop - INFO - Feedback data processed
+2025-06-05 08:32:59,360 - src.feedback_loop.loop - INFO - Updating AI agent with feedback insights
+2025-06-05 08:32:59,360 - src.ai_agent.agent - INFO - Updated vendor ratings for 0 vendors
+2025-06-05 08:32:59,361 - src.feedback_loop.loop - INFO - AI agent updated with vendor ratings
+2025-06-05 08:32:59,363 - src.main - INFO - Shutting down 5G Marketplace platform
+2025-06-05 08:32:59,363 - src.feedback_loop.loop - INFO - Feedback loop cancelled
+2025-06-05 08:32:59,364 - src.feedback_loop.loop - INFO - Feedback loop stopped
+2025-06-05 08:32:59,364 - src.compliance_monitor.monitor - INFO - Monitoring loop cancelled
+2025-06-05 08:32:59,364 - src.compliance_monitor.monitor - INFO - Slice compliance monitoring stopped
+2025-06-05 08:32:59,365 - src.ndt.simulator - INFO - Shutting down Network Digital Twin
+2025-06-05 08:32:59,365 - src.ndt.simulator - INFO - Simulation loop cancelled
+2025-06-05 08:32:59,365 - src.ndt.simulator - INFO - Network Digital Twin shutdown complete
+2025-06-05 08:32:59,366 - src.main - INFO - All components stopped
+2025-06-05 08:36:04,983 - src.ai_agent.agent - INFO - Using model directory: G:\5g_sliced\5G-Network-Slicing\models
+2025-06-05 08:36:05,071 - src.main - INFO - Starting 5G Marketplace platform
+2025-06-05 08:36:05,071 - src.slice_selection.engine - INFO - Vendor registry registered with slice selection engine
+2025-06-05 08:36:05,072 - src.slice_selection.engine - INFO - AI agent registered with slice selection engine
+2025-06-05 08:36:05,072 - src.slice_selection.engine - INFO - Network Digital Twin registered with slice selection engine
+2025-06-05 08:36:05,073 - src.compliance_monitor.monitor - INFO - Network Digital Twin registered with compliance monitor
+2025-06-05 08:36:05,073 - src.compliance_monitor.monitor - INFO - Feedback loop registered with compliance monitor
+2025-06-05 08:36:05,074 - src.feedback_loop.loop - INFO - AI agent registered with feedback loop
+2025-06-05 08:36:05,074 - src.feedback_loop.loop - INFO - Vendor registry registered with feedback loop
+2025-06-05 08:36:05,075 - src.ai_agent.agent - INFO - Initializing AI agent
+2025-06-05 08:36:09,137 - src.ai_agent.agent - WARNING - Ollama is not available: HTTPConnectionPool(host='localhost', port=11434): Max retries exceeded with url: /api/generate (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x0000021EB1A37550>: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it'))
+2025-06-05 08:36:09,138 - src.ai_agent.agent - INFO - Attempting to load DQN model from G:\5g_sliced\5G-Network-Slicing\models\dqn_model_20250601_012010
+2025-06-05 08:36:09,139 - src.ai_agent.agent - INFO - DQN model directory contains: ['assets', 'fingerprint.pb', 'keras_metadata.pb', 'saved_model.pb', 'variables']
+2025-06-05 08:36:09,653 - tensorflow - WARNING - From C:\Users\harsh\AppData\Local\Programs\Python\Python311\Lib\site-packages\keras\src\saving\legacy\saved_model\load.py:107: The name tf.gfile.Exists is deprecated. Please use tf.io.gfile.exists instead.
+
+2025-06-05 08:36:09,913 - tensorflow - WARNING - From C:\Users\harsh\AppData\Local\Programs\Python\Python311\Lib\site-packages\keras\src\utils\tf_utils.py:585: The name tf.executing_eagerly_outside_functions is deprecated. Please use tf.compat.v1.executing_eagerly_outside_functions instead.
+
+2025-06-05 08:36:10,716 - src.ai_agent.agent - INFO - Successfully loaded DQN classifier from G:\5g_sliced\5G-Network-Slicing\models\dqn_model_20250601_012010
+2025-06-05 08:36:10,716 - src.ai_agent.agent - INFO - Attempting to load LSTM model from G:\5g_sliced\5G-Network-Slicing\models\lstm_model_20250601_011235
+2025-06-05 08:36:10,717 - src.ai_agent.agent - INFO - LSTM model directory contains: ['assets', 'fingerprint.pb', 'keras_metadata.pb', 'saved_model.pb', 'variables']
+2025-06-05 08:36:15,787 - src.ai_agent.agent - INFO - Successfully loaded LSTM predictor from G:\5g_sliced\5G-Network-Slicing\models\lstm_model_20250601_011235
+2025-06-05 08:36:15,788 - src.ai_agent.agent - INFO - AI agent initialization complete
+2025-06-05 08:36:15,789 - src.ndt.simulator - INFO - Starting Network Digital Twin
+2025-06-05 08:36:15,789 - src.ndt.simulator - INFO - Network Digital Twin started
+2025-06-05 08:36:15,790 - src.compliance_monitor.monitor - INFO - Slice compliance monitoring started
+2025-06-05 08:36:15,790 - src.feedback_loop.loop - INFO - Feedback loop started
+2025-06-05 08:36:15,791 - src.main - INFO - All components initialized and started
+2025-06-05 08:36:15,791 - src.feedback_loop.loop - INFO - Processing feedback data
+2025-06-05 08:36:15,792 - src.feedback_loop.loop - INFO - Feedback data processed
+2025-06-05 08:36:15,793 - src.feedback_loop.loop - INFO - Updating AI agent with feedback insights
+2025-06-05 08:36:15,793 - src.ai_agent.agent - INFO - Updated vendor ratings for 0 vendors
+2025-06-05 08:36:15,794 - src.feedback_loop.loop - INFO - AI agent updated with vendor ratings
+2025-06-05 08:58:30,160 - src.main - INFO - Shutting down 5G Marketplace platform
+2025-06-05 08:58:30,161 - src.feedback_loop.loop - INFO - Feedback loop cancelled
+2025-06-05 08:58:30,161 - src.feedback_loop.loop - INFO - Feedback loop stopped
+2025-06-05 08:58:30,162 - src.compliance_monitor.monitor - INFO - Monitoring loop cancelled
+2025-06-05 08:58:30,162 - src.compliance_monitor.monitor - INFO - Slice compliance monitoring stopped
+2025-06-05 08:58:30,162 - src.ndt.simulator - INFO - Shutting down Network Digital Twin
+2025-06-05 08:58:30,163 - src.ndt.simulator - INFO - Simulation loop cancelled
+2025-06-05 08:58:30,163 - src.ndt.simulator - INFO - Network Digital Twin shutdown complete
+2025-06-05 08:58:30,163 - src.main - INFO - All components stopped
+2025-06-05 09:24:28,986 - src.feedback_loop.loop - INFO - Processing feedback data
+2025-06-05 09:24:28,986 - src.feedback_loop.loop - INFO - Feedback data processed
+2025-06-05 09:24:28,987 - src.feedback_loop.loop - INFO - Updating AI agent with feedback insights
+2025-06-05 09:24:28,988 - src.ai_agent.agent - INFO - Updated vendor ratings for 0 vendors
+2025-06-05 09:24:28,988 - src.feedback_loop.loop - INFO - AI agent updated with vendor ratings
+2025-06-05 10:24:29,002 - src.feedback_loop.loop - INFO - Processing feedback data
+2025-06-05 10:24:29,009 - src.feedback_loop.loop - INFO - Feedback data processed
+2025-06-05 10:24:29,012 - src.feedback_loop.loop - INFO - Updating AI agent with feedback insights
+2025-06-05 10:24:29,014 - src.ai_agent.agent - INFO - Updated vendor ratings for 0 vendors
+2025-06-05 10:24:29,015 - src.feedback_loop.loop - INFO - AI agent updated with vendor ratings

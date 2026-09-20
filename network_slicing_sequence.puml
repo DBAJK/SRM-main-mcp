@@ -1,0 +1,123 @@
+@startuml 5G Network Slicing Sequence Diagram
+
+skinparam monochrome true
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam defaultFontSize 12
+skinparam sequenceArrowThickness 1
+skinparam sequenceMessageAlignment center
+
+title 5G Network Slicing - AI Components Interaction Sequence
+
+' Participants
+participant "5G Network\nInfrastructure" as Network
+participant "Traffic\nMonitor" as Monitor
+participant "Hybrid\nOrchestrator" as Orchestrator
+participant "Autoregressive\nLSTM" as LSTM
+participant "DQN\nAgent" as DQN
+participant "Model Context\nProtocol (MCP)" as MCP
+participant "Network Slice\nManager" as SliceManager
+
+' Initialization
+== System Initialization ==
+Orchestrator -> LSTM: Initialize with historical data
+activate LSTM
+LSTM --> Orchestrator: Model ready
+deactivate LSTM
+
+Orchestrator -> DQN: Initialize with initial policy
+activate DQN
+DQN --> Orchestrator: Agent ready
+deactivate DQN
+
+Orchestrator -> MCP: Register AI models
+MCP --> Orchestrator: Models registered
+
+' Main operational loop
+== Operational Loop ==
+loop Every monitoring interval
+    ' Collect network metrics
+    Network -> Monitor: Network metrics
+    Monitor -> Orchestrator: Current traffic patterns
+    
+    ' Process with LSTM
+    Orchestrator -> LSTM: Request traffic prediction
+    activate LSTM
+    LSTM -> LSTM: Process sequence data
+    LSTM --> Orchestrator: Multi-step traffic forecast
+    deactivate LSTM
+    
+    ' Create state representation
+    Orchestrator -> Orchestrator: Generate network state
+    
+    ' Process with DQN
+    Orchestrator -> DQN: Request optimal action
+    activate DQN
+    DQN -> DQN: Compute Q-values
+    DQN --> Orchestrator: Recommended slice allocation
+    deactivate DQN
+    
+    ' Make hybrid decision
+    Orchestrator -> Orchestrator: Combine LSTM & DQN outputs
+    note right: Weight predictions based on\nnetwork conditions and QoS
+    
+    ' Apply decision
+    Orchestrator -> SliceManager: Apply slice allocation
+    SliceManager -> Network: Configure network slices
+    Network --> SliceManager: Configuration applied
+    SliceManager --> Orchestrator: Allocation complete
+    
+    ' Observe results and learn
+    Network -> Monitor: Updated metrics
+    Monitor -> Orchestrator: Performance metrics
+    
+    ' Update DQN
+    Orchestrator -> DQN: Store experience (s,a,r,s')
+    activate DQN
+    DQN -> DQN: Update Q-network
+    DQN --> Orchestrator: Learning complete
+    deactivate DQN
+    
+    ' Update LSTM (less frequently)
+    alt Every N cycles
+        Orchestrator -> LSTM: Update with new data
+        activate LSTM
+        LSTM -> LSTM: Fine-tune model
+        LSTM --> Orchestrator: Model updated
+        deactivate LSTM
+    end
+end
+
+' Special conditions handling
+== Special Condition: Emergency ==
+Network -> Monitor: Emergency condition detected
+Monitor -> Orchestrator: Emergency alert
+Orchestrator -> DQN: Set emergency flag
+DQN -> DQN: Adjust reward function
+DQN --> Orchestrator: Emergency policy activated
+Orchestrator -> SliceManager: Prioritize URLLC slice
+SliceManager -> Network: Emergency slice configuration
+Network --> SliceManager: Emergency configuration applied
+
+' Model sharing via MCP
+== Model Sharing and Updates ==
+Orchestrator -> MCP: Request model update
+MCP -> LSTM: Get model parameters
+LSTM --> MCP: Current model parameters
+MCP -> DQN: Get policy parameters
+DQN --> MCP: Current policy parameters
+MCP -> MCP: Package models
+MCP --> Orchestrator: Updated model context
+
+' Visualization of hybrid decision making
+== Hybrid Decision Making Process ==
+Orchestrator -> Orchestrator: LSTM prediction
+note right: Traffic forecast for next N steps
+Orchestrator -> Orchestrator: DQN recommendation
+note right: Action with highest expected reward
+Orchestrator -> Orchestrator: Rule-based constraints
+note right: Ensure minimum slice guarantees
+Orchestrator -> Orchestrator: Weighted combination
+note right: Final allocation decision
+
+@enduml 

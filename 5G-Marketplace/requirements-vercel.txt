@@ -1,0 +1,28 @@
+# Lightweight requirements for Vercel serverless deployment
+# Total size: ~50-80 MB (well under 250 MB limit)
+
+fastapi==0.104.1
+mangum==0.17.0
+pydantic==2.4.2
+httpx==0.25.1
+python-multipart==0.0.6
+aiohttp==3.8.6
+
+# Lightweight ML (NO PyTorch/TensorFlow)
+numpy==1.26.1
+pandas==2.1.2
+scikit-learn==1.3.2
+
+# Basic utilities
+requests==2.31.0
+python-dotenv==1.0.0
+aiofiles==23.2.1
+jinja2==3.1.2
+
+# Security
+cryptography==41.0.5
+passlib==1.7.4
+bcrypt==4.0.1
+
+# Monitoring
+prometheus-client==0.17.1

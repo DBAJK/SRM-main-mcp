@@ -1,0 +1,313 @@
+/* 5G Marketplace Dashboard Styles */
+
+:root {
+    --primary-color: #007bff;
+    --secondary-color: #6c757d;
+    --success-color: #28a745;
+    --info-color: #17a2b8;
+    --warning-color: #ffc107;
+    --danger-color: #dc3545;
+    --light-color: #f8f9fa;
+    --dark-color: #343a40;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f5f8fa;
+}
+
+/* Dashboard Cards */
+.dashboard-card {
+    transition: transform 0.3s ease;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    border-radius: 10px;
+    overflow: hidden;
+    border: none;
+}
+
+.dashboard-card:hover {
+    transform: translateY(-5px);
+}
+
+.card-header {
+    background-color: var(--primary-color);
+    color: white;
+    font-weight: bold;
+    padding: 12px 15px;
+    border-radius: 10px 10px 0 0 !important;
+}
+
+.card-body {
+    padding: 15px;
+}
+
+/* Status Indicators */
+.status-operational {
+    color: var(--success-color);
+}
+
+.status-warning {
+    color: var(--warning-color);
+}
+
+.status-error {
+    color: var(--danger-color);
+}
+
+/* QoS Violation Highlighting */
+.qos-violation {
+    background-color: rgba(220, 53, 69, 0.1);
+}
+
+/* Metrics Display */
+.metrics-value {
+    font-size: 24px;
+    font-weight: bold;
+    color: var(--dark-color);
+}
+
+.metrics-label {
+    font-size: 14px;
+    color: var(--secondary-color);
+}
+
+/* Navbar Styling */
+.navbar {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.navbar-brand {
+    font-weight: bold;
+}
+
+.logo {
+    height: 40px;
+    margin-right: 10px;
+}
+
+/* Section Styling */
+section {
+    margin-bottom: 40px;
+}
+
+section h2 {
+    color: var(--dark-color);
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid var(--primary-color);
+}
+
+/* Badge Styling */
+.badge {
+    font-size: 12px;
+    padding: 5px 10px;
+    border-radius: 20px;
+}
+
+/* Footer */
+footer {
+    margin-top: 50px;
+    padding: 20px 0;
+    background-color: var(--light-color);
+    border-top: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+/* Alert Styling */
+.alert {
+    border-radius: 10px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .dashboard-card {
+        margin-bottom: 15px;
+    }
+    
+    .metrics-value {
+        font-size: 20px;
+    }
+    
+    section h2 {
+        font-size: 22px;
+    }
+}
+
+/* Advanced Network Slice Template Attributes styling */
+.advanced-attributes {
+    background-color: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    margin-top: 15px;
+    box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.05);
+}
+
+.advanced-attributes h6 {
+    color: #0d6efd;
+    font-weight: 600;
+    margin-bottom: 15px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.advanced-attributes .col-md-6 {
+    padding: 6px 10px;
+}
+
+.advanced-attributes small {
+    font-size: 0.85rem;
+    line-height: 1.4;
+    display: block;
+}
+
+.advanced-attributes small strong {
+    color: #495057;
+}
+
+.best-vendor .advanced-attributes {
+    background-color: #e8f4ff;
+    border-left: 3px solid #0d6efd;
+}
+
+/* ML Scoring Visualization Styles */
+.ml-scoring-btn {
+    margin-top: 10px;
+}
+
+#mlScoringModal .modal-xl {
+    max-width: 90%;
+}
+
+#mlScoringContent .card {
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+#mlScoringContent .card-header {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.125);
+    font-weight: 600;
+}
+
+#scoringExplanation {
+    font-size: 1.1rem;
+    padding: 15px;
+    background-color: #e3f2fd;
+    border-left: 4px solid #0d6efd;
+}
+
+#calculationStepsTable th {
+    background-color: #f8f9fa;
+}
+
+#neuralNetworkViz {
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    padding: 10px;
+}
+
+#neuralNetworkViz text {
+    font-family: 'Arial', sans-serif;
+}
+
+#neuralNetworkViz circle {
+    filter: drop-shadow(0px 3px 3px rgba(0, 0, 0, 0.2));
+}
+
+/* AI Prompt Box Styles */
+.ai-prompt-card {
+    position: relative;
+    z-index: 1;
+}
+
+.ai-prompt-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: -1;
+    background: linear-gradient(135deg, rgba(102, 16, 242, 0.1), rgba(13, 110, 253, 0.1));
+    border-radius: 10px;
+}
+
+.confidence-badge {
+    background-color: rgba(255, 255, 255, 0.3);
+    padding: 5px 10px;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    font-weight: bold;
+}
+
+.slice-type-icon {
+    position: relative;
+    width: 100px;
+    height: 100px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.slice-type-icon::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    border-radius: 50%;
+    background-color: rgba(255, 255, 255, 0.2);
+    z-index: -1;
+    animation: pulse-light 2s infinite;
+}
+
+@keyframes pulse-light {
+    0% {
+        transform: scale(0.8);
+        opacity: 0.8;
+    }
+    50% {
+        transform: scale(1.2);
+        opacity: 0.4;
+    }
+    100% {
+        transform: scale(0.8);
+        opacity: 0.8;
+    }
+}
+
+#aiPromptInput:focus {
+    box-shadow: 0 0 0 0.25rem rgba(102, 16, 242, 0.25);
+    border-color: #6610f2;
+}
+
+#aiPromptButton {
+    transition: all 0.3s ease;
+}
+
+#aiPromptButton:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+#aiPromptButton:active {
+    transform: translateY(0);
+}
+
+.ai-response-appear {
+    animation: slideUp 0.5s ease;
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+} 

@@ -1,0 +1,136 @@
+{
+  "74da59d3-1e81-4d7f-b65e-f365463c754d": {
+    "offering_id": "74da59d3-1e81-4d7f-b65e-f365463c754d",
+    "vendor_id": "vendor-1",
+    "name": "High-Speed eMBB Slice",
+    "description": "High bandwidth slice for video streaming and content delivery",
+    "slice_type": "eMBB",
+    "qos_parameters": {
+      "latency_ms": 15,
+      "bandwidth_mbps": 800,
+      "reliability_percent": 99.95,
+      "availability_percent": 99.9,
+      "jitter_ms": 5,
+      "packet_loss_percent": 0.01
+    },
+    "locations": [
+      "us-east",
+      "us-west",
+      "eu-central"
+    ],
+    "price_per_hour": 25.0,
+    "min_duration_hours": 1,
+    "max_duration_hours": 720
+  },
+  "2cfabae6-07bb-42ff-9faf-6cc4c8f3f6c9": {
+    "offering_id": "2cfabae6-07bb-42ff-9faf-6cc4c8f3f6c9",
+    "vendor_id": "vendor-3",
+    "name": "Standard eMBB Slice",
+    "description": "Balanced bandwidth and coverage for general applications",
+    "slice_type": "eMBB",
+    "qos_parameters": {
+      "latency_ms": 25,
+      "bandwidth_mbps": 500,
+      "reliability_percent": 99.9,
+      "availability_percent": 99.8,
+      "jitter_ms": 8,
+      "packet_loss_percent": 0.05
+    },
+    "locations": [
+      "us-east",
+      "eu-central",
+      "asia-south"
+    ],
+    "price_per_hour": 15.0,
+    "min_duration_hours": 1,
+    "max_duration_hours": 1440
+  },
+  "c3103f10-a0d6-45cc-a23b-6d8ef70c8e93": {
+    "offering_id": "c3103f10-a0d6-45cc-a23b-6d8ef70c8e93",
+    "vendor_id": "vendor-1",
+    "name": "Premium URLLC Slice",
+    "description": "Ultra-reliable low-latency slice for critical applications",
+    "slice_type": "URLLC",
+    "qos_parameters": {
+      "latency_ms": 5,
+      "bandwidth_mbps": 200,
+      "reliability_percent": 99.999,
+      "availability_percent": 99.999,
+      "jitter_ms": 1,
+      "packet_loss_percent": 0.001
+    },
+    "locations": [
+      "us-east",
+      "eu-central"
+    ],
+    "price_per_hour": 40.0,
+    "min_duration_hours": 1,
+    "max_duration_hours": 168
+  },
+  "b7a5ed79-0815-462a-b4ee-1c301300f412": {
+    "offering_id": "b7a5ed79-0815-462a-b4ee-1c301300f412",
+    "vendor_id": "vendor-2",
+    "name": "Ultra URLLC Slice",
+    "description": "Extreme low-latency for mission-critical applications",
+    "slice_type": "URLLC",
+    "qos_parameters": {
+      "latency_ms": 1,
+      "bandwidth_mbps": 100,
+      "reliability_percent": 99.9999,
+      "availability_percent": 99.9995,
+      "jitter_ms": 0.5,
+      "packet_loss_percent": 0.0001
+    },
+    "locations": [
+      "eu-central",
+      "eu-west"
+    ],
+    "price_per_hour": 60.0,
+    "min_duration_hours": 1,
+    "max_duration_hours": 72
+  },
+  "31bdb1df-f13e-42f5-b797-66119f361df7": {
+    "offering_id": "31bdb1df-f13e-42f5-b797-66119f361df7",
+    "vendor_id": "vendor-2",
+    "name": "IoT mMTC Slice",
+    "description": "Massive connectivity for IoT devices",
+    "slice_type": "mMTC",
+    "qos_parameters": {
+      "latency_ms": 50,
+      "bandwidth_mbps": 50,
+      "reliability_percent": 99.9,
+      "availability_percent": 99.8,
+      "jitter_ms": 10,
+      "packet_loss_percent": 0.1
+    },
+    "locations": [
+      "eu-central",
+      "asia-east"
+    ],
+    "price_per_hour": 10.0,
+    "min_duration_hours": 24,
+    "max_duration_hours": 2160
+  },
+  "8b5f6646-9bbe-4d93-ac39-e9dc97c378e9": {
+    "offering_id": "8b5f6646-9bbe-4d93-ac39-e9dc97c378e9",
+    "vendor_id": "vendor-3",
+    "name": "Massive IoT Slice",
+    "description": "High-density IoT connectivity with energy efficiency",
+    "slice_type": "mMTC",
+    "qos_parameters": {
+      "latency_ms": 100,
+      "bandwidth_mbps": 20,
+      "reliability_percent": 99.8,
+      "availability_percent": 99.7,
+      "jitter_ms": 15,
+      "packet_loss_percent": 0.5
+    },
+    "locations": [
+      "us-east",
+      "asia-south"
+    ],
+    "price_per_hour": 5.0,
+    "min_duration_hours": 24,
+    "max_duration_hours": 4320
+  }
+}

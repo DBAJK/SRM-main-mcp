@@ -1,0 +1,140 @@
+@startuml 5G Network Slicing Real-World Deployment
+
+!define RECTANGLE class
+!define COMPONENT component
+
+skinparam monochrome true
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam defaultFontSize 12
+skinparam roundCorner 10
+skinparam arrowColor black
+skinparam arrowThickness 1
+
+title 5G Network Slicing with AI Components - Real-World Deployment
+
+' Network components
+package "5G Core Network" {
+    COMPONENT "AMF\n(Access and Mobility Function)" as AMF
+    COMPONENT "SMF\n(Session Management Function)" as SMF
+    COMPONENT "PCF\n(Policy Control Function)" as PCF
+    COMPONENT "NSSF\n(Network Slice Selection Function)" as NSSF
+    COMPONENT "UPF\n(User Plane Function)" as UPF
+    
+    PCF -right-> SMF : Policy decisions
+    NSSF -down-> SMF : Slice selection
+    AMF -down-> SMF : Session establishment
+    SMF -right-> UPF : Configure user plane
+}
+
+' RAN components
+package "Radio Access Network" {
+    COMPONENT "gNB\n(5G Base Station)" as GNB
+    COMPONENT "RAN Slice Manager" as RANSM
+    
+    GNB -up-> RANSM : Resource metrics
+    RANSM -down-> GNB : Slice configuration
+}
+
+' AI Orchestration components
+package "AI-Driven Orchestration" {
+    RECTANGLE "Hybrid Orchestrator" as Orchestrator {
+        RECTANGLE "Traffic Analyzer" as TrafficAnalyzer
+        RECTANGLE "QoS Monitor" as QoSMonitor
+        RECTANGLE "Resource Allocator" as ResourceAllocator
+        RECTANGLE "Slice Manager" as SliceManager
+        
+        TrafficAnalyzer -down-> QoSMonitor : Traffic patterns
+        QoSMonitor -right-> ResourceAllocator : QoS violations
+        ResourceAllocator -down-> SliceManager : Allocation decisions
+    }
+    
+    RECTANGLE "Autoregressive LSTM Predictor" as LSTM {
+        RECTANGLE "Feature Extractor" as FeatureExtractor
+        RECTANGLE "Sequence Processor" as SequenceProcessor
+        RECTANGLE "Multi-Step Forecaster" as Forecaster
+        
+        FeatureExtractor -right-> SequenceProcessor : Feature sequences
+        SequenceProcessor -right-> Forecaster : Encoded state
+        Forecaster -[dashed]-> ResourceAllocator : Future traffic predictions
+    }
+    
+    RECTANGLE "DQN Agent" as DQN {
+        RECTANGLE "State Processor" as StateProcessor
+        RECTANGLE "Q-Network" as QNetwork
+        RECTANGLE "Action Selector" as ActionSelector
+        RECTANGLE "Reward Calculator" as RewardCalc
+        RECTANGLE "Experience Replay" as ExperienceReplay
+        
+        StateProcessor -down-> QNetwork : State vector
+        QNetwork -right-> ActionSelector : Q-values
+        ActionSelector -[dashed]-> ResourceAllocator : Optimal actions
+        RewardCalc -up-> ExperienceReplay : (s,a,r,s')
+        ExperienceReplay -[dashed]-> QNetwork : Training batches
+    }
+    
+    RECTANGLE "Model Context Protocol (MCP)" as MCP {
+        RECTANGLE "API Gateway" as APIGateway
+        RECTANGLE "Context Manager" as ContextManager
+        
+        APIGateway -right-> ContextManager : Model requests
+    }
+}
+
+' Management components
+package "Management & Orchestration" {
+    COMPONENT "MANO\n(Management and Orchestration)" as MANO
+    COMPONENT "OSS/BSS\n(Operations/Business Support)" as OSS
+    
+    MANO -right-> OSS : Service metrics
+}
+
+' External systems
+COMPONENT "Edge Computing Infrastructure" as EDGE
+COMPONENT "Cloud Infrastructure" as CLOUD
+
+' Connections between major components
+NSSF <-up- Orchestrator : Slice selection policies
+PCF <-up- Orchestrator : Dynamic policies
+RANSM <-left- Orchestrator : RAN slice configuration
+UPF <-up- Orchestrator : Core slice configuration
+
+Orchestrator -right-> MANO : Resource requirements
+OSS -up-> Orchestrator : Business requirements
+
+TrafficAnalyzer <-up- LSTM : Traffic predictions
+ResourceAllocator <-up- DQN : Allocation decisions
+
+MCP -up-> Orchestrator : Model integration
+MCP -down-> LSTM : Model context
+MCP -down-> DQN : Model context
+
+EDGE <-right- UPF : User traffic
+CLOUD <-down- UPF : User traffic
+
+' Deployment notes
+note right of LSTM
+  Deployed on dedicated AI server
+  with GPU acceleration for
+  real-time traffic forecasting
+end note
+
+note right of DQN
+  Deployed with continuous learning
+  capability to adapt to network
+  changes and optimize for QoS
+end note
+
+note bottom of MCP
+  Provides standardized interfaces
+  for AI model integration with
+  network functions
+end note
+
+note top of Orchestrator
+  Combines ML predictions and RL
+  decisions with domain knowledge
+  for optimal slice management
+end note
+
+@enduml 

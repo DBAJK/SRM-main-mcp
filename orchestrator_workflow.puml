@@ -1,0 +1,103 @@
+@startuml 5G Network Slicing ML Orchestrator Workflow
+
+skinparam monochrome true
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam defaultFontSize 12
+skinparam roundCorner 10
+skinparam arrowColor black
+skinparam arrowThickness 1
+
+title 5G Network Slicing ML Orchestrator Workflow
+
+' Define actors
+actor "Network Operator" as Operator
+participant "ML Orchestrator" as Orchestrator
+participant "LSTM Predictor" as LSTM
+participant "Rule-Based Allocator" as RuleAllocator
+database "History" as History
+
+' Main workflow
+group Initialization
+    Operator -> Orchestrator: Start orchestrator
+    activate Orchestrator
+    
+    Orchestrator -> LSTM: Initialize predictor
+    activate LSTM
+    LSTM --> Orchestrator: Predictor ready
+    deactivate LSTM
+    
+    Orchestrator -> Orchestrator: Set initial allocation [0.4, 0.4, 0.2]
+end
+
+group Main Loop
+    loop for duration
+        ' Traffic generation
+        Orchestrator -> Orchestrator: Generate traffic
+        note right: Based on time patterns\nand event conditions
+        
+        ' Calculate utilization
+        Orchestrator -> Orchestrator: Update utilization
+        note right: utilization = traffic / allocation
+        
+        ' Create features
+        Orchestrator -> Orchestrator: Create feature vector
+        note right: [traffic_load, time_of_day, day_of_week,\nembb_alloc, urllc_alloc, mmtc_alloc,\nembb_util, urllc_util, mmtc_util,\nclient_count, bs_count]
+        
+        ' Store in history
+        Orchestrator -> History: Add to feature history
+        
+        ' Decision point for allocation method
+        alt ML-based allocation (if predictor available and enough history)
+            Orchestrator -> History: Get last 10 feature vectors
+            History --> Orchestrator: Feature sequence
+            
+            Orchestrator -> LSTM: predict(sequence)
+            activate LSTM
+            LSTM --> Orchestrator: prediction
+            deactivate LSTM
+            
+            Orchestrator -> Orchestrator: Apply stability factor
+            Orchestrator -> Orchestrator: Normalize allocation
+        else Rule-based allocation
+            Orchestrator -> RuleAllocator: Get allocation based on state
+            activate RuleAllocator
+            
+            alt Emergency mode
+                RuleAllocator --> Orchestrator: [0.2, 0.7, 0.1]
+            else Special event mode
+                RuleAllocator --> Orchestrator: [0.6, 0.3, 0.1]
+            else IoT surge mode
+                RuleAllocator --> Orchestrator: [0.3, 0.3, 0.4]
+            else Normal mode
+                RuleAllocator --> Orchestrator: [0.4, 0.4, 0.2]
+            end
+            
+            deactivate RuleAllocator
+            
+            Orchestrator -> Orchestrator: Adjust for QoS violations
+            Orchestrator -> Orchestrator: Normalize allocation
+        end
+        
+        ' Check for QoS violations
+        Orchestrator -> Orchestrator: Check QoS violations
+        note right: violations = utilization > thresholds
+        
+        ' Visualize state
+        Orchestrator -> Orchestrator: Visualize state
+        
+        ' Save state
+        Orchestrator -> History: Add state to history
+        
+        Orchestrator -> Orchestrator: Wait for interval
+    end
+end
+
+group Termination
+    Operator -> Orchestrator: Stop orchestrator
+    Orchestrator -> History: Save history to file
+    Orchestrator --> Operator: Orchestration completed
+    deactivate Orchestrator
+end
+
+@enduml 

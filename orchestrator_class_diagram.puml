@@ -1,0 +1,148 @@
+@startuml 5G Network Slicing ML Orchestrator Class Diagram
+
+skinparam monochrome true
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam defaultFontSize 12
+skinparam roundCorner 10
+skinparam arrowColor black
+skinparam arrowThickness 1
+skinparam classAttributeIconSize 0
+
+title 5G Network Slicing ML Orchestrator Class Diagram
+
+' Main classes
+class MLOrchestrator {
+    - allocation : numpy.ndarray
+    - utilization : numpy.ndarray
+    - thresholds : numpy.ndarray
+    - is_emergency : bool
+    - is_special_event : bool
+    - is_iot_surge : bool
+    - traffic_history : list
+    - utilization_history : list
+    - allocation_history : list
+    - feature_history : list
+    - sequence_length : int
+    - output_dir : string
+    - lstm_predictor : SliceAllocationPredictor
+    - dqn_agent : DQNAgent
+    - history : list
+    + __init__(lstm_model_path, dqn_model_path)
+    + set_emergency_mode(is_emergency)
+    + set_special_event_mode(is_special_event)
+    + set_iot_surge_mode(is_iot_surge)
+    + generate_traffic()
+    + update_allocation_ml(features)
+    + update_allocation_dqn(state)
+    + update_allocation_hybrid(lstm_alloc, dqn_alloc, state)
+    + update_allocation_rule_based()
+    + update_utilization(traffic)
+    + create_feature_vector(traffic)
+    + run_step()
+    + visualize_state(state, output_path)
+    + run(duration, interval)
+    + save_history()
+}
+
+class SliceAllocationPredictor {
+    - input_dim : int
+    - sequence_length : int
+    - model_path : string
+    - training_history
+    - slice_types : dict
+    - qos_parameters : dict
+    - model : keras.Model
+    + __init__(input_dim, sequence_length, model_path, skip_training)
+    - _build_model()
+    - _generate_training_data(num_samples)
+    + train(X, y, epochs, batch_size, validation_data)
+    + predict(input_data)
+    + evaluate(X_test, y_test)
+    + save(path)
+    + plot_training_history(history)
+}
+
+class DQNAgent {
+    - state_dim : int
+    - action_dim : int
+    - model_path : string
+    - epsilon : float
+    - epsilon_decay : float
+    - epsilon_min : float
+    - gamma : float
+    - learning_rate : float
+    - q_network : keras.Model
+    - target_network : keras.Model
+    - replay_buffer : ReplayBuffer
+    + __init__(state_dim, action_dim, model_path)
+    - _build_model()
+    + get_action(state)
+    + store_transition(state, action, reward, next_state, done)
+    + train_step(batch_size)
+    + update_target_network()
+    + save_model(path)
+    + load_model(path)
+    + calculate_reward(state, action, next_state)
+}
+
+class ReplayBuffer {
+    - buffer_size : int
+    - buffer : deque
+    + __init__(buffer_size)
+    + store(state, action, reward, next_state, done)
+    + sample(batch_size)
+    + size()
+}
+
+class FallbackPredictor {
+    + __init__(**kwargs)
+    + predict(input_data)
+}
+
+' Helper classes for state representation
+class State {
+    + timestamp : string
+    + traffic : numpy.ndarray
+    + allocation : numpy.ndarray
+    + utilization : numpy.ndarray
+    + violations : numpy.ndarray
+    + is_emergency : bool
+    + is_special_event : bool
+    + is_iot_surge : bool
+    + features : numpy.ndarray
+    + ml_enabled : bool
+    + dqn_enabled : bool
+}
+
+' Relationships
+MLOrchestrator o-- SliceAllocationPredictor : uses for prediction >
+MLOrchestrator o-- DQNAgent : uses for decision making >
+MLOrchestrator o-- FallbackPredictor : uses if ML fails >
+MLOrchestrator *-- "*" State : maintains >
+SliceAllocationPredictor <|-- FallbackPredictor : extends
+DQNAgent *-- ReplayBuffer : contains >
+
+note bottom of MLOrchestrator
+  The main orchestrator class that manages
+  network slice allocation using ML-based
+  predictions and reinforcement learning
+end note
+
+note right of SliceAllocationPredictor
+  LSTM-based predictor that learns optimal
+  slice allocation from historical data
+end note
+
+note right of DQNAgent
+  Reinforcement learning agent that
+  optimizes slice allocation through
+  interaction with the environment
+end note
+
+note right of State
+  Represents the complete state
+  of the network at a given time
+end note
+
+@enduml 

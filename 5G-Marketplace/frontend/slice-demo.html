@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>5G Slice Selection Demo</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="styles.css" rel="stylesheet">
+    <style>
+        .slice-type {
+            padding: 10px;
+            margin-bottom: 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .slice-type:hover {
+            transform: translateY(-5px);
+        }
+        .slice-type.selected {
+            border: 3px solid #007bff;
+            box-shadow: 0 0 10px rgba(0, 123, 255, 0.5);
+        }
+        .slice-type-embb {
+            background-color: #e3f2fd;
+        }
+        .slice-type-urllc {
+            background-color: #ffebee;
+        }
+        .slice-type-mmtc {
+            background-color: #e8f5e9;
+        }
+        .vendor-card {
+            margin-bottom: 15px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .vendor-card:hover {
+            transform: translateY(-5px);
+        }
+        .vendor-card.selected {
+            border: 3px solid #28a745;
+            box-shadow: 0 0 10px rgba(40, 167, 69, 0.5);
+        }
+        .step {
+            display: none;
+        }
+        .step.active {
+            display: block;
+        }
+        .progress {
+            height: 8px;
+            margin-bottom: 30px;
+        }
+        .score-bar {
+            height: 8px;
+            margin-top: 5px;
+            border-radius: 4px;
+        }
+        .score-value {
+            font-size: 18px;
+            font-weight: bold;
+        }
+        /* Monitoring section styles */
+        #monitoringSection .card {
+            margin-top: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        #monitoringSection .card-header {
+            background-color: #f8f9fa;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.125);
+            font-weight: 600;
+        }
+        #qosMetricsList .badge {
+            font-size: 14px;
+        }
+        #geminiAnalysis {
+            background-color: #f0f7ff;
+            border-left: 4px solid #0d6efd;
+        }
+        #optimizationRecommendations {
+            background-color: #f0fff4;
+            border-left: 4px solid #28a745;
+        }
+        .health-score-container {
+            text-align: center;
+        }
+        #healthScoreText {
+            font-size: 24px;
+            font-weight: bold;
+            margin-top: 5px;
+        }
+        /* Context7 section styles */
+        #context7Insights {
+            background-color: #f2f2ff;
+            border-left: 4px solid #6610f2;
+        }
+        #bestPracticesList {
+            margin-top: 10px;
+        }
+        #bestPracticesList .list-group-item {
+            padding: 8px 12px;
+        }
+        #context7GuidanceContent {
+            background-color: #f8f9fa;
+            border-left: 4px solid #6c757d;
+        }
+        #context7GuidanceContent ul {
+            padding-left: 20px;
+        }
+        #context7GuidanceContent h6 {
+            margin-top: 15px;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+        .ai-badge {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            font-size: 10px;
+            padding: 3px 6px;
+            border-radius: 10px;
+        }
+        .gemini-badge {
+            background-color: #0d6efd;
+            color: white;
+        }
+        .context7-badge {
+            background-color: #6610f2;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="index.html">
+                <i class="bi bi-hdd-network me-2"></i>
+                <span>5G Network Slicing Marketplace</span>
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="index.html">Dashboard</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="slice-demo.html">Slice Selection Demo</a>
+                    </li>
+                </ul>
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#settingsModal">
+                            <i class="bi bi-gear-fill"></i> Settings
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="alert alert-info">
+                    <h4>5G Slice Selection Demo</h4>
+                    <p>This interactive demo shows how the AI agent selects the optimal network slice based on customer requirements.</p>
+                </div>
+                <div class="alert alert-warning">
+                    <h5><i class="bi bi-key-fill"></i> API Key Required for AI Features</h5>
+                    <p>To use the Gemini AI features, please set your API key in the <a href="#" data-bs-toggle="modal" data-bs-target="#settingsModal">Settings</a>.</p>
+                    <p>You can get a free API key from <a href="https://aistudio.google.com/" target="_blank">Google AI Studio</a>.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Progress Bar -->
+        <div class="progress mb-4">
+            <div class="progress-bar" role="progressbar" style="width: 25%" aria-valuenow="25" aria-valuemin="0" aria-valuemax="100" id="progressBar"></div>
+        </div>
+
+        <!-- Step 1: Select Slice Type -->
+        <div class="step active" id="step1">
+            <h2>Step 1: Select Slice Type</h2>
+            <p>Choose the type of network slice you need based on your application requirements. These slice types are defined by the 3GPP (3rd Generation Partnership Project) standards for 5G networks:</p>
+            
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="slice-type slice-type-embb slice-type-card" data-slice-type="eMBB">
+                        <h3>eMBB</h3>
+                        <p><strong>Enhanced Mobile Broadband</strong></p>
+                        <p>For high-bandwidth applications like video streaming, augmented reality, and virtual reality.</p>
+                        <ul>
+                            <li>High bandwidth (100+ Mbps)</li>
+                            <li>Moderate latency (10-100ms)</li>
+                            <li>Moderate connection density</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="slice-type slice-type-urllc slice-type-card" data-slice-type="URLLC">
+                        <h3>URLLC</h3>
+                        <p><strong>Ultra-Reliable Low-Latency Communication</strong></p>
+                        <p>For mission-critical applications requiring instant response, like autonomous vehicles and industrial automation.</p>
+                        <ul>
+                            <li>Ultra-low latency (1-10ms)</li>
+                            <li>High reliability (99.999%+)</li>
+                            <li>Moderate bandwidth</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="slice-type slice-type-mmtc slice-type-card" data-slice-type="mMTC">
+                        <h3>mMTC</h3>
+                        <p><strong>Massive Machine-Type Communication</strong></p>
+                        <p>For IoT applications with many connected devices, like smart cities and agricultural sensors.</p>
+                        <ul>
+                            <li>Massive connection density (1M+ devices/km²)</li>
+                            <li>Low power consumption</li>
+                            <li>Lower bandwidth requirements</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-4">
+                <button type="button" class="btn btn-primary" id="nextBtn" disabled>Next</button>
+            </div>
+        </div>
+
+        <!-- Step 2: Specify QoS Requirements -->
+        <div class="step" id="step2">
+            <h2>Step 2: Specify QoS Requirements</h2>
+            <p>Define your specific Quality of Service requirements based on 3GPP network slice template attributes:</p>
+            
+            <form id="qosForm">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="latency" class="form-label">Latency (ms)</label>
+                            <input type="range" class="form-range" id="latency" min="1" max="100" value="10">
+                            <div class="d-flex justify-content-between">
+                                <span>1ms (Best)</span>
+                                <span id="latencyValue">10ms</span>
+                                <span>100ms</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="bandwidth" class="form-label">Bandwidth (Mbps)</label>
+                            <input type="range" class="form-range" id="bandwidth" min="10" max="1000" value="100">
+                            <div class="d-flex justify-content-between">
+                                <span>10 Mbps</span>
+                                <span id="bandwidthValue">100 Mbps</span>
+                                <span>1000 Mbps</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="reliability" class="form-label">Reliability (%)</label>
+                            <input type="range" class="form-range" id="reliability" min="99" max="99.9999" step="0.0001" value="99.9">
+                            <div class="d-flex justify-content-between">
+                                <span>99%</span>
+                                <span id="reliabilityValue">99.9%</span>
+                                <span>99.9999%</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="location" class="form-label">Location</label>
+                            <select class="form-select" id="location">
+                                <option value="us-east">US East</option>
+                                <option value="us-west">US West</option>
+                                <option value="eu-central">EU Central</option>
+                                <option value="eu-west">EU West</option>
+                                <option value="asia-east">Asia East</option>
+                                <option value="asia-south">Asia South</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5>Advanced Network Slice Template Attributes</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="availability" class="form-label">Availability</label>
+                                    <select class="form-select" id="availability">
+                                        <option value="low">Low (&lt;90%)</option>
+                                        <option value="medium">Medium (90-99%)</option>
+                                        <option value="high" selected>High (99-99.999%)</option>
+                                        <option value="very-high">Very High (&gt;99.999%)</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="delayTolerance" class="form-label">Delay Tolerance</label>
+                                    <select class="form-select" id="delayTolerance">
+                                        <option value="no">Not Delay Tolerant</option>
+                                        <option value="yes">Delay Tolerant</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="deterministic" class="form-label">Deterministic Communication</label>
+                                    <select class="form-select" id="deterministic">
+                                        <option value="no">Not Required</option>
+                                        <option value="yes">Required</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="periodicity" class="form-label">Periodicity (seconds)</label>
+                                    <input type="number" class="form-control" id="periodicity" min="0.001" step="0.001" value="0.01">
+                                    <div class="form-text">For deterministic communication</div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="maxPacketSize" class="form-label">Maximum Packet Size (bytes)</label>
+                                    <select class="form-select" id="maxPacketSize">
+                                        <option value="40">40 (IoT Optimized)</option>
+                                        <option value="160">160 (URLLC Optimized)</option>
+                                        <option value="1500" selected>1500 (Default)</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="groupCommunication" class="form-label">Group Communication Support</label>
+                                    <select class="form-select" id="groupCommunication">
+                                        <option value="none">None</option>
+                                        <option value="unicast">Unicast</option>
+                                        <option value="multicast">Multicast/Broadcast</option>
+                                        <option value="sc-ptm">SC-PTM</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="missionCritical" class="form-label">Mission Critical Support</label>
+                                    <select class="form-select" id="missionCritical">
+                                        <option value="none">None</option>
+                                        <option value="prioritization">Inter-user Prioritization</option>
+                                        <option value="preemption">Pre-emption</option>
+                                        <option value="mcptt">MCPTT/MCData/MCVideo</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="maxUsers" class="form-label">Maximum Concurrent Users</label>
+                                    <input type="number" class="form-control" id="maxUsers" min="1" value="1000">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="mb-3">
+                                    <label class="form-label">Additional Features</label>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="energyEfficiency">
+                                        <label class="form-check-label" for="energyEfficiency">Energy Efficiency Monitoring</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="performanceMonitoring">
+                                        <label class="form-check-label" for="performanceMonitoring">Real-time Performance Monitoring</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="performancePrediction">
+                                        <label class="form-check-label" for="performancePrediction">Performance Prediction</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="mmtelSupport">
+                                        <label class="form-check-label" for="mmtelSupport">MMTel Support</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="nbiotSupport">
+                                        <label class="form-check-label" for="nbiotSupport">NB-IoT Support</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-3">
+                    <button type="submit" class="btn btn-primary">Find Matching Vendors</button>
+                    <button type="button" class="btn btn-secondary" id="backBtn">Back</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Step 3: AI Processing -->
+        <div class="step" id="step3">
+            <h2>Step 3: AI Processing</h2>
+            <div class="text-center p-5">
+                <div class="spinner-border text-primary" role="status" id="aiProcessingSpinner">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <h3 class="mt-3">AI Agent Processing</h3>
+                <p>The AI agent is analyzing your requirements and finding the best vendor slices...</p>
+                <div id="aiProcessingSteps" class="text-start mt-4">
+                    <p><i class="bi bi-check-circle-fill text-success"></i> Using AI classifier to determine optimal slice type based on QoS requirements</p>
+                    <p><i class="bi bi-check-circle-fill text-success"></i> Querying vendor registry for matching offerings</p>
+                    <p><i class="bi bi-arrow-repeat text-primary"></i> Scoring vendor offerings against requirements...</p>
+                    <p class="text-muted"><i class="bi bi-circle"></i> Selecting optimal vendor slice</p>
+                </div>
+                <div id="aiProcessingComplete" style="display: none;">
+                    <i class="bi bi-check-circle-fill text-success" style="font-size: 3rem;"></i>
+                    <h3 class="mt-3">Processing Complete</h3>
+                    <p>The AI agent has found the best vendor slices for your requirements.</p>
+                </div>
+                <div id="aiProcessingError" class="alert alert-danger mt-4" style="display: none;">
+                    Error processing request
+                </div>
+            </div>
+            
+            <div class="mt-4">
+                <button type="button" class="btn btn-secondary" id="backBtn">Back</button>
+            </div>
+        </div>
+
+        <!-- Step 4: Vendor Selection -->
+        <div class="step" id="step4">
+            <h2>Step 4: Vendor Selection Results</h2>
+            <p>Based on your requirements, the AI agent has identified these vendor offerings:</p>
+            
+            <div class="alert alert-info">
+                <h5><i class="bi bi-info-circle"></i> AI Classification Result</h5>
+                <p>Your requirements match the <strong id="classifiedSliceType">URLLC</strong> slice type.</p>
+            </div>
+            
+            <div class="row" id="vendorOffers">
+                <!-- Vendor offers will be inserted here by JavaScript -->
+            </div>
+            
+            <div class="mt-4">
+                <button type="button" class="btn btn-success" id="deployBtn">Deploy Selected Slice</button>
+                <button type="button" class="btn btn-secondary" id="backBtn">Back</button>
+            </div>
+        </div>
+
+        <!-- Step 5: Deployment -->
+        <div class="step" id="step5">
+            <h2>Step 5: Slice Deployment</h2>
+            
+            <div id="deploymentSpinner" class="text-center p-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <h3 class="mt-3">Deploying Slice</h3>
+                <p id="deploymentStatus">Your network slice is being deployed...</p>
+            </div>
+            
+            <div id="deploymentError" class="alert alert-danger mt-4" style="display: none;">
+                Error deploying slice
+            </div>
+            
+            <div id="deploymentDetails" style="display: none;">
+                <div class="alert alert-success">
+                    <h4><i class="bi bi-check-circle-fill"></i> Slice Deployed Successfully!</h4>
+                    <p>Your network slice has been deployed and is ready to use.</p>
+                </div>
+                
+                <div class="card dashboard-card">
+                    <div class="card-header">Deployment Details</div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h5>Slice Information</h5>
+                                <ul class="list-group list-group-flush">
+                                    <li class="list-group-item d-flex justify-content-between">
+                                        <span>Slice ID:</span>
+                                        <strong id="deployedSliceId">slice-2023060501</strong>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between">
+                                        <span>Vendor:</span>
+                                        <strong id="deployedVendor">TelecomPro Networks</strong>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between">
+                                        <span>Deployment Time:</span>
+                                        <strong id="deploymentTime">2025-06-05 08:45:12</strong>
+                                    </li>
+                                </ul>
+                            </div>
+                            <div class="col-md-6">
+                                <h5>QoS Monitoring</h5>
+                                <div class="alert alert-info">
+                                    <p>The Network Digital Twin is now monitoring this slice's performance with Gemini AI and Context7.</p>
+                                    <p><i class="bi bi-lightning-charge"></i> Real-time monitoring and AI-powered analysis are now active.</p>
+                                    <div class="d-flex mt-2">
+                                        <span class="badge gemini-badge me-2">Powered by Gemini AI</span>
+                                        <span class="badge context7-badge">Enhanced with Context7</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- JSON display will be added here by JavaScript -->
+            </div>
+            
+            <div id="monitoringSection" style="display: none;">
+                <h3 class="mt-5">Real-time Monitoring</h3>
+                <p>Your network slice is now being monitored in real-time.</p>
+                
+                <!-- Monitoring content will be added here -->
+                
+                <!-- NDDT Feedback Loop -->
+                <div class="card mt-4" id="feedbackLoop">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span>Feedback Loop</span>
+                        <span class="badge context7-badge">NDDT Twin</span>
+                    </div>
+                    <div class="card-body">
+                        <p>Help improve the Network Digital Twin by providing feedback on the monitoring data and recommendations.</p>
+                        
+                        <div class="mb-3">
+                            <label for="feedbackAccuracy" class="form-label">How accurate are the metrics compared to your expectations?</label>
+                            <div class="d-flex align-items-center">
+                                <input type="range" class="form-range me-2" id="feedbackAccuracy" min="1" max="5" value="3">
+                                <span id="feedbackAccuracyValue">3/5</span>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="feedbackRecommendations" class="form-label">How helpful are the recommendations?</label>
+                            <div class="d-flex align-items-center">
+                                <input type="range" class="form-range me-2" id="feedbackRecommendations" min="1" max="5" value="3">
+                                <span id="feedbackRecommendationsValue">3/5</span>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="feedbackComments" class="form-label">Additional comments or observations</label>
+                            <textarea class="form-control" id="feedbackComments" rows="3" placeholder="Share your observations about the slice performance..."></textarea>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="applyFeedback">
+                                <label class="form-check-label" for="applyFeedback">
+                                    Apply this feedback to improve future recommendations
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <button type="button" class="btn btn-primary" id="submitFeedbackBtn">Submit Feedback</button>
+                        
+                        <div class="alert alert-success mt-3" id="feedbackSuccess" style="display: none;">
+                            <i class="bi bi-check-circle-fill"></i> Feedback submitted successfully. The Network Digital Twin will use this information to improve future recommendations.
+                        </div>
+                        
+                        <div class="alert alert-danger mt-3" id="feedbackError" style="display: none;">
+                            Error submitting feedback.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- NDDT Learning Cycle -->
+                <div class="card mt-4" id="learningCycle">
+                    <div class="card-header">
+                        <span>NDDT Learning Cycle</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-flex justify-content-center">
+                            <div class="learning-cycle-diagram">
+                                <div class="cycle-step" id="cycleMonitor">
+                                    <i class="bi bi-graph-up-arrow"></i>
+                                    <span>Monitor</span>
+                                </div>
+                                <div class="cycle-arrow">→</div>
+                                <div class="cycle-step" id="cycleAnalyze">
+                                    <i class="bi bi-search"></i>
+                                    <span>Analyze</span>
+                                </div>
+                                <div class="cycle-arrow">→</div>
+                                <div class="cycle-step" id="cycleRecommend">
+                                    <i class="bi bi-lightbulb"></i>
+                                    <span>Recommend</span>
+                                </div>
+                                <div class="cycle-arrow">→</div>
+                                <div class="cycle-step" id="cycleFeedback">
+                                    <i class="bi bi-chat-square-text"></i>
+                                    <span>Feedback</span>
+                                </div>
+                                <div class="cycle-arrow">→</div>
+                                <div class="cycle-step" id="cycleLearn">
+                                    <i class="bi bi-cpu"></i>
+                                    <span>Learn</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="text-center mt-3">
+                            <p class="mb-1"><strong>Current Active Phase: <span id="activePhase">Monitor</span></strong></p>
+                            <p class="text-muted">The Network Digital Twin continuously cycles through these phases to improve performance.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-4">
+                <a href="index.html" class="btn btn-primary">Return to Dashboard</a>
+                <button type="button" class="btn btn-success" id="deployAnotherBtn">Deploy Another Slice</button>
+            </div>
+        </div>
+    </div>
+
+    <footer class="bg-light py-3 mt-5">
+        <div class="container text-center">
+            <p>5G Network Slicing Marketplace Demo © 2025</p>
+        </div>
+    </footer>
+
+    <!-- Settings Modal -->
+    <div class="modal fade" id="settingsModal" tabindex="-1" aria-labelledby="settingsModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="settingsModalLabel">Settings</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="geminiApiKeyInput" class="form-label">Gemini API Key</label>
+                        <input type="text" class="form-control" id="geminiApiKeyInput" placeholder="Enter your Gemini API Key">
+                        <div class="form-text">Your API key will be stored in your browser's local storage.</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" id="saveSettingsBtn">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ML Scoring Breakdown Modal -->
+    <div class="modal fade" id="mlScoringModal" tabindex="-1" aria-labelledby="mlScoringModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="mlScoringModalLabel">ML Scoring Breakdown</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="mlScoringSpinner" class="text-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2">Analyzing vendor scoring...</p>
+                    </div>
+                    <div id="mlScoringContent" style="display: none;">
+                        <div class="alert alert-info" id="scoringExplanation"></div>
+                        
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h5>Individual Scores</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <canvas id="individualScoresChart" height="300"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h5>Criteria Weights</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <canvas id="weightsChart" height="300"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <h5>Neural Network Visualization</h5>
+                            </div>
+                            <div class="card-body">
+                                <div id="neuralNetworkViz" style="height: 400px;"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="card">
+                            <div class="card-header">
+                                <h5>Calculation Steps</h5>
+                            </div>
+                            <div class="card-body">
+                                <table class="table table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>Criterion</th>
+                                            <th>Raw Score</th>
+                                            <th>Weight</th>
+                                            <th>Weighted Score</th>
+                                            <th>Contribution (%)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="calculationStepsTable">
+                                        <!-- Calculation steps will be inserted here -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript Libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/api/env.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="slice-demo.js"></script>
+</body>
+</html> 

@@ -1,0 +1,17 @@
+Metadata-Version: 2.4
+Name: slicesim
+Version: 1.0.0
+Requires-Dist: cycler
+Requires-Dist: kiwisolver
+Requires-Dist: matplotlib>=3.5.0
+Requires-Dist: numpy>=1.23.0
+Requires-Dist: Pillow>=9.0.0
+Requires-Dist: pyparsing
+Requires-Dist: python-dateutil
+Requires-Dist: PyYAML>=6.0
+Requires-Dist: randomcolor
+Requires-Dist: scikit-learn>=1.1.0
+Requires-Dist: scipy>=1.8.0
+Requires-Dist: simpy>=4.0.0
+Requires-Dist: six
+Dynamic: requires-dist
