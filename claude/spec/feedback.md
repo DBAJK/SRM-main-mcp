@@ -41,25 +41,31 @@ error = L1(applied_allocation, a*) / 2                 # [0, 1]
 // 요청 — step() 후의 관측
 {"decision_id": "exp-proposed-emergency-s0-0012",
  "observed": {"step": 13,
-   "traffic":     {"embb": 0.550, "urllc": 0.720, "mmtc": 0.180},
+   "traffic":     {"embb": 0.571, "urllc": 0.595, "mmtc": 0.390},
    "allocation":  {"embb": 0.340, "urllc": 0.490, "mmtc": 0.170},
-   "utilization": {"embb": 1.618, "urllc": 1.469, "mmtc": 1.059},
-   "violations":  {"embb": true,  "urllc": true,  "mmtc": true}, ...}}
+   "capacity":    {"embb": 1.600, "urllc": 1.600, "mmtc": 1.600},
+   "utilization": {"embb": 1.050, "urllc": 0.760, "mmtc": 1.435},
+   "violations":  {"embb": true,  "urllc": false, "mmtc": true}, ...}}
 // 응답
 {"sla_met": false,
  "policy": "rule_based",
- "error": 0.086,
- "ideal_allocation":     {"embb": 0.426, "urllc": 0.418, "mmtc": 0.157},
+ "error": 0.184,
+ "ideal_allocation":     {"embb": 0.392, "urllc": 0.306, "mmtc": 0.301},
  "applied_allocation":   {"embb": 0.340, "urllc": 0.490, "mmtc": 0.170},
  "requested_allocation": {"embb": 0.200, "urllc": 0.700, "mmtc": 0.100},
  "actuator_delta": 0.210,
- "observed_violations": {"embb": true, "urllc": true, "mmtc": true},
+ "observed_violations": {"embb": true, "urllc": false, "mmtc": true},
  "vendor_id": null,
  "reliability_before": 0.880,
  "reliability_after": 0.704}
 ```
 
-계산 확인: `a* = normalize([0.550/0.9, 0.720/1.2, 0.180/0.8]) = [0.426, 0.418, 0.157]`, `error = (|0.340−0.426| + |0.490−0.418| + |0.170−0.157|) / 2 = 0.086`, `r = 0.8 × 0.880 = 0.704`.
+계산 확인: `a* = normalize([0.571/(0.9×1.6), 0.595/(1.2×1.6), 0.390/(0.8×1.6)]) = [0.392, 0.306, 0.301]`,
+`error = (|0.340−0.392| + |0.490−0.306| + |0.170−0.301|) / 2 = 0.184`, `r = 0.8 × 0.880 = 0.704`.
+
+> **이 예시가 `rule_based`의 한계를 보여준다.** `situation="emergency"`의 고정 목표 `[0.2, 0.7, 0.1]`은
+> 과잉 반응이었다 — URLLC에 0.49를 줬는데 이용률 0.76으로 여유가 남았고, 굶긴 mMTC가 1.435로 터졌다.
+> **상황 판단은 맞았는데 정책이 틀렸다.** ⑤가 `rule_based`의 신뢰도를 낮춘다.
 
 ---
 
@@ -90,6 +96,11 @@ error = L1(applied_allocation, a*) / 2                 # [0, 1]
 | 경험적 (`effective`) | ⑤ | 이 정책이 **평소** 얼마나 맞았나 |
 
 ```
-combined = sqrt(intrinsic × effective)
+combined = (situation × intrinsic × effective)^(1/3)
 escalate if combined < 0.45
 ```
+
+**셋의 기하평균이다.** `situation`은 에이전트가 내는 **상황 판단 자체에 대한 확신**이며
+②·⑤ 어느 쪽도 주지 않는다. 이게 없으면 상황을 잘못 읽고도 정책에 자신 있을 때
+`combined`가 높게 나와 **에스컬레이션이 일어나지 않는다.** `normal` 인지 정확도가
+50.5%라 오탐이 구조적으로 많다 (`rationale/environment.md`).

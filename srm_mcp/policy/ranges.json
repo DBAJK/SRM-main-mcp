@@ -1,0 +1,63 @@
+{
+  "source": "dqn_training_data/dqn_training_data.csv",
+  "rows": 10000,
+  "columns": [
+    "traffic_load",
+    "time_of_day",
+    "day_of_week",
+    "embb_alloc",
+    "urllc_alloc",
+    "mmtc_alloc",
+    "embb_util",
+    "urllc_util",
+    "mmtc_util",
+    "client_count",
+    "bs_count"
+  ],
+  "ranges": {
+    "traffic_load": {
+      "min": 0.1,
+      "max": 2.0
+    },
+    "time_of_day": {
+      "min": 5.252602034966358e-05,
+      "max": 0.9999742743096912
+    },
+    "day_of_week": {
+      "min": 0.0002539455774096,
+      "max": 0.999956528891214
+    },
+    "embb_alloc": {
+      "min": 0.0170484607886261,
+      "max": 0.8635595848927379
+    },
+    "urllc_alloc": {
+      "min": 0.0044749379714121,
+      "max": 0.8589818898197998
+    },
+    "mmtc_alloc": {
+      "min": 0.0101072707481005,
+      "max": 0.8762696268486262
+    },
+    "embb_util": {
+      "min": 0.0999624115647719,
+      "max": 2.0
+    },
+    "urllc_util": {
+      "min": 0.1137636569612615,
+      "max": 2.0
+    },
+    "mmtc_util": {
+      "min": 0.1346918476384465,
+      "max": 2.0
+    },
+    "client_count": {
+      "min": 0.3509023992788321,
+      "max": 1.0
+    },
+    "bs_count": {
+      "min": 0.4489988414510101,
+      "max": 0.9998642033350786
+    }
+  }
+}

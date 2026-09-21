@@ -13,9 +13,10 @@
 | `situation` | `Situation` | **예** | **에이전트의 상황 판단.** `perception_accuracy`의 입력 |
 | `chosen_policy` | `PolicyName` | 예 | |
 | `allocation` | `SliceTriple` | 예 | ②가 제안한 값 (적용 전) |
-| `confidence.intrinsic` | float | 예 | ②의 `confidence` |
+| `confidence.situation` | float | **예** | **상황 판단에 대한 확신. 에이전트가 직접 낸다** |
+| `confidence.intrinsic` | float | 예 | ②의 `confidence` (정책에 대한 확신) |
 | `confidence.empirical` | float | 예 | ⑤의 `effective` |
-| `confidence.combined` | float | 예 | 에이전트의 `√(intrinsic × empirical)` |
+| `confidence.combined` | float | 예 | `(situation × intrinsic × empirical)^(1/3)` |
 | `rationale` | string | 예 | 판단 근거 |
 | `slice_id` | string | 아니오 | 조달했다면 ③의 `slice_id` |
 | `vendor_id` | string | 아니오 | 조달했다면 ③의 `vendor_id`. **⑤가 이걸 읽어 에이전트에 돌려준다** |
@@ -35,16 +36,20 @@
 // 요청 예시
 {
   "step": 12,
-  "observation": {"step": 12, "utilization": {"embb": 1.300, "urllc": 1.525, "mmtc": 0.950}, ...},
+  "observation": {"step": 12, "utilization": {"embb": 0.624, "urllc": 1.283, "mmtc": 1.015}, ...},
   "situation": "emergency",
   "chosen_policy": "rule_based",
   "allocation": {"embb": 0.200, "urllc": 0.700, "mmtc": 0.100},
-  "confidence": {"intrinsic": 0.556, "empirical": 0.880, "combined": 0.699},
-  "rationale": "URLLC 이용률 1.525 (임계 1.2의 127%), eMBB 동반 상승 없음. LSTM은 이력 부족으로 사용 불가."
+  "confidence": {"situation": 0.70, "intrinsic": 0.521, "empirical": 0.880, "combined": 0.685},
+  "rationale": "URLLC 구성비 53% (평시 33%), 새벽 3시인데 URLLC 지배적. 이용률 1.283 (임계의 107%). LSTM은 이력 부족으로 사용 불가."
 }
 ```
 
-`combined = sqrt(0.556 × 0.880) = 0.699`.
+`combined = (0.70 × 0.521 × 0.880)^(1/3) = 0.685`. **기하평균이라 셋 중 하나만 낮아도 전체가 낮아진다.**
+
+`confidence.situation`이 따로 필요한 이유 — `intrinsic`·`empirical`은 둘 다 **정책**에 대한 확신이라
+상황을 잘못 읽었을 가능성이 어디에도 반영되지 않는다. 오판 + 정책 자신감 = 높은 `combined` =
+**에스컬레이션 안 됨.** `normal` 인지 정확도가 50.5%라 오탐이 구조적으로 많다 (`rationale/environment.md`).
 
 ---
 
@@ -58,7 +63,7 @@
 | `observation` | `Observation` | 예 |
 | `situation` | `Situation` | 예 |
 | `reason` | string | 예 |
-| `confidence` | object | 예 |
+| `confidence` | object | 예 (`situation` 포함) |
 
 | 출력 필드 | 타입 | 설명 |
 |---|---|---|
@@ -93,8 +98,8 @@
 [{"decision_id": "...-0012", "step": 12, "kind": "decision",
   "situation": "emergency", "chosen_policy": "rule_based",
   "allocation": {"embb": 0.20, "urllc": 0.70, "mmtc": 0.10},
-  "confidence": {"intrinsic": 0.556, "empirical": 0.880, "combined": 0.699},
-  "outcome": {"sla_met": false, "error": 0.086, "scored_at_step": 13}}]
+  "confidence": {"situation": 0.70, "intrinsic": 0.521, "empirical": 0.880, "combined": 0.685},
+  "outcome": {"sla_met": false, "error": 0.184, "scored_at_step": 13}}]
 ```
 
 **컨텍스트 주의** — 각 레코드에 `observation`이 통째로 들어 있다. 에이전트용 호출은 **`n ≤ 10`**. 전량 분석은 `eval/score.py`가 파일을 직접 읽는다.
@@ -142,7 +147,7 @@ sum(policy_usage)  = 기록된 결정 수           (60)
  "mean_utilization": {"embb": 1.021, "urllc": 1.183, "mmtc": 0.742},
  "policy_usage": {"rule_based": 42, "lstm_forecast": 18, "dqn": 0},
  "mttr": 3.4, "unresolved": 1,
- "procurements": 3, "procurement_cost_total": 7100.0,
- "mean_capacity": {"embb": 1.000, "urllc": 1.183, "mmtc": 1.000},
+ "procurements": 3, "procurement_cost_total": 1875.0,
+ "mean_capacity": {"embb": 1.600, "urllc": 1.783, "mmtc": 1.600},
  "pressure_exceeded": 21}
 ```
