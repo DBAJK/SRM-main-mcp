@@ -6,9 +6,13 @@
 계약: claude/spec/tools.md
 """
 
+import logging
 from typing import Any, Optional, Protocol
 
 from .guard import Guard
+from .trace import MARK, brief
+
+logger = logging.getLogger(__name__)
 
 
 class Backend(Protocol):
@@ -46,7 +50,16 @@ class Tools:
         args = {k: v for k, v in args.items() if v is not None}
         out = self._backend.call(server, tool, args)
         self.calls[tool] = self.calls.get(tool, 0) + 1
-        return self._guard.check(out, f"{server}.{tool}")
+        out = self._guard.check(out, f"{server}.{tool}")
+
+        if logger.isEnabledFor(logging.DEBUG):
+            mark = MARK.get(server, " ")
+            logger.debug(
+                "  %s %-24s → %s", mark, tool, brief(out),
+                extra={"full": f"  {mark} {tool}({brief(args, 10**6)})"
+                               f"\n      → {brief(out, 10**6)}"},
+            )
+        return out
 
     def reset_counts(self) -> dict:
         prev, self.calls = self.calls, {}
@@ -198,8 +211,12 @@ class Tools:
         situation: str,
         reason: str,
         confidence: dict,
+        slice_id: Optional[str] = None,
+        vendor_id: Optional[str] = None,
+        cost_total: Optional[float] = None,
     ) -> dict:
         # 이 호출 자체가 개입 1회다 (spec/audit.md:53)
+        # 조달 3필드는 record_decision 과 같은 중계선이다 (audit/server.py:84)
         return self._call(
             "audit",
             "record_escalation",
@@ -208,6 +225,9 @@ class Tools:
             situation=situation,
             reason=reason,
             confidence=confidence,
+            slice_id=slice_id,
+            vendor_id=vendor_id,
+            cost_total=cost_total,
         )
 
     def get_decisions(self, n: int = 10, kind: Optional[str] = None) -> list:
