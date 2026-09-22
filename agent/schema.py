@@ -16,7 +16,7 @@ PolicyName = Literal["rule_based", "lstm_forecast", "dqn"]
 ESCALATION_THRESHOLD = 0.45  # flow/data-chain.md:107
 PROCURE_PRESSURE = 1.0       # spec/observe.md:27
 HISTORY_N = 10               # spec/policy.md:24  lstm_forecast 전제조건
-DEFAULT_RECENT_ERROR = 0.5   # spec/policy.md:44  recent_error 가 null 일 때
+NEUTRAL_RELIABILITY = 0.5    # ⑤에 표본이 없을 때 쓸 중립값 (축소 보정의 사전확률)
 
 
 @dataclass
@@ -34,22 +34,45 @@ class StepContext:
     reliability: dict           # ⑤.get_reliability_table()
     demand_class: Optional[dict]  # ②.classify_demand()
 
+    # 사람이 에피소드 시작에 **한 번** 준 자연어 상황. 사람의 개입은 여기서
+    # 끝난다 — 이후 스텝마다의 판단은 에이전트가 한다. 규칙 판단자는 무시하고
+    # LLM 판단자만 읽는다.
+    intent: Optional[str] = None
+
     @property
     def demand_pressure(self) -> float:
         return float(self.observation.get("demand_pressure", 0.0))
 
     def effective(self, policy: str) -> float:
         """경험적 신뢰도. ⑤의 축소 보정값을 쓴다 (spec/feedback.md:74)."""
-        return float(self.reliability.get(policy, {}).get("effective", 0.5))
+        v = self.reliability.get(policy, {}).get("effective")
+        return NEUTRAL_RELIABILITY if v is None else float(v)
 
-    def recent_error(self, policy: str) -> float:
-        return float(
-            self.reliability.get(policy, {}).get("recent_error", DEFAULT_RECENT_ERROR)
-        )
+    def samples(self, policy: str) -> int:
+        """⑤가 이 정책을 몇 번 채점했나.
+
+        n=0 이면 effective 는 성적이 아니라 사전값(0.5)이다. 둘을 같은 자로
+        비교하면 안 된다 — 아래 pick_policy 주석 참고.
+        """
+        return int(self.reliability.get(policy, {}).get("n", 0) or 0)
+
+    def recent_error(self, policy: str) -> Optional[float]:
+        """None 을 그대로 중계한다.
+
+        ⑤는 표본이 없으면(n=0) null 을 낸다. 명세상 기본값 대입은 ②의 몫이고
+        (spec/policy.md:44 — 보수적 기본값 0.5 + rationale 에 명시), 에이전트가
+        미리 채우면 ②가 "이력 없음"을 구분하지 못한다.
+        """
+        v = self.reliability.get(policy, {}).get("recent_error")
+        return None if v is None else float(v)
 
     def recent_errors(self) -> dict:
-        """②.compare_policies 는 정책별 딕셔너리를 받는다 (spec/policy.md:113)."""
-        return {p: self.recent_error(p) for p in ("rule_based", "lstm_forecast", "dqn")}
+        """②.compare_policies 에는 ⑤의 테이블을 **그대로** 넘긴다.
+
+        스칼라로 눌러 넘기면 정책별 오차 이력이 뭉개진다 (policy/server.py:163).
+        ②가 dict 든 float 든 받아 처리한다.
+        """
+        return self.reliability
 
 
 class Proposer(Protocol):
@@ -74,8 +97,9 @@ class Decision:
     situation: Situation
     policy: PolicyName
     allocation: Optional[dict]   # None 이면 정책 실패
-    conf_intrinsic: float
-    conf_empirical: float
+    conf_intrinsic: float        # ②가 낸 값. 이번 입력에 대한 확신
+    conf_empirical: float        # ⑤의 effective. 이 정책의 평소 성적
+    conf_situation: float        # 상황 추론에 대한 확신. 에이전트가 만든다
     rationale: str
 
     procure: bool = False
@@ -94,8 +118,18 @@ class Decision:
         return self.allocation is None or self.combined < ESCALATION_THRESHOLD
 
     def confidence(self) -> dict:
-        """④.record_decision 의 confidence 객체 (spec/audit.md:16~18)."""
+        """④.record_decision 의 confidence 객체.
+
+        spec/audit.md:16~18 은 3개(intrinsic·empirical·combined)를 적었으나 ④의
+        구현은 situation 까지 4개를 필수로 요구한다 (audit/book.py:20, :96 —
+        "상황 오판이 combined 에 반영되지 않아 에스컬레이션이 일어나지 않는다").
+
+        ⚠️ combined 는 명세 공식 그대로 2항이다. situation 을 곱에 넣을지는
+        미결 — audit.md:47 의 계산 예시(0.556 × 0.880 → 0.699)와 임계 0.45 의
+        보정이 2항 기준이므로 임의로 바꾸지 않는다.
+        """
         return {
+            "situation": round(self.conf_situation, 6),
             "intrinsic": round(self.conf_intrinsic, 6),
             "empirical": round(self.conf_empirical, 6),
             "combined": round(self.combined, 6),

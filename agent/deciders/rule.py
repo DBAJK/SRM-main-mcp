@@ -8,14 +8,14 @@ LLM 을 붙이기 전에 루프 구조를 안정화하기 위한 것이다. 논�
 에스컬레이션은 Decision 이 파생시킨다 (schema.py).
 """
 
-from ..schema import Decision, PROCURE_PRESSURE, StepContext
+from ..schema import Decision, HISTORY_N, PROCURE_PRESSURE, StepContext
 
 # 이용률이 임계의 몇 배를 넘으면 그 슬라이스가 지배적이라고 볼지
 DOMINANT_RATIO = 1.15
 
 
 def rule_decider(ctx: StepContext, proposer) -> Decision:
-    situation = infer_situation(ctx)
+    situation, conf_situation = infer_situation(ctx)
     policy = pick_policy(ctx)
 
     prop = proposer.propose(policy, situation)
@@ -37,6 +37,7 @@ def rule_decider(ctx: StepContext, proposer) -> Decision:
         allocation=prop.get("allocation"),
         conf_intrinsic=float(prop.get("confidence", 0.0)),
         conf_empirical=ctx.effective(prop["policy"]),
+        conf_situation=conf_situation,
         rationale=prop.get("rationale", ""),
         procure=ctx.demand_pressure >= PROCURE_PRESSURE,
         in_distribution=bool(prop.get("in_distribution", True)),
@@ -45,29 +46,49 @@ def rule_decider(ctx: StepContext, proposer) -> Decision:
     )
 
 
-def infer_situation(ctx: StepContext) -> str:
-    """관측만으로 상황을 추론한다.
+def infer_situation(ctx: StepContext) -> tuple[str, float]:
+    """관측만으로 상황을 추론한다. (상황, 그 판단에 대한 확신) 을 낸다.
 
     정답 플래그를 쓰지 않는다 — 어차피 ①이 주지 않는다.
-    이용률 / 임계값 비가 가장 큰 슬라이스를 보고 해당 상황으로 판정한다.
+    이용률 / 임계값 비가 가장 큰 슬라이스를 보고 해당 상황으로 판정하고,
+    1등과 2등의 간격을 확신으로 삼는다. 간격이 좁으면 어느 상황인지 애매하다.
     """
     obs = ctx.observation
     util, thr = obs["utilization"], obs["thresholds"]
     ratio = {k: util[k] / max(thr[k], 1e-9) for k in util}
 
+    ordered = sorted(ratio.values(), reverse=True)
+    margin = ordered[0] - ordered[1]
+    conf = min(1.0, 0.5 + margin)
+
     top = max(ratio, key=ratio.get)
     if ratio[top] < DOMINANT_RATIO:
-        return "normal"
-    return {"urllc": "emergency", "embb": "special_event", "mmtc": "iot_surge"}[top]
+        # 임계에 못 미치면 평시로 본다. 1등이 임계에 가까울수록 확신이 낮다.
+        return "normal", min(1.0, 0.5 + (DOMINANT_RATIO - ratio[top]))
+    return {"urllc": "emergency", "embb": "special_event", "mmtc": "iot_surge"}[top], conf
 
 
 def pick_policy(ctx: StepContext) -> str:
-    """경험적 신뢰도가 가장 높은 정책을 고른다.
+    """검증된 정책 중 경험적 신뢰도가 가장 높은 것을 고른다.
 
     이력이 10스텝 미만이면 lstm_forecast 는 어차피 unavailable 이므로 제외한다
     (spec/policy.md:150).
+
+    ⚠️ n=0 인 정책을 effective 로 같이 줄 세우면 안 된다. 그 값은 성적이 아니라
+    사전값(0.5)이고, 성적표를 쌓은 정책은 0.5 아래로 내려가므로 **한 번도 안
+    써본 정책이 항상 이긴다.** 그런데 그 정책은 recent_error 가 없어 ②가 보수적
+    기본값을 쓰고(실측 conf 0.2231), combined 가 임계에 못 미쳐 에스컬레이션되며,
+    에스컬레이션된 스텝의 성적은 폴백 정책에 붙으므로 n 은 영원히 0 으로 남는다.
+    빠져나올 수 없다 — 2026-09-22 측정에서 30스텝 중 20스텝이 연속 개입이었다.
+
+    그래서 검증된 정책이 하나라도 있으면 그 안에서만 고른다. 부작용으로 이
+    판단자는 lstm_forecast 를 쓰지 않게 되는데, 이 파일은 LLM 자리를 메우는
+    임시 구현이므로 단순하고 안정적인 편이 낫다. 미검증 정책을 언제 시험할지는
+    판단의 영역이고, 그건 LLM 판단자의 몫이다.
     """
     candidates = ["rule_based"]
-    if (ctx.history or {}).get("n_available", 0) >= 10:
+    if (ctx.history or {}).get("n_available", 0) >= HISTORY_N:
         candidates.append("lstm_forecast")
-    return max(candidates, key=ctx.effective)
+
+    proven = [p for p in candidates if ctx.samples(p) > 0]
+    return max(proven or candidates, key=ctx.effective)
