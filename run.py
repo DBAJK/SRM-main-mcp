@@ -11,26 +11,77 @@
 
 import argparse
 import logging
+import shutil
+import subprocess
 import sys
+from pathlib import Path
 
 from agent.backends.mock import MockBackend
 from agent.deciders.rule import rule_decider
 from agent.guard import ForbiddenLeak, Guard
-from agent.loop import run_episode
+from agent.llm import LLMError
+from agent.loop import ToolRefused, run_episode
 from agent.tools import Tools
+from agent.trace import server_log_dir
+from agent.trace import setup as setup_trace
 
+ROOT = Path(__file__).resolve().parent
 SCENARIOS = ("normal", "emergency", "special_event", "iot_surge", "mixed")
 
 
-def build_tools(backend_name: str, seed: int, guard_enabled: bool) -> Tools:
-    if backend_name == "mock":
-        backend = MockBackend(seed=seed)
-    else:
-        raise SystemExit(
-            f"백엔드 '{backend_name}' 은 아직 없다. "
-            "A·B의 서버가 나오면 agent/backends/mcp.py 를 추가한다."
-        )
-    return Tools(backend, Guard(enabled=guard_enabled))
+def build_backend(args):
+    if args.backend == "mock":
+        return MockBackend(seed=args.seed)
+
+    from agent.backends.mcp import McpBackend
+
+    mock_for = [s.strip() for s in args.mock_for.split(",") if s.strip()]
+    run_id = f"{args.arm}-{args.scenario}-s{args.seed}"
+    return McpBackend(
+        mock_for=mock_for,
+        desc_mode=args.desc_mode,
+        memory_mode=args.memory_mode,
+        run_id=run_id,
+        log_dir=server_log_dir(run_id, ROOT),
+    )
+
+
+def _reset_vendors() -> None:
+    """③의 평판을 초기 상태로 되돌린다.
+
+    SLICE_MEMORY_MODE=cold 는 ⑤의 reliability.json 만 runs/ 로 격리한다. ③의
+    data/vendors.json 은 그 변수를 보지 않고, 부트스트랩이 정한다
+    (market/server.py:9~10 — "cold 는 시나리오마다 bootstrap_vendors.py --force").
+
+    안 하면 앞선 실행이 남긴 평판이 다음 실행의 벤더 순위를 바꿔, 같은 시드로
+    돌려도 결과가 갈린다 (2026-09-22 측정: 15스텝 2회에 조달 벤더가
+    vendor-5 ↔ vendor-3 로 갈리며 개입 1회 ↔ 4회).
+    """
+    script = ROOT / "tools" / "bootstrap_vendors.py"
+    if not script.exists():
+        print(f"[주의] {script} 가 없다. ③ 평판이 초기화되지 않는다.")
+        return
+
+    r = subprocess.run([sys.executable, str(script), "--force"],
+                       capture_output=True, text=True, encoding="utf-8",
+                       errors="replace", cwd=str(ROOT))
+    if r.returncode != 0:
+        raise SystemExit(f"벤더 부트스트랩 실패:\n{r.stdout}\n{r.stderr}")
+    print("[fresh] ③ 벤더 평판 초기화")
+
+
+def build_decider(args):
+    """판단자를 고른다. loop.py 는 어느 쪽인지 모른다 — 같은 Decider 다."""
+    if args.decider == "rule":
+        return rule_decider
+
+    from agent.deciders.llm import LlmDecider
+    from agent.llm.claude_cli import ClaudeCLI
+
+    llm = ClaudeCLI(exe=args.llm_exe, model=args.llm_model, timeout=args.llm_timeout)
+    llm.require_login()   # 60스텝 돌다 인증으로 죽는 일이 없게, 시작 전에 확인한다
+    print(f"LLM: {llm.exe} · 모델 {llm.model}")
+    return LlmDecider(llm)
 
 
 def main() -> int:
@@ -41,36 +92,83 @@ def main() -> int:
     p.add_argument("--arm", default="proposed", help="비교군 이름. run_id 에 박힌다")
     p.add_argument("--backend", choices=("mock", "mcp"), default="mock")
     p.add_argument("--decider", choices=("rule", "llm"), default="rule")
+    p.add_argument("--intent", default=None,
+                   help="사람이 처음 한 번 주는 자연어 상황. llm 판단자만 읽는다")
+    p.add_argument("--llm-model", default="sonnet", help="claude CLI 의 --model")
+    p.add_argument("--llm-timeout", type=float, default=120.0, help="LLM 1회 제한(초)")
+    p.add_argument("--llm-exe", default=None, help="claude 실행 파일 경로 (기본: 자동 탐색)")
+    p.add_argument("--mock-for", default="",
+                   help="mcp 백엔드에서 목으로 대신할 서버. 쉼표 구분 (예: observe,audit)")
+    p.add_argument("--desc-mode", choices=("minimal", "advisory"), default="minimal",
+                   help="②의 도구 설명 수위")
+    p.add_argument("--memory-mode", choices=("warm", "cold"), default="warm",
+                   help="③⑤의 상태 유지 위치")
+    p.add_argument("--trace", action="store_true",
+                   help="도구 호출·LLM 문답을 콘솔에도 쏟는다 "
+                        "(파일 runs/<run_id>/trace.log 는 항상 남는다)")
+    p.add_argument("--fresh", action="store_true",
+                   help="같은 run_id 의 이전 기록을 지우고 시작한다 (duplicate_decision 방지)")
     p.add_argument("-v", "--verbose", action="store_true")
     args = p.parse_args()
 
-    logging.basicConfig(
-        level=logging.DEBUG if args.verbose else logging.INFO,
-        format="%(message)s",
-    )
+    # 레벨은 setup_trace 가 정한다 — agent 로거는 DEBUG, 콘솔 핸들러만 걸러낸다.
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
 
-    if args.decider == "llm":
-        raise SystemExit("llm 판단자는 아직 없다. agent/deciders/llm.py 를 추가한다.")
+    if args.intent and args.decider != "llm":
+        print("[주의] --intent 는 llm 판단자만 읽는다. 규칙 판단자는 무시한다.")
 
     run_id = f"{args.arm}-{args.scenario}-s{args.seed}"
+
+    # ④의 장부는 runs/<run_id>/ 에 누적된다. 같은 run_id 로 다시 돌리면 그 스텝이
+    # 이미 있어 duplicate_decision 으로 거부당한다.
+    book = ROOT / "runs" / run_id
+    if args.fresh and book.exists():
+        shutil.rmtree(book)
+        print(f"[fresh] 이전 기록 삭제: {book}")
+    elif book.exists():
+        print(f"[주의] {book} 에 이전 기록이 있다. 충돌하면 --fresh 를 준다.")
+
+    if args.fresh or args.memory_mode == "cold":
+        _reset_vendors()
+
+    # 추적은 항상 파일에 남는다. --trace 는 콘솔에도 쏟을지만 정한다.
+    trace_path = setup_trace(run_id, console=args.trace or args.verbose, root=ROOT)
+    print(f"기록: {trace_path.parent}")
     # baseline 만 정답 접근이 허용된다 (flow/forbidden.md:15). 그 arm 은
     # arms/baseline.py 가 별도 경로로 실행하므로 여기서는 항상 검사한다.
-    tools = build_tools(args.backend, args.seed, guard_enabled=True)
+    # 판단자를 먼저 만든다. 실행파일·인증 문제로 죽을 거면 서버 5개를 띄우기
+    # 전에 죽어야 한다 — 뒤에 두면 stdio 프로세스가 고아로 남는다.
+    decide = build_decider(args)
+    backend = build_backend(args)
+    tools = Tools(backend, Guard(enabled=True))
+
+    if args.backend == "mcp":
+        print(f"실제 서버: {backend.live}"
+              + (f" · 목: {sorted(backend._mock_for)}" if backend._mock_for else ""))
 
     try:
         results = run_episode(
-            tools, rule_decider, run_id,
+            tools, decide, run_id,
             scenario=args.scenario, seed=args.seed, max_steps=args.steps,
+            intent=args.intent,
         )
+        _summarize(tools, results, run_id, decide)  # get_metrics 가 서버를 쓴다. 닫기 전에
     except ForbiddenLeak as e:
         print(f"\n[폐기] {e}", file=sys.stderr)
         return 2
-
-    _summarize(tools, results, run_id)
+    except LLMError as e:
+        print(f"\n[LLM 실패] {e}", file=sys.stderr)
+        return 3
+    except ToolRefused as e:
+        print(f"\n[도구 거부] {e}", file=sys.stderr)
+        return 4
+    finally:
+        if hasattr(backend, "close"):
+            backend.close()
     return 0
 
 
-def _summarize(tools: Tools, results: list, run_id: str) -> None:
+def _summarize(tools: Tools, results: list, run_id: str, decide=None) -> None:
     if not results:
         print("스텝이 실행되지 않았다.")
         return
@@ -95,6 +193,15 @@ def _summarize(tools: Tools, results: list, run_id: str) -> None:
     m = tools.get_metrics()
     print(f"  ④ 지표      steps={m['steps']} interventions={m['interventions']} "
           f"sla_violations={m['sla_violations']} cost={m['procurement_cost_total']}")
+
+    llm = getattr(decide, "_llm", None)
+    if llm is not None:
+        print(f"  LLM         호출 {llm.calls}회 · {llm.elapsed:.1f}초 "
+              f"(스텝당 {llm.elapsed / len(results):.1f}초) · "
+              f"형식위반 {decide.malformed} · 정책전환 {decide.policy_switches}")
+        print(f"  토큰        입력 {llm.tokens_in:,} · 출력 {llm.tokens_out:,} "
+              f"· 비용 ${llm.cost_usd:.4f} "
+              f"(스텝당 {(llm.tokens_in + llm.tokens_out) / len(results):,.0f})")
 
     first = results[0]
     print(f"\n  첫 스텝 도구 호출 {first.tool_calls}회 · "

@@ -10,6 +10,7 @@ import logging
 from typing import Callable, Optional
 
 from .schema import (
+    ESCALATION_THRESHOLD,
     HISTORY_N,
     PROCURE_PRESSURE,
     Decision,
@@ -64,7 +65,9 @@ class BoundProposer:
         return out
 
 
-def run_step(tools: Tools, decide: Decider, run_id: str) -> StepResult:
+def run_step(
+    tools: Tools, decide: Decider, run_id: str, intent: Optional[str] = None
+) -> StepResult:
     """한 스텝. 부작용 있는 도구의 호출 횟수는 명세가 정한 대로만 일어난다."""
     tools.reset_counts()
 
@@ -84,6 +87,7 @@ def run_step(tools: Tools, decide: Decider, run_id: str) -> StepResult:
         history=history,
         reliability=reliability,
         demand_class=demand_class,
+        intent=intent,
     )
 
     # ── 3. 판단 (② 호출은 판단자가 proposer 로 한다) ─────────────────
@@ -99,6 +103,19 @@ def run_step(tools: Tools, decide: Decider, run_id: str) -> StepResult:
         procurement = _procure(tools, obs, step_no)
 
     # ── 5. 기록 (실행보다 먼저) ──────────────────────────────────────
+    # 조달 3필드는 두 경로 **모두** 에 실어야 한다. 에스컬레이션 쪽에 빠뜨리면
+    # 그 스텝의 조달이 아무 데도 안 남는다 — ④의 procurements·비용이 그만큼
+    # 적게 세고, ⑤가 이 레코드에서 vendor_id 를 찾으므로 ⑤→③ 레이팅 되먹임이
+    # 끊긴다. 하필 압력이 가장 높아 조달이 가장 필요한 스텝에서만 끊기므로
+    # 표본이 편향된다 (audit/server.md:84 · audit/book.py:189~196).
+    # record_escalation 뒤에 record_decision 을 부르는 길은 duplicate_decision
+    # 으로 막혀 있어 복구 경로도 없다.
+    relay = {
+        "slice_id": procurement.get("slice_id") if procurement else None,
+        "vendor_id": procurement.get("vendor_id") if procurement else None,
+        "cost_total": procurement.get("cost_total") if procurement else None,
+    }
+
     if decision.escalate:
         esc = tools.record_escalation(
             step=step_no,
@@ -106,7 +123,9 @@ def run_step(tools: Tools, decide: Decider, run_id: str) -> StepResult:
             situation=decision.situation,
             reason=_escalation_reason(decision),
             confidence=decision.confidence(),
+            **relay,
         )
+        _require(esc, "record_escalation", step_no)
         # 한 호출이 escalation + decision 레코드를 둘 다 남긴다 (spec/audit.md:53)
         decision_id = esc["decision_id"]
         allocation = esc["fallback_allocation"]
@@ -123,9 +142,9 @@ def run_step(tools: Tools, decide: Decider, run_id: str) -> StepResult:
             in_distribution=decision.in_distribution,
             demand_class=decision.demand_class,
             considered=decision.considered or None,
-            slice_id=procurement.get("slice_id") if procurement else None,
-            vendor_id=procurement.get("vendor_id") if procurement else None,
+            **relay,
         )
+        _require(rec, "record_decision", step_no)
         decision_id = rec["decision_id"]
         allocation = decision.allocation
         escalated = False
@@ -145,6 +164,14 @@ def run_step(tools: Tools, decide: Decider, run_id: str) -> StepResult:
         tools.update_rating(
             vendor_id=outcome["vendor_id"],
             outcome={"sla_met": outcome["sla_met"], "decision_id": decision_id},
+        )
+
+    if logger.isEnabledFor(logging.DEBUG):
+        logger.debug(
+            "  = %s · %s / %s · combined %.3f · sla_met %s",
+            "개입" if escalated else "자율",
+            decision.situation, decision.policy, decision.combined,
+            outcome.get("sla_met"),
         )
 
     return StepResult(
@@ -167,15 +194,21 @@ def run_episode(
     scenario: str = "normal",
     seed: int = 0,
     max_steps: Optional[int] = None,
+    intent: Optional[str] = None,
 ) -> list[StepResult]:
-    """한 에피소드 전체. reset 으로 시작한다."""
+    """한 에피소드 전체. reset 으로 시작한다.
+
+    intent 는 사람이 처음 한 번 주는 자연어 상황이고, 모든 스텝에 같은 값이
+    전달된다. 스텝마다 사람에게 다시 묻지 않는 것이 이 구조의 요점이다.
+    """
     info = tools.reset(run_id=run_id, scenario=scenario, seed=seed)
     total = int(info.get("total_steps", 60))
     limit = total if max_steps is None else min(total, max_steps)
 
     results: list[StepResult] = []
-    for _ in range(limit):
-        r = run_step(tools, decide, run_id)
+    for i in range(limit):
+        logger.debug("─── 스텝 %d %s", i, "─" * 56)
+        r = run_step(tools, decide, run_id, intent=intent)
         results.append(r)
         if r.episode_done:
             break
@@ -188,6 +221,31 @@ def run_episode(
         sum(1 for r in results if r.sla_met is False),
     )
     return results
+
+
+class ToolRefused(RuntimeError):
+    """도구가 오류를 **값으로** 돌려줬다 (spec/flow/errors.md).
+
+    예외가 아니라 `{"error": ...}` 로 오므로 키를 꺼내 쓰기 전에 봐야 한다.
+    안 보면 KeyError 로 엉뚱한 자리에서 터진다.
+    """
+
+
+def _require(rec: dict, where: str, step: int) -> None:
+    """④가 낸 오류를 조용히 넘기지 않는다 (CLAUDE.md 조용한 폴백 금지)."""
+    if not isinstance(rec, dict) or "error" not in rec:
+        return
+
+    err = rec["error"]
+    hint = ""
+    if err == "duplicate_decision":
+        # 같은 run_id 의 장부에 이 스텝이 이미 있다. runs/<run_id>/decisions.json
+        # 이 이전 실행분을 들고 있는 것이다.
+        hint = ("\n  같은 run_id 로 이미 기록된 스텝이다. --fresh 로 이전 기록을 "
+                "지우거나 --arm/--seed 를 바꿔 run_id 를 달리한다.")
+    raise ToolRefused(
+        f"{where}(step={step}) 가 거부됐다: {err} — {rec.get('reason', '')}{hint}"
+    )
 
 
 # ── 내부 ──────────────────────────────────────────────────────────────
@@ -251,6 +309,7 @@ def _escalation_reason(d: Decision) -> str:
     if d.allocation is None:
         return f"policy_failed: {d.policy} returned no allocation"
     return (
-        f"low_confidence: combined {d.combined:.3f} < 0.45 "
-        f"(intrinsic {d.conf_intrinsic:.3f}, empirical {d.conf_empirical:.3f})"
+        f"low_confidence: combined {d.combined:.3f} < {ESCALATION_THRESHOLD} "
+        f"(intrinsic {d.conf_intrinsic:.3f}, empirical {d.conf_empirical:.3f}, "
+        f"situation {d.conf_situation:.3f})"
     )
