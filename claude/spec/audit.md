@@ -57,13 +57,18 @@
 
 **이 도구를 호출한 것 자체가 개입 1회다.** 사람의 응답을 기다리지 않는다. **한 호출이 `kind: "escalation"` 레코드와 `kind: "decision"` 레코드를 같은 `step`으로 둘 다 남긴다.**
 
-| 파라미터 | 타입 | 필수 |
-|---|---|---|
-| `step` | int | 예 |
-| `observation` | `Observation` | 예 |
-| `situation` | `Situation` | 예 |
-| `reason` | string | 예 |
-| `confidence` | object | 예 (`situation` 포함) |
+| 파라미터 | 타입 | 필수 | 출처 |
+|---|---|---|---|
+| `step` | int | 예 | |
+| `observation` | `Observation` | 예 | |
+| `situation` | `Situation` | 예 | |
+| `reason` | string | 예 | |
+| `confidence` | object | 예 (`situation` 포함) | |
+| `slice_id` | string \| null | 아니오 | ③ `procure().slice_id` |
+| `vendor_id` | string \| null | 아니오 | ③ `procure().vendor_id` |
+| `cost_total` | float \| null | 아니오 | ③ `procure().cost_total` |
+
+**조달 3필드는 `record_decision` 과 같은 중계선이다 ⚠️** 에스컬레이션한 스텝에 조달했는데 여기에 넘기지 않으면 그 조달은 **아무 데도 남지 않는다** — 뒤이어 `record_decision` 을 부르는 길은 `duplicate_decision` 으로 막혀 있어 복구 경로도 없다. 그러면 `get_metrics.procurements` · `procurement_cost_total` 이 그만큼 적게 세고, ⑤ `report_outcome` 이 이 레코드에서 `vendor_id` 를 찾으므로 항상 `null` 이 되어 **⑤→③ 레이팅 되먹임이 끊긴다.** 하필 `demand_pressure` 가 가장 높아 조달이 가장 필요한 스텝에서만 끊기므로 마켓 자기 개선의 증거가 편향된 표본 위에 남는다.
 
 | 출력 필드 | 타입 | 설명 |
 |---|---|---|

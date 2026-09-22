@@ -10,11 +10,32 @@ INIT_ALLOCATION = {"embb": 0.4, "urllc": 0.4, "mmtc": 0.2}   # :171
 STABILITY_FACTOR = 0.7                                        # :458
 ALLOC_CLIP = (0.1, 0.8)                                       # :461
 SEQUENCE_LENGTH = 10                                          # :190
-CAPACITY_MAX = 2.0                                            # 신규 (정정 K)
+
+# ── 용량 배수 (정정 K · rationale/environment.md 재조정) ────────
+# handover §4-④ 에서 동결. 구버전 스텁은 CAPACITY_MAX = 2.0 · CAPACITY_BASE 없음이었다.
+CAPACITY_BASE = 1.6   # 조달 전 기본 용량. 평시 여유를 만들어 normal 압력 초과를 5.6% 로 내린다
+CAPACITY_MAX = 2.6    # 기본 + 조달 4회분. 3.6 이면 모든 스텝이 조달로 해소되어 에스컬레이션이 무의미해진다
 
 # ── 가상 시계 (정정 F) ──────────────────────────────────────────
 MINUTES_PER_STEP = 15
-START_HOUR = 8
+START_HOUR = 0        # 자정 시작. 8 이면 하필 고부하 구간이라 평시 압력 초과가 53% 로 뛴다
+# 학습 데이터의 day_of_week · time_of_day 는 10,000행 전부가 서로 다른 U(0,1) 난수라
+# 실제 시계에서 온 값이 아니다. 가상 시계(월요일 0.0 · 자정 0.0)와 비교할 수 없으므로
+# ②가 분포 판정에서 두 열을 제외한다 (policy/features.py UNGATED_COLUMNS).
+START_DAY_OF_WEEK = 0  # 0 = 월요일 (spec/observe.md sim_time.day_of_week)
+
+# ── 단말·기지국 피처 분포 정합 ─────────────────────────────────
+# 원본 :507~508 의 `0.4 + 0.3·sin`, `0.5 + 0.1·randn` 은 dqn_training_data.csv 의
+# client_count [0.3509, 1.0] (평균 0.80) · bs_count [0.4490, 0.99986] (평균 0.77) 보다
+# 체계적으로 낮게 뽑힌다. 행 단위 이탈률이 14.8% · 28.4% 라 10행 창 하나가 통과하지 못하고
+# lstm_forecast 의 신뢰도가 영구히 0 이 된다 (측정: 4시나리오 × 3시드, 624창 중 0창 통과).
+# 두 값은 트래픽·이용률에 관여하지 않는 피처 전용 값이라, 모양은 두고 중심만 옮긴다.
+# ⚠️ 난수 소비 횟수와 순서는 그대로다 (observe/env.py 파일 docstring).
+CLIENT_COUNT_BASE = 0.68        # 원본 0.4
+CLIENT_COUNT_AMPLITUDE = 0.20   # 원본 0.3. 학습 범위 안에서 ±3σ 여유를 남긴다
+CLIENT_COUNT_BAND = (0.36, 0.99)
+BS_COUNT_BASE = 0.72            # 원본 0.5
+BS_COUNT_BAND = (0.46, 0.99)
 
 # ── 에스컬레이션 · 신뢰도 (설계서 §6.1~6.2) ─────────────────────
 TAU = 0.45          # ⚠️ 실험 전 확정. 이후 절대 건드리지 않는다

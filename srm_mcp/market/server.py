@@ -56,6 +56,20 @@ TOOL_DESC = {
 # procure 가 과거 스텝을 거르기 위해 기억하는 값 (flow/errors.md).
 # ③은 무상태에 가깝지만 시뮬레이션 시각만은 단조 증가를 확인해야 한다.
 _last_step: int = -1
+
+# 에피소드 경계를 넘는 후퇴는 순서 실수가 아니라 **새 에피소드**다.
+# ③에는 reset 도구가 없고(spec/tools.md 의 도구 5개가 전부) ①의 reset 을 볼 수도 없으므로
+# 후퇴 폭으로 구분한다. 한 번의 step() 이 최대 10스텝(observe/env.py STEP_RANGE)을
+# 전진시키므로 에피소드 **안에서** 생길 수 있는 최대 후퇴 폭도 10이다. 그보다 크게 뒤로
+# 가면 새 에피소드로 보고 가드를 리베이스한다.
+#
+# 이게 없으면 warm 모드에서 ③ 프로세스가 실행 경계를 넘어 살아 있을 때(설계서 §5.0 —
+# ③은 초기화하지 않는 것이 기본이다) 두 번째 시나리오가 step 0 에서 시작하는 순간
+# **그 실행의 모든 조달이 stale_step 으로 거부된다.**
+#
+# 남는 빈틈: 직전 에피소드가 10스텝 이내에서 끝났고 다음 에피소드의 첫 조달이 그보다
+# 앞선 스텝이면 여전히 거부된다. 그때는 다음 스텝에 다시 부르면 통과한다.
+MAX_STEP_REWIND = 10
 # 조달 원장. 비용 집계는 ④가 하므로 파일로 남기지 않는다 (설계서 §5.0에 경로 없음).
 _procurements: list[dict] = []
 
@@ -225,7 +239,10 @@ def procure(vendor_id: str, slice_type: str, qos_requirements: dict,
                 "cost_total": 0.0, "capacity_gain": 0.0, "expires_at_step": None,
                 "reason": f"duration_out_of_range: {duration_steps} not in [{low}, {high}]"}
 
-    if current_step < _last_step:
+    # 후퇴 폭이 MAX_STEP_REWIND 이내일 때만 순서 실수로 본다. 그보다 크면 새 에피소드라
+    # 판단해 가드를 리베이스한다 (아래 _last_step 대입이 곧 리베이스다).
+    rewind = _last_step - int(current_step)
+    if 0 < rewind <= MAX_STEP_REWIND:
         return {"slice_id": None, "status": "rejected", "vendor_id": vendor_id,
                 "cost_total": 0.0, "capacity_gain": 0.0, "expires_at_step": None,
                 "reason": f"stale_step: current_step {current_step} < 직전 조달 {_last_step}"}

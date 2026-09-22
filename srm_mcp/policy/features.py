@@ -107,11 +107,32 @@ def ranges_available() -> bool:
     return paths.POLICY_RANGES_JSON.exists()
 
 
+# 분포 판정에서 제외하는 열.
+#
+# 학습 데이터(`dqn_training_data.csv`)의 이 두 열은 10,000행이 전부 다른 값이고
+# min 0.0000525 / max 0.999974, 평균 0.497 — 실제 시계가 아니라 **U(0,1) 난수**다.
+# 반면 ①의 가상 시계는 자정을 정확히 0.0, 월요일을 정확히 0.0 으로 낸다. 눈금이 다른
+# 두 값을 min/max 로 비교하면 판정이 시각 자체에 걸려 상시 발화한다 — 측정하면
+# day_of_week 100% · time_of_day 6.6% 가 "범위 밖"이고, 10행 창 624개 중 통과가 0개였다.
+# `confidence = exp(−3·ē)·𝟙[in_distribution]` (build/formulas.md) 때문에 그 순간
+# `lstm_forecast` 의 신뢰도가 영구히 0 이 되어 에이전트가 그 정책을 영영 고르지 않는다.
+#
+# 모델이 실제로 학습한 신호(traffic_load · alloc · util · client/bs count)로만 판정한다.
+# **이용률은 반드시 남긴다** — 조달로 용량이 늘어 분포를 벗어나는 것은 눈금 문제가 아니라
+# 정직한 신호다 (rationale/observe.md).
+UNGATED_COLUMNS = ("time_of_day", "day_of_week")
+
+
 def out_of_range(rows: Sequence[Sequence[float]]) -> list[str]:
-    """학습 범위를 벗어난 피처 이름. 하나라도 있으면 in_distribution = false."""
+    """학습 범위를 벗어난 피처 이름. 하나라도 있으면 in_distribution = false.
+
+    `UNGATED_COLUMNS` 는 세지 않는다 — 학습 데이터 쪽이 난수라 기준이 되지 못한다.
+    """
     ranges = load_ranges()
     outside = []
     for i, name in enumerate(FEATURE_COLUMNS):
+        if name in UNGATED_COLUMNS:
+            continue
         bounds = ranges.get(name)
         if bounds is None:
             outside.append(name)

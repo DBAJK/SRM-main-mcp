@@ -31,6 +31,11 @@ import shutil
 import sys
 from pathlib import Path
 
+# Windows 기본 콘솔은 cp949 라 '—' 한 글자에 UnicodeEncodeError 로 죽는다.
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
+
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
@@ -226,28 +231,34 @@ class MockAudit:
 
     def record_decision(self, step: int, observation: dict, situation: str,
                         chosen_policy: str, allocation: dict, confidence: dict,
-                        rationale: str, slice_id=None, vendor_id=None,
+                        rationale: str, slice_id=None, vendor_id=None, cost_total=None,
                         in_distribution=True, demand_class=None, considered=None) -> dict:
         decision_id = self._next_id(step)
         self.book["decisions"].append({
             "decision_id": decision_id, "step": step, "kind": "decision",
             "situation": situation, "chosen_policy": chosen_policy,
             "allocation": allocation, "confidence": confidence, "rationale": rationale,
-            "slice_id": slice_id, "vendor_id": vendor_id,
+            "slice_id": slice_id, "vendor_id": vendor_id, "cost_total": cost_total,
             "in_distribution": in_distribution, "demand_class": demand_class,
             "considered": considered, "observation": observation, "outcome": None})
         self._flush()
         return {"decision_id": decision_id}
 
     def record_escalation(self, step: int, observation: dict, situation: str,
-                          reason: str, confidence: dict,
-                          fallback_allocation: dict) -> dict:
+                          reason: str, confidence: dict, fallback_allocation: dict,
+                          slice_id=None, vendor_id=None, cost_total=None) -> dict:
+        """조달 3필드는 `record_decision` 과 같은 중계선이다 (spec/audit.md).
+
+        에스컬레이션한 스텝에 조달했는데 여기에 안 실으면 그 조달이 레코드에 안 남아
+        ⑤ `report_outcome` 이 `vendor_id: null` 을 돌려주고 ⑤→③ 레이팅 되먹임이 끊긴다.
+        """
         decision_id = self._next_id(step)
         self.book["decisions"].append({
             "decision_id": decision_id, "step": step, "kind": "escalation",
             "situation": situation, "reason": reason, "confidence": confidence,
             "chosen_policy": "rule_based", "fallback_allocation": fallback_allocation,
-            "allocation": fallback_allocation, "slice_id": None, "vendor_id": None,
+            "allocation": fallback_allocation,
+            "slice_id": slice_id, "vendor_id": vendor_id, "cost_total": cost_total,
             "observation": observation, "outcome": None})
         self._flush()
         return {"escalation_id": decision_id, "decision_id": decision_id,
@@ -330,7 +341,7 @@ async def run(scenario: str, steps: int, seed: int, verbose: bool,
     log: list[dict] = []
     chain = {"decision_id→report": 0, "vendor_id→update_rating": 0,
              "capacity_gain→add_capacity": 0, "recent_error→propose": 0,
-             "procure→record_decision": 0}
+             "procure→record": 0}
     escalations = 0
 
     async with Client(transport("srm_mcp.policy.server", env)) as pol, \
@@ -356,31 +367,13 @@ async def run(scenario: str, steps: int, seed: int, verbose: bool,
                 "observation": obs, "situation": situation, "history": hist,
                 "recent_errors": table})).data
             chosen, combined = choose_policy(proposals, table)
-
-            # 3b. 에스컬레이션 — combined < τ 면 개입 1회 + 안전 기본 동작
             escalated = chosen is None or combined < TAU
-            if escalated:
-                escalations += 1
-                # 설계서 §3.5 — 사람이 올 때까지의 **안전 기본 동작**은
-                # rule_based + situation="normal" 이다. 에이전트의 판단을 그대로
-                # 쓰면 "사람을 불렀다"는 사실이 행동에 아무 영향을 주지 않아
-                # 개입 지표가 장식이 된다.
-                fallback = (await pol.call_tool("propose_allocation", {
-                    "policy": "rule_based", "observation": obs,
-                    "situation": "normal"})).data
-                res = audit.record_escalation(
-                    t, obs, situation,
-                    f"combined {combined:.3f} < tau {TAU}",
-                    {"intrinsic": chosen["confidence"] if chosen else 0.0,
-                     "empirical": table["rule_based"]["effective"], "combined": combined},
-                    fallback["allocation"])
-                decision_id = res["decision_id"]
-                allocation, policy = fallback["allocation"], "rule_based"
-            else:
-                allocation, policy = chosen["allocation"], chosen["policy"]
 
-            # 4. ③ 조달 분기 — 기록보다 **앞선다** (spec/tools.md 4번)
-            slice_id = vendor_id = None
+            # 4. ③ 조달 분기 — 기록보다 **앞선다** (spec/tools.md 4번).
+            #    **에스컬레이션한 스텝도 건너뛰지 않는다.** 사람을 부른 것은 기록이지
+            #    "아무것도 하지 말라"가 아니고, demand_pressure ≥ 1.0 이면 폴백 배분
+            #    [0.4, 0.4, 0.2] 로는 어떤 배분으로도 SLA 를 못 지켜 용량이 유일한 지렛대다.
+            slice_id = vendor_id = cost_total = None
             gain = 0.0
             if obs["demand_pressure"] >= 1.0:
                 worst = max(SLICE_KEYS,
@@ -402,21 +395,36 @@ async def run(scenario: str, steps: int, seed: int, verbose: bool,
                         chain["capacity_gain→add_capacity"] += 1
                         gain = proc["capacity_gain"]
                     slice_id, vendor_id = proc["slice_id"], proc["vendor_id"]
-                    chain["procure→record_decision"] += 1
+                    cost_total = proc["cost_total"]
+                    chain["procure→record"] += 1
 
-            # 5. ④ 기록 — slice_id · vendor_id 를 싣는다
-            if not escalated:
+            # 5. ④ 기록 — 조달 3필드를 싣는다. 두 분기 모두 같은 자리에 싣는다.
+            if escalated:
+                escalations += 1
+                # 설계서 §3.5 — 사람이 올 때까지의 **안전 기본 동작**은
+                # rule_based + situation="normal" 이다. 에이전트의 판단을 그대로
+                # 쓰면 "사람을 불렀다"는 사실이 행동에 아무 영향을 주지 않아
+                # 개입 지표가 장식이 된다.
+                fallback = (await pol.call_tool("propose_allocation", {
+                    "policy": "rule_based", "observation": obs,
+                    "situation": "normal"})).data
+                decision_id = audit.record_escalation(
+                    t, obs, situation,
+                    f"combined {combined:.3f} < tau {TAU}",
+                    {"intrinsic": chosen["confidence"] if chosen else 0.0,
+                     "empirical": table["rule_based"]["effective"], "combined": combined},
+                    fallback["allocation"],
+                    slice_id, vendor_id, cost_total)["decision_id"]
+                allocation, policy = fallback["allocation"], "rule_based"
+            else:
+                allocation, policy = chosen["allocation"], chosen["policy"]
                 decision_id = audit.record_decision(
                     t, obs, situation, policy, allocation,
                     {"intrinsic": chosen["confidence"],
                      "empirical": table[policy]["effective"], "combined": round(combined, 4)},
-                    chosen["rationale"], slice_id, vendor_id,
+                    chosen["rationale"], slice_id, vendor_id, cost_total,
                     chosen["in_distribution"], demand.get("dominant"),
                     [p["policy"] for p in proposals if p["status"] == "ok"])["decision_id"]
-            elif vendor_id:
-                audit.book["decisions"][-1]["vendor_id"] = vendor_id
-                audit.book["decisions"][-1]["slice_id"] = slice_id
-                audit._flush()
 
             # 6~7. ① 적용 → 전진
             applied = env1.apply_allocation(**allocation)
@@ -508,8 +516,8 @@ def verify(result: dict) -> None:
     check("capacity_gain → add_capacity", chain["capacity_gain→add_capacity"] == procured,
           f"{procured}회 조달, {chain['capacity_gain→add_capacity']}회 반영")
     check("vendor_id → update_rating (⑤→③ 되먹임)",
-          chain["vendor_id→update_rating"] == chain["procure→record_decision"],
-          f"조달 {chain['procure→record_decision']}회 → 레이팅 갱신 "
+          chain["vendor_id→update_rating"] == chain["procure→record"],
+          f"조달 {chain['procure→record']}회 → 레이팅 갱신 "
           f"{chain['vendor_id→update_rating']}회")
     check("recent_error → propose_allocation (⑤→②)",
           chain["recent_error→propose"] > 0, f"{chain['recent_error→propose']}스텝")
@@ -519,7 +527,7 @@ def verify(result: dict) -> None:
     check("④ 레코드에 ⑤의 outcome 이 덧써졌다", len(scored) == n, f"{len(scored)}/{n}")
     with_vendor = [d for d in book["decisions"] if d.get("vendor_id")]
     check("④ 레코드에 vendor_id 가 실렸다 (조달 → 기록 순서)",
-          len(with_vendor) == chain["procure→record_decision"],
+          len(with_vendor) == chain["procure→record"],
           f"{len(with_vendor)}건")
 
     print("\n[2] eMBB · URLLC · mMTC 값이 유효한가")

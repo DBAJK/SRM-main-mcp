@@ -57,6 +57,11 @@ python tools/check_market.py        # 설계서 실측치와 대조 (fastmcp 불
 python -m srm_mcp.market.server         # ③ 기동 (fastmcp 필요 — 위 패키지 이름 충돌 참조)
 ```
 
+**`data/vendors.json` 은 git 에 없다 — clone 직후 반드시 부트스트랩부터 돌린다.**
+③ `update_rating` 이 실행 중에 이 파일을 갱신하는데(warm 은 실행에 걸쳐 누적) 추적하면
+실험을 돌릴 때마다 워킹트리가 더러워진다. 원본 `5G-Marketplace/data/vendors.json` 은
+추적되므로 생성은 결정적이다. 없이 ③을 기동하면 `FileNotFoundError` 가 부트스트랩을 가리킨다.
+
 `check_market.py` 는 `spec/market.md` 의 실측치를 그대로 박아 두었다 — URLLC 순위
 99.20 / 98.00 / 97.60 / 91.76 / 86.20, `explain_score` 기여분 5개, `cost_total` 625.0,
 `capacity_gain` 0.20·0.25·0.30. `scoring.py` 를 건드리면 여기부터 돌린다.

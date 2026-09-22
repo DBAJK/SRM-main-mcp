@@ -46,15 +46,16 @@ reset(run_id, scenario, seed)
 1. **결정의 채점은 1스텝 지연된다.** t의 결정은 t+1의 관측으로 평가된다. `report_outcome`은 반드시 `step()` 이후에 호출한다.
 2. **에피소드 마지막 결정은 채점되지 않는다.** 지표 집계에서 제외한다. 60스텝이면 유효 표본 59.
 3. **기록은 배분 실행(4)보다 먼저다.** 에이전트가 판단만 하고 실행에 실패한 경우도 ④에 남는다. 실행 후 기록이면 실패 사례가 사라져 자율 처리율이 과대평가된다.
-4. **조달(2b)만 기록보다 앞선다.** 규칙 3의 예외이며, `record_decision`이 `slice_id`·`vendor_id`를 인자로 받기 때문이다.
+4. **조달(2b)만 기록보다 앞선다.** 규칙 3의 예외이며, `record_decision`이 `slice_id`·`vendor_id`를 인자로 받기 때문이다. **에스컬레이션한 스텝도 똑같다** — 2b는 건너뛰지 않고, 조달 3필드를 `record_escalation`에 넘긴다 (`record_escalation`도 같은 인자를 받는다). 건너뛰면 `demand_pressure ≥ 1.0`에서 유일한 지렛대인 용량을 포기하는 것이고, 넘기지 않으면 그 조달이 아무 레코드에도 안 남아 ⑤→③ 레이팅 되먹임이 끊긴다.
 
 # 조달이 기록보다 앞서는 것이 규칙 3과 충돌하지 않는 이유
 
 규칙 3의 목적은 *"판단했으나 실행하지 못한 경우를 남기는 것"* 이다. 조달은 **판단의 일부로서 기록에 포함**되므로 목적이 훼손되지 않는다.
 
 ```
-조달 성공 → record_decision(slice_id="slice-...", vendor_id="vendor-1")
+조달 성공 → record_decision(slice_id="slice-...", vendor_id="vendor-1", cost_total=625.0)
 조달 실패 → record_decision(slice_id=null, rationale="procure rejected: capacity cap exceeded")
+에스컬레이션 → record_escalation(..., slice_id="slice-...", vendor_id="vendor-1", cost_total=625.0)
 ```
 
 실패해도 `rationale`에 남는다. **조달을 시도했다는 사실 자체가 판단의 증거**이므로 기록되어야 한다.

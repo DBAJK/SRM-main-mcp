@@ -39,9 +39,10 @@
 3.  ②.propose_allocation(policy, obs, situation, history, recent_error)
     [파이썬] combined = (situation × intrinsic × effective)^(1/3)
 
-    ├─ combined < 0.45  →  ④.record_escalation(...)
+    ├─ combined < 0.45  →  4는 그대로 하고, 5 대신
+    │                      ④.record_escalation(..., slice_id, vendor_id, cost_total)
     │                      → escalation_id, decision_id, fallback_allocation
-    │                      **4·5를 건너뛰고 6으로.** allocation ← fallback_allocation
+    │                      **5를 건너뛰고 6으로.** allocation ← fallback_allocation
     │                      (record_decision을 또 부르면 같은 스텝에 decision 레코드가 둘)
     │
     └─ 계속 ↓
@@ -68,9 +69,15 @@
 **1b를 빠뜨리면 `lstm_forecast`가 영영 `status: "unavailable"`(`history_insufficient`)이 되어
 정책 선택 축이 죽는다.** `history`는 3단계의 인자인데 얻는 호출이 순서에 없으면 `null`로 넘어간다.
 
-**에스컬레이션 분기는 4·5를 건너뛴다.** `record_escalation`이 이미 `decision_id`와 `fallback_allocation`을
+**에스컬레이션 분기는 5만 건너뛴다.** `record_escalation`이 이미 `decision_id`와 `fallback_allocation`을
 내므로 `record_decision`을 또 부르면 같은 스텝에 `kind: "decision"` 레코드가 둘 생기고
 `sum(policy_usage)` 불변식이 깨진다 (`spec/audit.md`).
+
+**4(조달)는 건너뛰지 않는다.** 에스컬레이션은 "사람을 불렀다"는 기록이지 "아무것도 하지 말라"가
+아니고, `demand_pressure ≥ 1.0`이면 폴백 배분 `[0.4, 0.4, 0.2]`으로는 어떤 배분으로도 SLA를
+지킬 수 없어 **용량이 유일한 지렛대다.** 조달했다면 `slice_id` · `vendor_id` · `cost_total`을
+`record_escalation`에 그대로 넘긴다 — `record_decision`과 같은 자리이며, 넘기지 않으면 그 조달이
+아무 레코드에도 안 남고 ⑤→③ 레이팅 되먹임이 끊긴다.
 
 **루프는 파이썬이 돌린다.** LLM은 2·4단계에서만 호출하며 답하는 값은 넷뿐이다 —
 `situation` · `confidence.situation` · 정책 선택 · 조달 여부. `combined`와 에스컬레이션 여부는

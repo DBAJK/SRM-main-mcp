@@ -22,7 +22,8 @@
             ▼
     [에이전트: combined = (situation × intrinsic × effective)^(1/3)]
             │
-            ├── combined < 0.45 ──→ ④.record_escalation(...) ──→ decision_id + fallback 지시
+            ├── combined < 0.45 ──→ ④.record_escalation(..., slice_id, vendor_id, cost_total)
+            │                       ──→ decision_id + fallback 지시 (조달 3필드는 아래와 같은 중계선)
             │
             ▼
     ④.record_decision(step, obs, situation, policy, allocation, confidence, rationale, ...)
@@ -62,7 +63,8 @@ obs.demand_pressure ≥ 1.0
         │ demand_pressure (반영 후)
         ▼
   [에이전트: 여전히 ≥ 1.0이면 추가 조달 또는 위반 감수]
-  slice_id · vendor_id → ④.record_decision에 함께 기록
+  slice_id · vendor_id · cost_total → ④.record_decision 에 함께 기록
+                                      (에스컬레이션한 스텝이면 ④.record_escalation 에)
 ```
 
 **③과 ①은 직접 대화하지 않는다.** `capacity_gain`을 에이전트가 옮겨 심는다. ⑤ → ③의 `update_rating` 중계, ⑤ → ②의 `recent_error` 중계와 같은 패턴이다.
@@ -83,8 +85,9 @@ obs.demand_pressure ≥ 1.0
 | ②.`classify_demand` | 출력 전체 | ④.`record_decision` | `demand_class` |
 | ②.`compare_policies` | 탈락 후보 목록 | ④.`record_decision` | `considered` |
 | ③.`score_offerings` | `vendor_id` | ③.`explain_score` · ③.`procure` | `vendor_id` |
-| ③.`procure` | `slice_id` | ④.`record_decision` · ①.`add_capacity` | `slice_id` |
-| | `vendor_id` | ④.`record_decision` | `vendor_id` |
+| ③.`procure` | `slice_id` | ④.`record_decision` \| `record_escalation` · ①.`add_capacity` | `slice_id` |
+| | `vendor_id` | ④.`record_decision` \| `record_escalation` | `vendor_id` |
+| | `cost_total` | ④.`record_decision` \| `record_escalation` | `cost_total` |
 | | `capacity_gain` | ①.`add_capacity` | `amount` |
 | | `expires_at_step` | ①.`add_capacity` | `expires_at_step` |
 | ④.`record_decision` | `decision_id` | ⑤.`report_outcome` | `decision_id` |

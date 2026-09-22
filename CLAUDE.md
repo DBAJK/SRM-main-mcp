@@ -28,7 +28,7 @@
 3. **조용한 폴백 금지** — 정책 실패는 `allocation: null` + `status`로 반환. `policy` 필드를 바꾸지 않는다.
 4. **`situation` 기본값 없음** — ②·④의 필수 인자.
 5. **numpy → 파이썬 기본형** — 반환 전 `bool()` · `.tolist()`. `violations`가 `np.bool_`이다.
-6. **`report_outcome`은 `step()` 이후**, **`record_decision`은 `apply_allocation` 이전**, **조달은 `record_decision` 이전.**
+6. **`report_outcome`은 `step()` 이후**, **`record_decision`은 `apply_allocation` 이전**, **조달은 `record_decision` 이전.** 에스컬레이션한 스텝도 조달을 건너뛰지 않고, `slice_id`·`vendor_id`·`cost_total`을 `record_escalation`에 넘긴다.
 7. **루프는 파이썬이 돌린다** — LLM이 답하는 값은 `situation` · `confidence.situation` · 정책 선택 · 조달 여부 넷뿐. `combined`와 에스컬레이션 여부는 파이썬이 계산한다.
 8. **`get_history()`를 빠뜨리지 않는다** — `history=null`이면 `lstm_forecast`가 영영 `unavailable`.
 
