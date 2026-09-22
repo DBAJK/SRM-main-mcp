@@ -216,3 +216,77 @@ LLM 이 상황을 다양하게 읽는다        normal 21 · special_event 19 ·
 - `--fresh` 가 `bootstrap_vendors.py --force` 를 부른다 — ③의 평판이
   실행 간에 남아 같은 시드에서 결과가 갈렸다 (`market/server.py:9~10`)
 - 실행마다 `runs/<run_id>/trace.log` 와 `servers/*.log` 를 남긴다
+
+---
+
+## 4. 개입 스텝에서 **에이전트가 고른 정책**이 장부에서 사라진다
+
+### 증상
+
+120스텝 `mixed` · LLM 판단자 실행에서 두 집계가 어긋난다.
+
+```
+에이전트가 고른 것   rule_based 73 · lstm_forecast 47
+④ 장부에 남은 것     rule_based 120 · lstm_forecast 0
+⑤ 최종 성적표        lstm_forecast  n=0  errors=[]
+```
+
+### 원인
+
+`record_escalation` 이 폴백 결정 레코드를 쓸 때 `chosen_policy` 를
+`FALLBACK_POLICY` 로 덮는다. 에이전트가 원래 무엇을 골랐는지 남는 자리가 없다.
+
+```python
+# audit/book.py
+"situation": situation,              # 에이전트 판단 — 보존됨 ✅
+"chosen_policy": FALLBACK_POLICY,    # 에이전트 선택 — 덮임 ❌
+"fallback_situation": FALLBACK_SITUATION,
+"fallback_allocation": fallback,
+```
+
+`situation` 에 대해서는 이미 올바르게 처리돼 있다.
+
+> `audit/book.py:185`
+> *"폴백 결정 레코드의 `situation` 에는 **에이전트의 판단**을 그대로 남긴다.
+> 폴백이 정책에 먹인 라벨로 덮으면 상황 인지 측정의 입력이 사라진다."*
+
+**같은 논리가 `chosen_policy` 에는 적용되지 않았다.**
+
+### 영향
+
+- `get_metrics.policy_usage` 가 정책 선택을 실제와 다르게 보고한다
+- 논문의 **"에이전트가 정책을 선택한다"** 를 장부로 입증할 수 없다.
+  47회 선택한 증거가 ④ 어디에도 없다
+- 1번(흡수 상태)과 겹쳐 `lstm_forecast` 는 선택 기록도, 성적 표본도 남지 않는다
+
+### 제안
+
+`situation` 과 같은 방식. 한 줄이면 된다.
+
+```python
+"chosen_policy": FALLBACK_POLICY,
+"agent_policy": chosen_policy,   # 추가 — 에이전트가 원래 고른 것
+```
+
+`record_escalation` 시그니처에 `chosen_policy` 인자를 받는다. 에이전트 쪽은
+이미 그 값을 들고 있으므로 중계만 하면 된다.
+
+---
+
+## 실측 보강 (120스텝 `mixed` · LLM 판단자 · 2026-09-23)
+
+```
+스텝 120 · 개입 60 (50%) · SLA 위반 76 · 조달 12 · 비용 3137.5
+상황 판단  normal 57 · iot_surge 27 · special_event 24 · emergency 12
+정책 선택  rule_based 73 · lstm_forecast 47   (장부에는 rule_based 120)
+LLM        120회 · 스텝당 17.4초 · 형식위반 0 · 토큰 입출력 4.67M · $5.78
+
+eval/score.py
+  perception_accuracy   0.591  (68/115, 전환 경계 5스텝 제외)
+  escalation_precision  0.767  (46/60)
+```
+
+단일 시나리오(0.20~0.47)보다 나아졌다. `mixed` 라야 지표가 포화되지 않는다.
+
+혼동 행렬에서 가장 큰 오류는 **`emergency` → `normal` 14회** 다. 비상을 평시로
+본 것이라 위험한 방향의 오류다. 1·3번이 풀리면 개선 여지가 있다.
