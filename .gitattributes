@@ -1,0 +1,23 @@
+# git의 텍스트/바이너리 자동 판정은 파일 앞부분에 NUL 바이트가 있는지만 본다.
+# keras_metadata.pb 는 protobuf 안에 JSON 문자열을 통째로 담고 있어 NUL이 없다 —
+# git이 "텍스트"로 오판해 core.autocrlf=true 에서 LF를 CRLF로 바꿔 체크아웃한다.
+# 그 결과 protobuf 파싱이 "Field number 0 is illegal" 로 깨진다. 실제로 재현·확인됨
+# (blob 은 멀쩡한데 워킹트리 파일만 원본보다 커져 있었다 — LF 개수만큼 바이트가 늘어남).
+*.pb binary
+*.h5 binary
+*.hdf5 binary
+*.npy binary
+*.npz binary
+*.safetensors binary
+*.bin binary
+*.pt binary
+*.onnx binary
+*.pkl binary
+*.joblib binary
+*.index binary
+*data-00000-of-00001 binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary

@@ -1,0 +1,4505 @@
+<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8"><title>SRM MCP 설계서 — C · 에이전트</title><style>
+@page { size: A4; margin: 17mm 15mm 16mm; }
+@page :first { margin: 0; }
+* { box-sizing: border-box; }
+body {
+  font-family: "Malgun Gothic", "맑은 고딕", -apple-system, "Segoe UI", sans-serif;
+  color: #0b0b0b; background: #fff; margin: 0;
+  font-size: 10.2pt; line-height: 1.62; word-break: keep-all;
+}
+code, pre, .mono { font-family: "Cascadia Mono", Consolas, "D2Coding", monospace; }
+
+/* ── 표지 ── */
+.cover {
+  height: 297mm; padding: 42mm 24mm 24mm; page-break-after: always;
+  background: linear-gradient(160deg, #f9f9f7 0%, #fff 58%);
+  border-top: 9px solid #2a78d6;
+}
+.ctag { font-size: 10.5pt; color: #2a78d6; font-weight: 700; letter-spacing: .02em; }
+.cover h1 { font-size: 30pt; line-height: 1.28; margin: 14mm 0 6mm; letter-spacing: -.02em; }
+.csub { font-size: 12.5pt; color: #52514e; margin: 0; }
+.cmeta { margin-top: 42mm; font-size: 10pt; color: #52514e; border-top: 1px solid #e1e0d9; padding-top: 6mm; }
+.cmeta div { margin: 2.4mm 0; }
+.cmeta b { color: #898781; font-weight: 600; display: inline-block; width: 19mm; }
+
+/* ── 시각 섹션 ── */
+.vs { page-break-after: always; }
+.vs h2 {
+  font-size: 17pt; margin: 0 0 5mm; padding-bottom: 2.5mm;
+  border-bottom: 2.5px solid #0b0b0b; letter-spacing: -.01em;
+}
+.vs h3 { font-size: 12.5pt; margin: 8mm 0 3mm; color: #0b0b0b; }
+.lead { font-size: 10.6pt; color: #52514e; margin: 0 0 5mm; }
+.cap { font-size: 9.3pt; color: #52514e; line-height: 1.6; margin: 3mm 0 0;
+        padding-left: 3mm; border-left: 2.5px solid #e1e0d9; }
+.legend { display: flex; gap: 14px; margin: 0 0 2mm 124px; font-size: 9.6pt; color: #52514e; }
+.lg { display: inline-flex; align-items: center; gap: 5px; }
+.sw { width: 11px; height: 11px; border-radius: 3px; display: inline-block; }
+
+.tiles { display: flex; gap: 4mm; margin: 0 0 8mm; }
+.tile { flex: 1; border: 1px solid #e1e0d9; border-radius: 8px; padding: 4mm 4mm 3.4mm; background: #fcfcfb; }
+.tv { font-size: 25pt; font-weight: 700; line-height: 1; letter-spacing: -.02em; }
+.tl { font-size: 10pt; font-weight: 700; margin-top: 2mm; }
+.ts { font-size: 8.6pt; color: #898781; margin-top: 1mm; line-height: 1.45; }
+
+.two { display: flex; gap: 4mm; margin-top: 5mm; }
+.note { flex: 1; font-size: 9.4pt; color: #52514e; background: #f9f9f7;
+         border-radius: 7px; padding: 3.4mm 4mm; line-height: 1.58; }
+.note b { color: #0b0b0b; }
+
+.kv { margin: 5mm 0 0; }
+.kv div { font-size: 10pt; padding: 2.6mm 0; border-bottom: 1px solid #e1e0d9; }
+.kv span { display: inline-block; width: 22mm; color: #898781; font-size: 9.4pt; }
+
+.steps { display: flex; gap: 4mm; }
+.st { flex: 1; border-top: 3px solid #2a78d6; padding-top: 3mm; font-size: 9.4pt;
+       color: #52514e; line-height: 1.58; }
+.st:nth-child(2) { border-color: #eb6834; }
+.st:nth-child(3) { border-color: #d03b3b; }
+.st b { display: block; font-size: 10.4pt; color: #0b0b0b; }
+.st .n { display: block; font-size: 9pt; color: #898781; margin: .6mm 0 2mm; }
+
+.roles { display: flex; gap: 4mm; }
+.rl { flex: 1; border: 1px solid #e1e0d9; border-top-width: 4px; border-radius: 8px; padding: 4mm; }
+.rh { font-size: 11.5pt; font-weight: 700; }
+.rb { font-size: 9.6pt; color: #52514e; margin: 1.6mm 0 2.6mm; }
+.rn { font-size: 9.2pt; color: #52514e; line-height: 1.58; }
+.rn b { color: #0b0b0b; }
+table.ms { width: 100%; border-collapse: collapse; font-size: 9.7pt; margin-top: 2mm; }
+table.ms th { width: 13mm; text-align: left; color: #2a78d6; font-size: 10pt; padding: 2.2mm 0; }
+table.ms td { padding: 2.2mm 0; border-bottom: 1px solid #e1e0d9; }
+table.ms td:first-of-type { width: 20mm; color: #898781; }
+
+/* ── 본문 ── */
+.doc { page-break-before: always; }
+.layer { height: 240mm; display:flex; align-items:center; }
+.lay { font-size: 34pt; font-weight: 700; color: #2a78d6; letter-spacing:-.02em; }
+.doc-hd { border-left: 5px solid #2a78d6; padding: 1mm 0 1mm 5mm; margin-bottom: 7mm; }
+.doc-hd .t { font-size: 19pt; font-weight: 700; letter-spacing: -.02em; }
+.doc-hd .s { font-size: 9.6pt; color: #898781; margin-top: 1mm; }
+.doc h1 { font-size: 15.5pt; margin: 9mm 0 3.5mm; padding-bottom: 2mm;
+           border-bottom: 2px solid #0b0b0b; page-break-after: avoid; }
+.doc h2 { font-size: 13pt; margin: 8mm 0 3mm; padding-bottom: 1.6mm;
+           border-bottom: 1px solid #e1e0d9; page-break-after: avoid; }
+.doc h3 { font-size: 11.4pt; margin: 6mm 0 2.4mm; page-break-after: avoid; }
+.doc h4 { font-size: 10.4pt; margin: 5mm 0 2mm; color: #52514e; page-break-after: avoid; }
+.doc p, .doc li { font-size: 9.9pt; }
+.doc blockquote { margin: 3mm 0; padding: 2.6mm 4mm; background: #f9f9f7;
+                   border-left: 3px solid #c3c2b7; border-radius: 0 6px 6px 0;
+                   color: #52514e; font-size: 9.5pt; }
+.doc blockquote p { margin: 1mm 0; font-size: 9.5pt; }
+table { width: 100%; border-collapse: collapse; margin: 3mm 0; font-size: 9.1pt;
+         page-break-inside: avoid; }
+th { background: #f9f9f7; text-align: left; font-weight: 700; }
+th, td { border: 1px solid #e1e0d9; padding: 1.8mm 2.4mm; vertical-align: top; }
+pre { background: #f9f9f7; border: 1px solid #e1e0d9; border-radius: 6px;
+       padding: 3mm 3.4mm; overflow-x: auto; font-size: 8.5pt; line-height: 1.5;
+       page-break-inside: avoid; white-space: pre-wrap; word-break: break-all; }
+code { background: rgba(11,11,11,.055); padding: .3mm 1.1mm; border-radius: 3px; font-size: .92em; }
+pre code { background: none; padding: 0; font-size: 1em; }
+hr { border: 0; border-top: 1px solid #e1e0d9; margin: 6mm 0; }
+a { color: #2a78d6; text-decoration: none; }
+svg { page-break-inside: avoid; }
+h1, h2, h3, h4 { line-height: 1.34; }
+
+.crole { display:inline-block; color:#fff; font-size:15pt; font-weight:700;
+          padding:2.6mm 6mm; border-radius:7px; margin:0 0 5mm; }
+.cwarn { margin-top:10mm; font-size:9.4pt; color:#52514e; background:#f9f9f7;
+          border-radius:7px; padding:4mm 5mm; line-height:1.6; }
+.cwarn b { color:#0b0b0b; }
+table.ifc { width:100%; border-collapse:collapse; font-size:9.2pt; margin:2mm 0 0; }
+table.ifc th { background:#f9f9f7; text-align:left; font-weight:700;
+                border:1px solid #e1e0d9; padding:2mm 2.6mm; }
+table.ifc td { border:1px solid #e1e0d9; padding:2mm 2.6mm; vertical-align:top; }
+table.ifc.mine th { width:26mm; color:#0b0b0b; }
+table.ifc tr td:first-child { font-family:"Cascadia Mono",Consolas,monospace; font-size:8.8pt; }
+</style></head><body><section class="cover" style="border-top-color:#1baf7a">
+  <div class="ctag" style="color:#1baf7a">Build-A-Thon SRM · 역할본 C / 3</div>
+  <h1>MCP 기반 5G 슬라이스<br>자율 오케스트레이션 설계서</h1>
+  <div class="crole" style="background:#1baf7a">C · 에이전트</div>
+  <p class="csub">판단 로직 · 도구 호출 루프 · 목 서버</p>
+  <div class="cmeta">
+    <div><b>담당</b> 오케스트레이터 · 프롬프트 · 계약 검사</div>
+    <div><b>구성</b> 공통 계약 + 담당 상세 (—페이지)</div>
+    <div><b>저장소</b> DBAJK/SRM-main-mcp</div>
+    <div><b>작성</b> 2026-09-21</div>
+  </div>
+  <p class="cwarn">이 본은 전체 설계서에서 <b>C 담당분</b>을 뽑은 것이다.
+  앞의 <b>공통 계약</b>(공통 타입 · 도구 일람 · 데이터 연쇄 · 제어 루프 · 오류 규약 · 금지 필드)은
+  <b>3명이 동일하게 읽는다.</b> 그 부분을 건너뛰면 자기 서버만 보고 계약을 깬다.</p>
+</section><section class="vs">
+  <h2>내 범위</h2>
+  <table class="ifc mine">
+    <tr><th>전 서버</th><td>21개 도구 전부를 호출한다 — 본문에 명세 전체를 수록</td></tr><tr><th>직접 작성</th><td>srm_mcp/mock/ 5개 · orchestrator/ · check_contract.py</td></tr>
+  </table>
+
+  <h3>내가 생산하는 값 — 남이 여기에 의존한다</h3>
+  <table class="ifc"><tr><th>값</th><th>출처</th><th>소비자</th><th>비고</th></tr><tr><td>run_id</td><td>C 발급</td><td>A(①) reset · A(④) 전체</td><td>없으면 60회 실행이 섞인다</td></tr><tr><td>situation</td><td>C 추론</td><td>B(②) · A(④)</td><td>관측에서 추론. 어떤 도구도 주지 않음</td></tr><tr><td>confidence.situation</td><td>C 판단</td><td>A(④)</td><td>상황 오판 가능성 — 유일한 경로</td></tr><tr><td>confidence.combined</td><td>C 계산</td><td>A(④)</td><td>세 값의 기하평균</td></tr><tr><td>정책 선택</td><td>C 판단</td><td>B(②) policy 인자</td><td>신뢰도 비교 결과</td></tr><tr><td>에스컬레이션 판단</td><td>C 판단</td><td>A(④)</td><td>combined < τ(0.45)</td></tr></table>
+
+  <h3>내가 소비하는 값 — 없으면 내가 막힌다</h3>
+  <table class="ifc"><tr><th>값</th><th>생산자</th><th>쓰는 곳</th></tr><tr><td>Observation · ApplyResult</td><td>A(①)</td><td>판단 · 실행</td></tr><tr><td>PolicyProposal · ScoredOffering</td><td>B(②③)</td><td>정책·벤더 선택</td></tr><tr><td>Outcome · recent_error</td><td>B(⑤)</td><td>다음 판단에 반영</td></tr><tr><td>decision_id · fallback</td><td>A(④)</td><td>채점 · 에스컬레이션 후 진행</td></tr></table>
+
+  <p class="cap"><b>서버끼리는 직접 대화하지 않는다.</b> 위의 모든 값은 오케스트레이터(C)가 옮겨 심는다.
+  내 도구가 남의 도구를 부르는 코드는 어디에도 없어야 한다 — 하나라도 있으면 §2.2 규약 위반이고,
+  무상태 서버가 상태를 갖게 된다.</p>
+</section><section class="vs">
+  <h2>C가 알아야 할 환경 특성</h2>
+  <p class="lead">프롬프트 설계의 전제다. 에이전트가 무엇을 근거로 판단할 수 있는지가 여기서 정해진다.</p>
+  <h3>트래픽 구성비 — 상황 인지의 실제 근거</h3>
+  <div class="legend"><span class="lg"><span class="sw" style="background:#2a78d6"></span>eMBB</span><span class="lg"><span class="sw" style="background:#eb6834"></span>URLLC</span><span class="lg"><span class="sw" style="background:#1baf7a"></span>mMTC</span></div>
+  <svg viewBox="0 0 680 234" width="100%" role="img">
+<text x="112" y="51.0" fill="#0b0b0b" font-size="12.5" text-anchor="end">normal</text>
+<path d="M128 34 h227.0  v24  h-227.0 a4 4 0 0 1 -4 -4 v-16 a4 4 0 0 1 4 -4 z" fill="#2a78d6"/>
+<text x="239.5" y="50.0" fill="#ffffff" font-size="11.5" font-weight="700" text-anchor="middle">44%</text>
+<path d="M357.01800000000003 34 h172.6  v24  h-172.6  v-24  z" fill="#eb6834"/>
+<text x="443.3" y="50.0" fill="#ffffff" font-size="11.5" font-weight="700" text-anchor="middle">33%</text>
+<path d="M531.6500000000001 34 h112.9 a4 4 0 0 1 4 4 v16 a4 4 0 0 1 -4 4 h-112.9  v-24  z" fill="#1baf7a"/>
+<text x="590.1" y="50.0" fill="#ffffff" font-size="11.5" font-weight="700" text-anchor="middle">23%</text>
+<text x="112" y="97.0" fill="#0b0b0b" font-size="12.5" text-anchor="end">emergency</text>
+<path d="M128 80 h149.7  v24  h-149.7 a4 4 0 0 1 -4 -4 v-16 a4 4 0 0 1 4 -4 z" fill="#2a78d6"/>
+<text x="200.8" y="96.0" fill="#ffffff" font-size="11.5" font-weight="700" text-anchor="middle">30%</text>
+<path d="M279.696 80 h278.9  v24  h-278.9  v-24  z" fill="#eb6834"/>
+<text x="419.1" y="96.0" fill="#ffffff" font-size="11.5" font-weight="700" text-anchor="middle">53%</text>
+<path d="M560.58 80 h83.9 a4 4 0 0 1 4 4 v16 a4 4 0 0 1 -4 4 h-83.9  v-24  z" fill="#1baf7a"/>
+<text x="604.6" y="96.0" fill="#ffffff" font-size="11.5" font-weight="700" text-anchor="middle">17%</text>
+<text x="112" y="143.0" fill="#0b0b0b" font-size="12.5" text-anchor="end">special_event</text>
+<path d="M128 126 h294.3  v24  h-294.3 a4 4 0 0 1 -4 -4 v-16 a4 4 0 0 1 4 -4 z" fill="#2a78d6"/>
+<text x="273.2" y="142.0" fill="#ffffff" font-size="11.5" font-weight="700" text-anchor="middle">57%</text>
+<path d="M424.34599999999995 126 h120.6  v24  h-120.6  v-24  z" fill="#eb6834"/>
+<text x="484.6" y="142.0" fill="#ffffff" font-size="11.5" font-weight="700" text-anchor="middle">23%</text>
+<path d="M546.904 126 h97.1 a4 4 0 0 1 4 4 v16 a4 4 0 0 1 -4 4 h-97.1  v-24  z" fill="#1baf7a"/>
+<text x="597.5" y="142.0" fill="#ffffff" font-size="11.5" font-weight="700" text-anchor="middle">20%</text>
+<text x="112" y="189.0" fill="#0b0b0b" font-size="12.5" text-anchor="end">iot_surge</text>
+<path d="M128 172 h188.1  v24  h-188.1 a4 4 0 0 1 -4 -4 v-16 a4 4 0 0 1 4 -4 z" fill="#2a78d6"/>
+<text x="220.0" y="188.0" fill="#ffffff" font-size="11.5" font-weight="700" text-anchor="middle">37%</text>
+<path d="M318.094 172 h143.7  v24  h-143.7  v-24  z" fill="#eb6834"/>
+<text x="389.9" y="188.0" fill="#ffffff" font-size="11.5" font-weight="700" text-anchor="middle">28%</text>
+<path d="M463.79600000000005 172 h180.2 a4 4 0 0 1 4 4 v16 a4 4 0 0 1 -4 4 h-180.2  v-24  z" fill="#1baf7a"/>
+<text x="555.9" y="188.0" fill="#ffffff" font-size="11.5" font-weight="700" text-anchor="middle">35%</text>
+</svg>
+  <p class="cap">시간 요인(±30%)이 이벤트 효과와 비슷한 크기라 <b>절대량으로는 평시 피크와 비상이
+  구분되지 않는다.</b> 세 슬라이스에 같은 배수가 곱해지므로 구성비는 시간 요인에 불변이며,
+  여기서 신호가 나온다. <b>프롬프트가 절대량을 보게 유도하면 안 된다.</b></p>
+  <h3>구성비만으로 얻는 상황 인지 정확도</h3>
+  <svg viewBox="0 0 680 224" width="100%" role="img">
+<line x1="124.0" y1="22" x2="124.0" y2="182" stroke="#e1e0d9" stroke-width="1"/>
+<text x="124.0" y="200" fill="#898781" font-size="11" text-anchor="middle">0%</text>
+<line x1="221.2" y1="22" x2="221.2" y2="182" stroke="#e1e0d9" stroke-width="1"/>
+<text x="221.2" y="200" fill="#898781" font-size="11" text-anchor="middle">20%</text>
+<line x1="318.4" y1="22" x2="318.4" y2="182" stroke="#e1e0d9" stroke-width="1"/>
+<text x="318.4" y="200" fill="#898781" font-size="11" text-anchor="middle">40%</text>
+<line x1="415.6" y1="22" x2="415.6" y2="182" stroke="#e1e0d9" stroke-width="1"/>
+<text x="415.6" y="200" fill="#898781" font-size="11" text-anchor="middle">60%</text>
+<line x1="512.8" y1="22" x2="512.8" y2="182" stroke="#e1e0d9" stroke-width="1"/>
+<text x="512.8" y="200" fill="#898781" font-size="11" text-anchor="middle">80%</text>
+<line x1="610.0" y1="22" x2="610.0" y2="182" stroke="#e1e0d9" stroke-width="1"/>
+<text x="610.0" y="200" fill="#898781" font-size="11" text-anchor="middle">100%</text>
+<line x1="124" y1="22" x2="124" y2="182" stroke="#c3c2b7" stroke-width="1"/>
+<line x1="245.5" y1="18" x2="245.5" y2="182" stroke="#898781" stroke-width="1.5" stroke-dasharray="4 3"/>
+<text x="250.5" y="14" fill="#898781" font-size="11">무작위 25%</text>
+<text x="112" y="51.0" fill="#0b0b0b" font-size="12.5" text-anchor="end">emergency</text>
+<path d="M124 36.0 h408.6 a4 4 0 0 1 4 4 v12 a4 4 0 0 1 -4 4 h-408.6 z" fill="#2a78d6"/>
+<text x="543.6" y="51.0" fill="#52514e" font-size="11.5" font-weight="600">84.9%</text>
+<text x="112" y="91.0" fill="#0b0b0b" font-size="12.5" text-anchor="end">special_event</text>
+<path d="M124 76.0 h383.8 a4 4 0 0 1 4 4 v12 a4 4 0 0 1 -4 4 h-383.8 z" fill="#2a78d6"/>
+<text x="518.8" y="91.0" fill="#52514e" font-size="11.5" font-weight="600">79.8%</text>
+<text x="112" y="131.0" fill="#0b0b0b" font-size="12.5" text-anchor="end">iot_surge</text>
+<path d="M124 116.0 h343.5 a4 4 0 0 1 4 4 v12 a4 4 0 0 1 -4 4 h-343.5 z" fill="#2a78d6"/>
+<text x="478.5" y="131.0" fill="#52514e" font-size="11.5" font-weight="600">71.5%</text>
+<text x="112" y="171.0" fill="#0b0b0b" font-size="12.5" text-anchor="end">normal</text>
+<path d="M124 156.0 h241.4 a4 4 0 0 1 4 4 v12 a4 4 0 0 1 -4 4 h-241.4 z" fill="#2a78d6"/>
+<text x="376.4" y="171.0" fill="#52514e" font-size="11.5" font-weight="600">50.5%</text>
+</svg>
+  <p class="cap">전체 <b>71.7%</b>가 단일 스텝 참조점이다. 에이전트는 시계열·<code>violations</code>·
+  <code>classify_demand</code>를 함께 보므로 더 잘할 수 있다. <code>normal</code> 50.5%는
+  <b>오탐이 많다</b>는 뜻이며, <code>confidence.situation</code>을 에스컬레이션 경로에 넣어야 하는 근거다.</p>
+</section><section class="doc"><div class="doc-hd" style="border-left-color:#898781"><div class="t">공통 타입</div><div class="s">공통 계약 · claude/spec/common.md</div></div><p>모든 서버가 공유한다. <code>mcp/common/schema.py</code>에 pydantic 모델로 한 번만 정의한다.</p>
+<h2><code>SliceTriple</code></h2>
+<p>3개 슬라이스에 대한 실수 3개. <strong>배열이 아니라 딕셔너리다.</strong> (배열은 인덱스 순서가 바뀌면 조용히 틀린다)</p>
+<pre><code class="language-json">{&quot;embb&quot;: 0.40, &quot;urllc&quot;: 0.40, &quot;mmtc&quot;: 0.20}
+</code></pre>
+<h2><code>SliceFlags</code></h2>
+<pre><code class="language-json">{&quot;embb&quot;: true, &quot;urllc&quot;: true, &quot;mmtc&quot;: false}
+</code></pre>
+<h2>열거형</h2>
+<table>
+<thead>
+<tr>
+<th>이름</th>
+<th>값</th>
+<th>비고</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Situation</code></td>
+<td><code>"normal"</code> · <code>"emergency"</code> · <code>"special_event"</code> · <code>"iot_surge"</code></td>
+<td><strong>에이전트가 관측으로부터 추론해 만드는 값.</strong> 어떤 도구도 알려주지 않는다</td>
+</tr>
+<tr>
+<td><code>PolicyName</code></td>
+<td><code>"rule_based"</code> · <code>"lstm_forecast"</code> · <code>"dqn"</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>SliceType</code></td>
+<td><code>"eMBB"</code> · <code>"URLLC"</code> · <code>"mMTC"</code></td>
+<td>③에서만 쓴다. 대소문자가 <code>vendors.json</code>의 키와 정확히 일치해야 한다</td>
+</tr>
+<tr>
+<td><code>Status</code></td>
+<td><code>"ok"</code> · <code>"unavailable"</code> · <code>"error"</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h2>숫자 타입 규약 ⚠️</h2>
+<p><strong>JSON은 numpy를 모른다.</strong> 모든 경계에서 파이썬 기본형으로 변환한다.</p>
+<table>
+<thead>
+<tr>
+<th>타입</th>
+<th><code>json.dumps()</code></th>
+<th>비고</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>np.ndarray</code></td>
+<td><strong>실패</strong></td>
+<td><code>.tolist()</code> 필요</td>
+</tr>
+<tr>
+<td><code>np.bool_</code></td>
+<td><strong>실패</strong></td>
+<td><code>bool()</code> 필요</td>
+</tr>
+<tr>
+<td><code>np.float64</code></td>
+<td>통과</td>
+<td>파이썬 <code>float</code> 상속. <strong>우연히 통과하는 것</strong></td>
+</tr>
+<tr>
+<td><code>float</code>, <code>bool</code>, <code>int</code></td>
+<td>통과</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><code>violations</code>가 정확히 <code>np.bool_</code>이다 (<code>ml_orchestrator_demo.py:563</code>). 그대로 반환하면 도구 호출이 예외로 죽는다. <code>np.float64</code>는 통과하므로 <strong>한참 잘 돌다가 <code>violations</code>에서만 터진다.</strong></p></section><section class="doc"><div class="doc-hd" style="border-left-color:#898781"><div class="t">도구 일람</div><div class="s">공통 계약 · claude/spec/tools.md</div></div><p>5개 서버 · 도구 21개. 상세 계약은 <code>spec/&lt;server&gt;.md</code>.</p>
+<table>
+<thead>
+<tr>
+<th>서버</th>
+<th>도구</th>
+<th>입력</th>
+<th>출력</th>
+<th>부작용</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>① observe</td>
+<td><code>get_observation</code></td>
+<td>—</td>
+<td><code>Observation</code></td>
+<td>없음</td>
+</tr>
+<tr>
+<td></td>
+<td><code>step</code></td>
+<td><code>n</code></td>
+<td><code>Observation</code></td>
+<td><strong>상태 전진</strong></td>
+</tr>
+<tr>
+<td></td>
+<td><code>apply_allocation</code></td>
+<td><code>SliceTriple</code></td>
+<td><code>ApplyResult</code></td>
+<td><strong>배분 변경</strong></td>
+</tr>
+<tr>
+<td></td>
+<td><code>get_history</code></td>
+<td><code>n</code></td>
+<td><code>HistoryBlock</code></td>
+<td>없음</td>
+</tr>
+<tr>
+<td></td>
+<td><code>add_capacity</code></td>
+<td><code>slice_type</code>, <code>amount</code>, <code>expires_at_step</code>, <code>slice_id</code></td>
+<td><code>CapacityState</code></td>
+<td><strong>용량 증설</strong></td>
+</tr>
+<tr>
+<td></td>
+<td><code>reset</code></td>
+<td><code>run_id</code>, <code>scenario</code>, <code>seed</code></td>
+<td><code>Observation</code></td>
+<td><strong>에피소드 초기화</strong></td>
+</tr>
+<tr>
+<td>② policy</td>
+<td><code>list_policies</code></td>
+<td>—</td>
+<td><code>[PolicyInfo]</code></td>
+<td>없음</td>
+</tr>
+<tr>
+<td></td>
+<td><code>propose_allocation</code></td>
+<td><code>policy</code>, <code>Observation</code>, <code>situation</code>, <code>history</code>, <code>recent_error</code></td>
+<td><code>PolicyProposal</code></td>
+<td>없음</td>
+</tr>
+<tr>
+<td></td>
+<td><code>compare_policies</code></td>
+<td><code>Observation</code>, <code>situation</code>, <code>history</code>, <code>recent_errors</code></td>
+<td><code>[PolicyProposal]</code></td>
+<td>없음</td>
+</tr>
+<tr>
+<td></td>
+<td><code>classify_demand</code></td>
+<td><code>Observation</code></td>
+<td><code>DemandClass</code></td>
+<td>없음</td>
+</tr>
+<tr>
+<td>③ market</td>
+<td><code>list_offerings</code></td>
+<td><code>slice_type</code>, <code>region</code></td>
+<td><code>[Offering]</code></td>
+<td>없음</td>
+</tr>
+<tr>
+<td></td>
+<td><code>score_offerings</code></td>
+<td><code>slice_type</code>, <code>qos</code></td>
+<td><code>[ScoredOffering]</code></td>
+<td>없음</td>
+</tr>
+<tr>
+<td></td>
+<td><code>explain_score</code></td>
+<td><code>vendor_id</code>, <code>slice_type</code>, <code>qos</code></td>
+<td><code>ScoreBreakdown</code></td>
+<td>없음</td>
+</tr>
+<tr>
+<td></td>
+<td><code>procure</code></td>
+<td><code>vendor_id</code>, <code>slice_type</code>, <code>qos</code>, <code>duration_steps</code>, <code>current_step</code></td>
+<td><code>Procurement</code></td>
+<td><strong>조달 기록</strong></td>
+</tr>
+<tr>
+<td></td>
+<td><code>update_rating</code></td>
+<td><code>vendor_id</code>, <code>outcome</code></td>
+<td><code>RatingUpdate</code></td>
+<td><strong>vendors.json 갱신</strong></td>
+</tr>
+<tr>
+<td>④ audit</td>
+<td><code>record_decision</code></td>
+<td>판단 일체</td>
+<td><code>{decision_id}</code></td>
+<td><strong>기록</strong></td>
+</tr>
+<tr>
+<td></td>
+<td><code>record_escalation</code></td>
+<td>판단 + 사유</td>
+<td><code>{escalation_id, decision_id, fallback}</code></td>
+<td><strong>기록 = 개입 1회 + 폴백 결정</strong></td>
+</tr>
+<tr>
+<td></td>
+<td><code>get_decisions</code></td>
+<td><code>n</code>, <code>kind</code></td>
+<td><code>[Decision]</code></td>
+<td>없음</td>
+</tr>
+<tr>
+<td></td>
+<td><code>get_metrics</code></td>
+<td><code>window</code></td>
+<td><code>Metrics</code></td>
+<td>없음</td>
+</tr>
+<tr>
+<td>⑤ feedback</td>
+<td><code>report_outcome</code></td>
+<td><code>decision_id</code>, <code>Observation</code></td>
+<td><code>Outcome</code></td>
+<td><strong>신뢰도 갱신</strong></td>
+</tr>
+<tr>
+<td></td>
+<td><code>get_reliability_table</code></td>
+<td>—</td>
+<td><code>ReliabilityTable</code></td>
+<td>없음</td>
+</tr>
+</tbody>
+</table>
+<p><strong>부작용 있는 도구 8개는 한 스텝에 정해진 횟수만 호출된다.</strong> <code>step</code>·<code>apply_allocation</code>·<code>record_decision</code>·<code>report_outcome</code>은 각 1회, <code>record_escalation</code>·<code>procure</code>·<code>add_capacity</code>는 0 또는 1회.</p>
+<h2>1스텝 표준 호출 순서</h2>
+<pre><code>1.  ①.get_observation()                         → obs
+1b. ①.get_history(10)                           → history          ← 빠뜨리면 LSTM이 영영 unavailable
+2.  ②.classify_demand(obs)                      → dominant         (선택)
+    ⑤.get_reliability_table()                   → effective, recent_error
+    [LLM] situation · confidence.situation 추론
+3.  ②.propose_allocation(policy, obs, situation, history, recent_error)
+    [파이썬] combined = (situation × intrinsic × effective)^(1/3)
+
+    ├─ combined &lt; 0.45  →  ④.record_escalation(...)
+    │                      → escalation_id, decision_id, fallback_allocation
+    │                      **4·5를 건너뛰고 6으로.** allocation ← fallback_allocation
+    │                      (record_decision을 또 부르면 같은 스텝에 decision 레코드가 둘)
+    │
+    └─ 계속 ↓
+
+4.  [LLM 조달 판단 · demand_pressure ≥ 1.0일 때만]
+    ③.score_offerings → ③.procure(current_step=obs.step) → ①.add_capacity
+5.  ④.record_decision(..., slice_id, vendor_id)  → decision_id     (apply 전에!)
+
+6.  ①.apply_allocation(**allocation)             → normalized, delta
+7.  ①.step()                                     → obs₊₁
+8.  ⑤.report_outcome(decision_id, obs₊₁)         → sla_met, vendor_id
+9.  [vendor_id 있으면] ③.update_rating(vendor_id, {sla_met, decision_id})
+</code></pre>
+<p><strong>조달이 기록보다 앞서는 이유</strong> — <code>record_decision</code> 이 <code>slice_id</code> · <code>vendor_id</code> 를 인자로 받기
+때문이다 (설계서 §3.1 규칙 4). 뒤집으면 결정 레코드에 <code>vendor_id</code> 가 없고, ⑤ <code>report_outcome</code> 이
+그 레코드에서 <code>vendor_id</code> 를 찾으므로 <strong>항상 <code>null</code> 이 되어 ⑤→③ 레이팅 되먹임이 통째로 죽는다.</strong>
+"판단했으나 실행하지 못한 경우를 남긴다"는 규칙 3의 목적은 훼손되지 않는다 — 조달 실패도
+<code>slice_id: null</code> + <code>rationale</code> 로 기록되기 때문이다.</p>
+<p><code>add_capacity</code> 는 반드시 <code>step()</code>(7) <strong>전</strong>에 부른다. 뒤로 가면 용량이 다음 스텝부터 반영되어
+조달한 바로 그 스텝은 효과를 못 본다 (W1).</p>
+<p><strong>1b를 빠뜨리면 <code>lstm_forecast</code>가 영영 <code>status: "unavailable"</code>(<code>history_insufficient</code>)이 되어
+정책 선택 축이 죽는다.</strong> <code>history</code>는 3단계의 인자인데 얻는 호출이 순서에 없으면 <code>null</code>로 넘어간다.</p>
+<p><strong>에스컬레이션 분기는 4·5를 건너뛴다.</strong> <code>record_escalation</code>이 이미 <code>decision_id</code>와 <code>fallback_allocation</code>을
+내므로 <code>record_decision</code>을 또 부르면 같은 스텝에 <code>kind: "decision"</code> 레코드가 둘 생기고
+<code>sum(policy_usage)</code> 불변식이 깨진다 (<code>spec/audit.md</code>).</p>
+<p><strong>루프는 파이썬이 돌린다.</strong> LLM은 2·4단계에서만 호출하며 답하는 값은 넷뿐이다 —
+<code>situation</code> · <code>confidence.situation</code> · 정책 선택 · 조달 여부. <code>combined</code>와 에스컬레이션 여부는
+파이썬이 계산한다. 근거는 <code>flow/loop.md</code>.</p>
+<p><strong>서버끼리 직접 대화하지 않는다.</strong> 모든 값은 에이전트를 통과한다. 전체 도식과 출력→입력 대응표는 <code>flow/data-chain.md</code>.</p></section><section class="doc"><div class="doc-hd" style="border-left-color:#898781"><div class="t">제어 루프 계약</div><div class="s">공통 계약 · claude/flow/loop.md</div></div><p>1스텝의 시간 규약 · 액추에이터 · 고정 루프 · 컨텍스트 · 에스컬레이션 정의</p>
+<h1>3. 제어 루프 계약</h1>
+<p><strong>분리 설계서에 없던 부분이고, 측정 지표의 정의가 전부 여기에 달려 있다.</strong></p>
+<h1>3.1 시간 규약</h1>
+<p>원 코드의 <code>run_step()</code>(<code>:535</code>)은 한 스텝 안에서 트래픽 생성 → 이용률 계산 → 배분 갱신을 모두 한다. MCP에서는 배분 갱신이 에이전트 쪽으로 나가므로 <strong>이 순서를 쪼개야 하고, 쪼개는 지점이 곧 지표의 정의가 된다.</strong></p>
+<pre><code class="language-python"># ml_orchestrator_demo.py:545
+utilization = self.update_utilization(traffic)    # ← 이 시점의 allocation은 직전 스텝의 것
+...
+allocation = self.update_allocation_*(...)        # ← 그 다음에 갱신
+</code></pre>
+<p>즉 <strong>이용률은 언제나 "직전 결정의 결과"</strong> 다. 이 성질을 그대로 살린다.</p>
+<pre><code>reset(run_id, scenario, seed)
+  └─ alloc ← [0.4, 0.4, 0.2],  cap ← [1, 1, 1],  traffic₀ 생성
+     util₀ = traffic₀ / (alloc × cap)
+
+── 스텝 t ──────────────────────────────────────────────────
+  1.  obs_t = ①.get_observation()             # util_t 는 a_{t-1}의 성적표
+  2.  [에이전트 판단]  ②.classify_demand / propose_allocation
+                      ⑤.get_reliability_table
+  2b. [조달 분기]  obs_t.demand_pressure ≥ 1.0 일 때만
+        ③.score_offerings → ③.procure(..., current_step=t)
+        ①.add_capacity(amount=capacity_gain, expires_at_step)
+  3.  ④.record_decision(..., slice_id, vendor_id) → decision_id
+  4.  ①.apply_allocation(a_t)                 # 액추에이터. 평활·클립·정규화
+  5.  ①.step()                                # 만료 회수 → traffic_{t+1}
+                                              # util_{t+1} = traffic_{t+1} / (a_t × cap_{t+1})
+  6.  ⑤.report_outcome(decision_id, obs_{t+1})
+──────────────────────────────────────────────────────────
+</code></pre>
+<p><strong>따르는 규칙 네 가지</strong></p>
+<ol>
+<li><strong>결정의 채점은 1스텝 지연된다.</strong> t의 결정은 t+1의 관측으로 평가된다. <code>report_outcome</code>은 반드시 <code>step()</code> 이후에 호출한다.</li>
+<li><strong>에피소드 마지막 결정은 채점되지 않는다.</strong> 지표 집계에서 제외한다. 60스텝이면 유효 표본 59.</li>
+<li><strong>기록은 배분 실행(4)보다 먼저다.</strong> 에이전트가 판단만 하고 실행에 실패한 경우도 ④에 남는다. 실행 후 기록이면 실패 사례가 사라져 자율 처리율이 과대평가된다.</li>
+<li><strong>조달(2b)만 기록보다 앞선다.</strong> 규칙 3의 예외이며, <code>record_decision</code>이 <code>slice_id</code>·<code>vendor_id</code>를 인자로 받기 때문이다.</li>
+</ol>
+<h1>조달이 기록보다 앞서는 것이 규칙 3과 충돌하지 않는 이유</h1>
+<p>규칙 3의 목적은 <em>"판단했으나 실행하지 못한 경우를 남기는 것"</em> 이다. 조달은 <strong>판단의 일부로서 기록에 포함</strong>되므로 목적이 훼손되지 않는다.</p>
+<pre><code>조달 성공 → record_decision(slice_id=&quot;slice-...&quot;, vendor_id=&quot;vendor-1&quot;)
+조달 실패 → record_decision(slice_id=null, rationale=&quot;procure rejected: capacity cap exceeded&quot;)
+</code></pre>
+<p>실패해도 <code>rationale</code>에 남는다. <strong>조달을 시도했다는 사실 자체가 판단의 증거</strong>이므로 기록되어야 한다.</p>
+<p><strong><code>add_capacity</code>는 반드시 <code>step()</code>(5) 전에</strong> 호출한다. 뒤로 가면 용량이 다음 스텝부터 반영되어 조달한 바로 그 스텝은 효과를 보지 못한다. 에이전트 입장에서 "샀는데 아무 일도 안 일어났다"가 되어 조달 학습이 왜곡된다.</p>
+<h1>3.2 <code>apply_allocation</code>은 액추에이터다</h1>
+<p>현재 평활·클립·정규화가 <code>update_allocation_ml</code>(<code>:401~407</code>)과 <code>update_allocation_rule_based</code>(<code>:459~462</code>)에 <strong>중복</strong>되어 있다.</p>
+<pre><code class="language-python">stability_factor = 0.7
+new_allocation = 0.7 * self.allocation + 0.3 * target
+new_allocation = np.clip(new_allocation, 0.1, 0.8)
+new_allocation = new_allocation / np.sum(new_allocation)
+</code></pre>
+<p><strong>이걸 정책에서 떼어 ①의 <code>apply_allocation()</code> 한 곳에 둔다.</strong> 세 가지 이득이 있다.</p>
+<ul>
+<li><strong>정책 비교가 공정해진다</strong> — 모든 정책이 동일한 액추에이터를 통과한다. 정책은 "목표 배분"만 내고, 물리적 제약(급변 금지, 슬라이스당 10~80%)은 환경이 강제한다. 현실의 RAN 제약에 대응하므로 모델링으로도 타당하다.</li>
+<li><strong>에이전트가 제약을 학습할 수 있다</strong> — 요청이 얼마나 깎였는지 <code>accepted</code>/<code>normalized</code>/<code>reason</code>으로 돌려준다.</li>
+<li><strong>DQN 추가 시 재작성이 없다</strong> — DQN은 이산 액션 27개를 배분 벡터로 바꾸기만 하면 된다.</li>
+</ul>
+<pre><code class="language-python">apply_allocation(embb, urllc, mmtc) -&gt; {
+    &quot;accepted&quot;: bool,
+    &quot;requested&quot;:  {&quot;embb&quot;: 0.20, &quot;urllc&quot;: 0.70, &quot;mmtc&quot;: 0.10},
+    &quot;normalized&quot;: {&quot;embb&quot;: 0.34, &quot;urllc&quot;: 0.49, &quot;mmtc&quot;: 0.17},   # 평활 후
+    &quot;reason&quot;: &quot;smoothed(0.7) + clipped to [0.1,0.8]&quot;
+}
+</code></pre>
+<p><code>accepted=False</code>는 입력이 비정상일 때만(음수, 합이 0, NaN). 정상 입력은 항상 수용하되 변형해서 알린다.</p>
+<h1>3.3 오케스트레이터는 고정 루프다 — LLM이 순서를 정하지 않는다</h1>
+<p><strong>MCP는 도구를 줄 뿐 호출 순서를 강제하지 않는다.</strong> §3.1의 6단계를 LLM에게 맡기면 스텝당 6~10회 호출 × 120스텝 × 60회 실행 동안 반드시 다음이 일어난다.</p>
+<ul>
+<li><code>report_outcome</code>을 빠뜨린다 → 그 스텝이 채점되지 않는다 (§1.5 V2와 같은 증상)</li>
+<li>순서가 뒤집힌다 → <code>add_capacity</code>가 <code>step()</code> 뒤로 가면 조달이 무효가 된다 (§1.6 W1)</li>
+<li>20~30스텝 뒤 드리프트한다 → 후반부 데이터가 전반부와 다른 절차로 생산된다</li>
+</ul>
+<p>§8의 오류 규약이 잡는 것은 일부뿐이다. <strong>대부분의 위반은 조용하다</strong> — 호출하지 않은 것은 오류를 내지 않는다.</p>
+<p><strong>따라서 루프는 파이썬이 돌리고, LLM은 판단 지점에서만 호출한다.</strong></p>
+<pre><code class="language-python">for t in range(total_steps):
+    obs = observe.get_observation()
+    rel = feedback.get_reliability_table()
+
+    j = ask_llm(obs, rel, recent)          # ← LLM은 여기서만
+    #   j.situation, j.confidence_situation
+    #   j.policy, j.procure_or_not, j.escalate_or_not
+
+    if j.procure: ...                       # 2b
+    audit.record_decision(...)              # 3   ← 파이썬이 보장
+    observe.apply_allocation(...)           # 4
+    observe.step()                          # 5
+    feedback.report_outcome(...)            # 6
+</code></pre>
+<p>LLM이 답할 것은 <strong>네 가지뿐</strong>이다 — <code>situation</code> / 어느 정책 / 조달할까 / 사람을 부를까. §1.5에서 <em>"<code>AGENT</code>가 생산자인 값은 네 개뿐이어야 한다"</em> 고 한 그 넷과 정확히 일치한다.</p>
+<p><strong>이것이 논문에도 유리하다.</strong> 자율성 주장은 <strong>판단</strong>에 관한 것이지 도구 호출 순서에 관한 것이 아니다. 루프를 고정하면</p>
+<ul>
+<li>변수가 격리되어 비교군 간 차이가 전부 판단에서 나온다</li>
+<li><em>"에이전트가 루프를 잘못 돌아서 SLA가 나빴다"</em> 는 반론이 원천 차단된다</li>
+<li>60회 실행이 <strong>동일한 절차</strong>로 생산된다</li>
+</ul>
+<blockquote>
+<p>이 구조에서도 에이전트는 여전히 자율적이다. 무엇을 할지는 LLM이 정하고, 정한 것을 빠짐없이 실행하는 것만 파이썬이 보장한다. 사람으로 치면 <strong>절차서를 지키는 것과 판단하는 것의 분리</strong>다.</p>
+</blockquote>
+<h1>3.4 컨텍스트는 스텝마다 재구성한다</h1>
+<p>120스텝 대화를 누적하면 후반에 <strong>100k 토큰</strong>을 넘는다. 비용·지연이 폭증하고, 모델이 20스텝 전의 낡은 관측에 주의를 뺏긴다.</p>
+<p><strong>매 스텝 프롬프트를 새로 만든다.</strong> 대화 이력을 이어붙이지 않는다.</p>
+<pre><code>시스템 프롬프트 (고정, minimal/advisory 2벌)
++ 현재 관측 1건
++ ⑤의 신뢰도 표
++ 최근 N스텝 요약 (N = 5, 한 줄씩: step/situation/policy/sla_met)
+</code></pre>
+<p>최근 이력을 <strong>원본이 아니라 요약</strong>으로 넣는 것이 핵심이다. <code>get_decisions(n=5)</code>를 그대로 넣으면 관측이 통째로 딸려와 5배가 된다 (<code>TOOLS.md</code> §9).</p>
+<blockquote>
+<p>부수 효과로 <strong>프롬프트가 재현 가능해진다.</strong> 같은 스텝에서 같은 입력이면 같은 프롬프트가 만들어지므로, 프롬프트 해시를 <code>decisions.json</code>에 기록해 사후 추적할 수 있다 (§9-9).</p>
+</blockquote>
+<h1>3.5 에스컬레이션의 조작적 정의</h1>
+<p>분리 설계서 §6의 "개입 1회"를 도구 수준으로 확정한다.</p>
+<pre><code class="language-python">④.record_escalation(observation, reason, confidence) -&gt; {&quot;escalation_id&quot;: str}
+</code></pre>
+<ul>
+<li>이 도구를 <strong>호출한 것 자체가 개입 1회</strong>다. 별도의 사람 응답 대기는 없다.</li>
+<li>호출 후 에이전트는 <strong><code>rule_based</code> + <code>situation="normal"</code>로 진행한다.</strong> 이것이 "사람이 올 때까지의 안전 기본 동작"이며, 사람의 개입 없이도 에피소드가 끝까지 돌아간다.</li>
+<li>따라서 <strong>모든 비교군이 동일한 스텝 수를 소화한다.</strong> SLA 위반 비교가 공정해진다.</li>
+</ul>
+<p>이 정의 덕분에 실험에 사람이 실제로 필요 없다. <em>"개입 횟수"는 사람을 부른 횟수이지 사람이 일한 시간이 아니다</em> — 이 점을 논문에 명시한다.</p>
+<hr /></section><section class="doc"><div class="doc-hd" style="border-left-color:#898781"><div class="t">데이터 연쇄 — 어떤 출력이 어떤 입력이 되는가</div><div class="s">공통 계약 · claude/flow/data-chain.md</div></div><p><strong>서버끼리 직접 대화하지 않는다.</strong> 모든 값은 에이전트를 통과한다.</p>
+<h2>1스텝 흐름</h2>
+<pre><code>①.get_observation()  ──→  obs
+                            │
+    ┌───────────────────────┼────────────────────────┐
+    │                       │                        │
+    ▼                       ▼                        ▼
+②.classify_demand      ⑤.get_reliability_table    [에이전트 추론]
+  (observation=obs)       ( — )                     situation
+    │                       │                        │
+    │ dominant              │ effective, recent_error│
+    └───────┬───────────────┴────────────────────────┘
+            ▼
+    ②.propose_allocation(policy, observation=obs, situation, history, recent_error)
+            │
+            │ allocation, confidence(내재적)
+            ▼
+    [에이전트: combined = (situation × intrinsic × effective)^(1/3)]
+            │
+            ├── combined &lt; 0.45 ──→ ④.record_escalation(...) ──→ decision_id + fallback 지시
+            │
+            ▼
+    ④.record_decision(step, obs, situation, policy, allocation, confidence, rationale, ...)
+            │
+            │ decision_id
+            ▼
+    ①.apply_allocation(**allocation)  ──→  normalized, delta
+            │
+            ▼
+    ①.step()  ──→  obs₊₁
+            │
+            ▼
+    ⑤.report_outcome(decision_id, observed=obs₊₁)
+            │
+            │ vendor_id (조달했다면)
+            ▼
+    ③.update_rating(vendor_id, outcome={sla_met, decision_id})
+</code></pre>
+<h2>조달 분기</h2>
+<p><code>demand_pressure ≥ 1.0</code>일 때만 의미가 있다. 배분 결정과 같은 스텝, <code>step()</code> 전에 일어난다.</p>
+<pre><code>obs.demand_pressure ≥ 1.0
+        │
+        ▼
+③.score_offerings(slice_type, qos)  ──→ vendor_id (1위)
+        │
+        ▼
+③.procure(vendor_id, slice_type, qos, duration_steps, current_step=obs.step)
+        │
+        │ capacity_gain, expires_at_step, slice_id
+        ▼
+①.add_capacity(slice_type, amount=capacity_gain, expires_at_step, slice_id)
+        │
+        │ demand_pressure (반영 후)
+        ▼
+  [에이전트: 여전히 ≥ 1.0이면 추가 조달 또는 위반 감수]
+  slice_id · vendor_id → ④.record_decision에 함께 기록
+</code></pre>
+<p><strong>③과 ①은 직접 대화하지 않는다.</strong> <code>capacity_gain</code>을 에이전트가 옮겨 심는다. ⑤ → ③의 <code>update_rating</code> 중계, ⑤ → ②의 <code>recent_error</code> 중계와 같은 패턴이다.</p>
+<h2>출력 → 입력 대응표</h2>
+<table>
+<thead>
+<tr>
+<th>생산</th>
+<th>필드</th>
+<th>소비</th>
+<th>파라미터</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>①.<code>get_observation</code></td>
+<td><code>Observation</code> 전체</td>
+<td>②.<code>propose_allocation</code></td>
+<td><code>observation</code></td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td>②.<code>classify_demand</code></td>
+<td><code>observation</code></td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td>④.<code>record_decision</code></td>
+<td><code>observation</code></td>
+</tr>
+<tr>
+<td></td>
+<td><code>demand_pressure</code></td>
+<td>—</td>
+<td><strong>에이전트의 조달 판단 근거</strong></td>
+</tr>
+<tr>
+<td>①.<code>get_history</code></td>
+<td><code>HistoryBlock</code> 전체</td>
+<td>②.<code>propose_allocation</code></td>
+<td><code>history</code></td>
+</tr>
+<tr>
+<td>①.<code>step</code></td>
+<td><code>observation</code></td>
+<td>⑤.<code>report_outcome</code></td>
+<td><code>observed</code></td>
+</tr>
+<tr>
+<td>②.<code>propose_allocation</code></td>
+<td><code>allocation</code></td>
+<td>①.<code>apply_allocation</code></td>
+<td><code>embb</code>/<code>urllc</code>/<code>mmtc</code></td>
+</tr>
+<tr>
+<td></td>
+<td><code>confidence</code></td>
+<td>④.<code>record_decision</code></td>
+<td><code>confidence.intrinsic</code></td>
+</tr>
+<tr>
+<td></td>
+<td><code>in_distribution</code></td>
+<td>④.<code>record_decision</code></td>
+<td><code>in_distribution</code></td>
+</tr>
+<tr>
+<td>②.<code>classify_demand</code></td>
+<td>출력 전체</td>
+<td>④.<code>record_decision</code></td>
+<td><code>demand_class</code></td>
+</tr>
+<tr>
+<td>②.<code>compare_policies</code></td>
+<td>탈락 후보 목록</td>
+<td>④.<code>record_decision</code></td>
+<td><code>considered</code></td>
+</tr>
+<tr>
+<td>③.<code>score_offerings</code></td>
+<td><code>vendor_id</code></td>
+<td>③.<code>explain_score</code> · ③.<code>procure</code></td>
+<td><code>vendor_id</code></td>
+</tr>
+<tr>
+<td>③.<code>procure</code></td>
+<td><code>slice_id</code></td>
+<td>④.<code>record_decision</code> · ①.<code>add_capacity</code></td>
+<td><code>slice_id</code></td>
+</tr>
+<tr>
+<td></td>
+<td><code>vendor_id</code></td>
+<td>④.<code>record_decision</code></td>
+<td><code>vendor_id</code></td>
+</tr>
+<tr>
+<td></td>
+<td><code>capacity_gain</code></td>
+<td>①.<code>add_capacity</code></td>
+<td><code>amount</code></td>
+</tr>
+<tr>
+<td></td>
+<td><code>expires_at_step</code></td>
+<td>①.<code>add_capacity</code></td>
+<td><code>expires_at_step</code></td>
+</tr>
+<tr>
+<td>④.<code>record_decision</code></td>
+<td><code>decision_id</code></td>
+<td>⑤.<code>report_outcome</code></td>
+<td><code>decision_id</code></td>
+</tr>
+<tr>
+<td>④.<code>record_escalation</code></td>
+<td><code>decision_id</code></td>
+<td>⑤.<code>report_outcome</code></td>
+<td><code>decision_id</code></td>
+</tr>
+<tr>
+<td></td>
+<td><code>fallback_allocation</code></td>
+<td>①.<code>apply_allocation</code></td>
+<td><code>embb</code>/<code>urllc</code>/<code>mmtc</code></td>
+</tr>
+<tr>
+<td>⑤.<code>report_outcome</code></td>
+<td><code>vendor_id</code>, <code>sla_met</code></td>
+<td>③.<code>update_rating</code></td>
+<td><code>vendor_id</code>, <code>outcome</code></td>
+</tr>
+<tr>
+<td>⑤.<code>get_reliability_table</code></td>
+<td><code>{policy}.effective</code></td>
+<td>④.<code>record_decision</code></td>
+<td><code>confidence.empirical</code></td>
+</tr>
+<tr>
+<td></td>
+<td><code>{policy}.recent_error</code></td>
+<td>②.<code>propose_allocation</code></td>
+<td><code>recent_error</code></td>
+</tr>
+<tr>
+<td></td>
+<td>테이블 전체</td>
+<td>②.<code>compare_policies</code></td>
+<td><code>recent_errors</code></td>
+</tr>
+<tr>
+<td>에이전트</td>
+<td><code>run_id</code></td>
+<td>①.<code>reset</code> · ④ 전체</td>
+<td><code>run_id</code></td>
+</tr>
+</tbody>
+</table>
+<h2>에이전트가 만들어내는 값</h2>
+<p>어느 도구에서도 오지 않는다. <strong>LLM이 답하는 값은 정확히 넷이다.</strong> 어느 서버에도 이 코드가 없다.</p>
+<table>
+<thead>
+<tr>
+<th>값</th>
+<th>쓰이는 곳</th>
+<th>근거</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>situation</code></td>
+<td>②.<code>propose_allocation</code>, ④.<code>record_decision</code></td>
+<td>관측(특히 트래픽 <strong>구성비</strong>)으로부터 추론</td>
+</tr>
+<tr>
+<td><code>confidence.situation</code></td>
+<td>④.<code>record_decision</code></td>
+<td><strong>상황 판단 자체에 대한 확신.</strong> 어느 도구도 주지 않는다</td>
+</tr>
+<tr>
+<td>정책 선택</td>
+<td>②.<code>propose_allocation</code>의 <code>policy</code></td>
+<td>신뢰도 비교</td>
+</tr>
+<tr>
+<td>조달 여부</td>
+<td>③.<code>procure</code> 호출 여부</td>
+<td><code>demand_pressure</code> + 비용 판단</td>
+</tr>
+</tbody>
+</table>
+<p><strong>나머지 둘은 파이썬이 기계적으로 계산한다.</strong> LLM에게 묻지 않는다.</p>
+<table>
+<thead>
+<tr>
+<th>값</th>
+<th>계산</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>confidence.combined</code></td>
+<td><code>(situation × intrinsic × empirical)^(1/3)</code></td>
+</tr>
+<tr>
+<td>에스컬레이션 여부</td>
+<td><code>combined &lt; 0.45</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>check_contract.py</code>는 <code>AGENT</code> 생산 값이 <strong>정확히 이 넷</strong>인지 검사한다 — 늘면 판단이 서버로 샌 것이고,
+줄면 기여가 사라진 것이다. (<code>flow/loop.md</code> — 루프는 파이썬이 돌리고 LLM은 판단 지점에서만 호출한다)</p></section><section class="doc"><div class="doc-hd" style="border-left-color:#898781"><div class="t">오류 규약</div><div class="s">공통 계약 · claude/flow/errors.md</div></div><p><strong>원칙: 에이전트가 판단으로 대응할 수 있는 것은 값으로, 코드 버그는 예외로.</strong></p>
+<h2>값으로 돌려줄 것 vs 예외를 던질 것</h2>
+<table>
+<thead>
+<tr>
+<th>상황</th>
+<th>처리</th>
+<th>이유</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>정책 사용 불가 (이력 부족, 모델 없음)</td>
+<td><strong><code>status</code> 필드로 반환</strong></td>
+<td>에이전트의 판단 재료</td>
+</tr>
+<tr>
+<td>배분 입력이 비정상</td>
+<td><strong><code>accepted: false</code>로 반환</strong></td>
+<td>에이전트가 재시도 가능</td>
+</tr>
+<tr>
+<td>존재하지 않는 <code>vendor_id</code></td>
+<td><strong><code>error</code> 필드로 반환</strong></td>
+<td>오타 복구 가능</td>
+</tr>
+<tr>
+<td>존재하지 않는 <code>decision_id</code></td>
+<td><strong><code>error</code> 필드로 반환</strong></td>
+<td></td>
+</tr>
+<tr>
+<td>용량 상한 초과 (<code>add_capacity</code>)</td>
+<td><strong><code>accepted: false</code>로 반환</strong></td>
+<td>에이전트가 다른 슬라이스를 택할 수 있음</td>
+</tr>
+<tr>
+<td><code>current_step</code>이 과거 (<code>procure</code>)</td>
+<td><strong><code>status: "rejected"</code>로 반환</strong></td>
+<td>순서 실수. 복구 가능</td>
+</tr>
+<tr>
+<td>잘못된 열거형 값</td>
+<td>예외 (FastMCP가 스키마 검증)</td>
+<td>계약 위반</td>
+</tr>
+<tr>
+<td>파일 I/O 실패</td>
+<td>예외</td>
+<td>복구 불가</td>
+</tr>
+</tbody>
+</table>
+<p><strong>오류 메시지도 프롬프트의 일부다.</strong> 복구에 필요한 정보를 같이 준다.</p>
+<pre><code class="language-json">// 존재하지 않는 벤더 — available을 같이 주면 에이전트가 한 번에 복구한다
+{&quot;error&quot;: &quot;unknown_vendor&quot;, &quot;vendor_id&quot;: &quot;vendor-9&quot;,
+ &quot;available&quot;: [&quot;vendor-1&quot;, &quot;vendor-2&quot;, &quot;vendor-3&quot;, &quot;vendor-4&quot;, &quot;vendor-5&quot;]}
+</code></pre>
+<h2>호출 순서 위반</h2>
+<table>
+<thead>
+<tr>
+<th>위반</th>
+<th>반환</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>report_outcome</code>을 <code>step()</code> 전에 호출</td>
+<td><code>{"error": "premature_scoring", "reason": "decision at step 12, observed step 12; expected &gt;= 13"}</code></td>
+</tr>
+<tr>
+<td><code>add_capacity</code>를 <code>step()</code> 후에 호출</td>
+<td>허용되지만 <strong>한 스텝 늦게 반영</strong>된다. 조달한 스텝은 효과를 못 본다</td>
+</tr>
+<tr>
+<td><code>procure</code> 없이 <code>add_capacity</code> 호출</td>
+<td>허용. 용량은 늘지만 <strong>비용이 기록되지 않아</strong> 지표가 왜곡된다. 검사기가 경고</td>
+</tr>
+<tr>
+<td><code>apply_allocation</code> 없이 <code>step()</code> 두 번</td>
+<td>허용. 직전 배분이 유지됨</td>
+</tr>
+<tr>
+<td><code>reset()</code> 없이 시작</td>
+<td>허용. <code>seed=0</code>, <code>scenario="normal"</code>로 자동 초기화</td>
+</tr>
+</tbody>
+</table></section><section class="doc"><div class="doc-hd" style="border-left-color:#898781"><div class="t">금지 필드 검사</div><div class="s">공통 계약 · claude/flow/forbidden.md</div></div><p><strong><code>baseline</code> arm을 제외한 모든 실행에서 아래 문자열이 에이전트 컨텍스트에 0건이어야 한다.</strong> 도구 설명·반환값·오류 메시지 전부가 검사 대상이다. 1건이라도 나오면 그 실행은 폐기한다.</p>
+<pre><code class="language-python">FORBIDDEN = [&quot;is_emergency&quot;, &quot;is_special_event&quot;, &quot;is_iot_surge&quot;,
+             &quot;ground_truth&quot;, &quot;perception_accuracy&quot;, &quot;escalation_precision&quot;]
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>출처</th>
+<th>어디로만 나가나</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>is_emergency</code> · <code>is_special_event</code> · <code>is_iot_surge</code></td>
+<td>①이 <code>runs/{run_id}/truth.jsonl</code>에만 기록. 어떤 도구도 읽지 않는다</td>
+</tr>
+<tr>
+<td><code>perception_accuracy</code> · <code>escalation_precision</code></td>
+<td><code>eval/score.py</code>가 <code>truth.jsonl</code>과 조인해 <strong>오프라인</strong> 계산. ④ <code>get_metrics</code>는 반환하지 않는다</td>
+</tr>
+</tbody>
+</table>
+<h2><code>baseline</code> arm의 예외</h2>
+<p><code>baseline</code>만 <code>truth.jsonl</code>을 읽는다. 기존 시스템(CLI <code>--emergency</code>)의 재현이므로 정당하지만, <strong>코드 경로를 물리적으로 분리한다.</strong> 같은 함수에 <code>if arm == "baseline"</code>으로 두면 실수로 다른 비교군에 샌다.</p>
+<h2><code>situation</code> ↔ <code>truth</code> 매핑 규칙</h2>
+<p><code>eval/score.py</code>가 <code>perception_accuracy</code>를 계산하려면 <strong>4값 열거형과 3개 bool 사이의 대응을 사전에 못 박아야 한다.</strong> 채점 후에 정하면 유리한 쪽으로 해석할 수 있다.</p>
+<table>
+<thead>
+<tr>
+<th><code>truth</code></th>
+<th>정답 <code>situation</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>전부 <code>false</code></td>
+<td><code>normal</code></td>
+</tr>
+<tr>
+<td><code>is_emergency</code> 만 <code>true</code></td>
+<td><code>emergency</code></td>
+</tr>
+<tr>
+<td><code>is_special_event</code> 만 <code>true</code></td>
+<td><code>special_event</code></td>
+</tr>
+<tr>
+<td><code>is_iot_surge</code> 만 <code>true</code></td>
+<td><code>iot_surge</code></td>
+</tr>
+<tr>
+<td>둘 이상 <code>true</code></td>
+<td><strong>발생하지 않음</strong></td>
+</tr>
+</tbody>
+</table>
+<p>시나리오 정의상 세 플래그는 <strong>상호 배타적</strong>이다. <code>reset(scenario=...)</code>은 하나만 켜고, <code>mixed</code>의 전환 시점(<code>test_scenarios.py:92</code>)도 겹치지 않는다 — 스텝 20~50 <code>special_event</code>, 60~90 <code>emergency</code>, 100~120 <code>iot_surge</code>이며 그 사이는 전부 <code>normal</code>이다.</p>
+<p><strong>그래도 ①이 <code>truth.jsonl</code>을 쓸 때 상호 배타성을 assert 한다.</strong> 시나리오를 나중에 추가하다 겹치면 채점 기준이 조용히 무너진다.</p>
+<h2>전환 경계 처리</h2>
+<p>플래그가 바뀐 <strong>그 스텝</strong>의 결정은 정답 판정에서 제외한다. 에이전트는 <code>obs_t</code>를 보고 판단하는데 <code>obs_t</code>는 전환 <strong>직전</strong>의 트래픽을 반영하므로, 전환 스텝을 미탐으로 세면 원리적으로 맞힐 수 없는 것을 틀렸다고 세는 셈이다. <code>mixed</code> 120스텝에서 제외 대상은 5스텝이다.</p></section><section class="doc"><div class="doc-hd" style="border-left-color:#898781"><div class="t">런타임 구조</div><div class="s">공통 계약 · claude/build/runtime.md</div></div><p>프로세스 구성 · 저장소 레이아웃 · 기술 스택</p>
+<h1>2. 런타임 구조</h1>
+<h1>프로세스 구성</h1>
+<pre><code>orchestrator/run.py  (LLM 에이전트 = MCP 클라이언트)
+        │
+        │  stdio × 5
+        ├──────────────┬──────────────┬──────────────┬──────────────┐
+        ▼              ▼              ▼              ▼              ▼
+  slice-observe   slice-policy   slice-market   slice-audit   slice-feedback
+   (상태 보유)      (무상태)       (읽기 위주)     (로그)        (상태 보유)
+        │                                            │              │
+        │ truth.jsonl                                │ decisions.json
+        ▼ (MCP 도구 아님)                             └──────┬───────┘
+   eval/score.py  ◄──────────────────────────────────────────┘
+</code></pre>
+<ul>
+<li><strong>전송</strong>: stdio. 단일 머신 연구 프로토타입이므로 HTTP 불필요. 서버당 독립 프로세스.</li>
+<li><strong>①만 에피소드 생명주기를 가진다.</strong> 나머지 넷은 프로세스가 죽어도 파일에서 복구된다.</li>
+<li><strong>동시 쓰기 없음</strong>: 에이전트가 도구를 순차 호출한다. 락을 두지 않는다 (분리 설계서 §2.1 승계).</li>
+<li>단, <strong>쓰기는 원자적으로</strong> 한다 — <code>tmp</code> 파일에 쓴 뒤 <code>os.replace()</code>. 중단 시 JSON 파일이 깨지는 것만 막으면 충분하다.</li>
+</ul>
+<h1>저장소 레이아웃</h1>
+<pre><code>Build-A-Thon-SRM-main/
+├── mcp/
+│   ├── common/
+│   │   ├── paths.py           # 경로 상수 한 곳
+│   │   ├── schema.py          # Observation, Decision 등 pydantic 모델
+│   │   └── store.py           # 원자적 JSON 읽기/쓰기
+│   ├── observe/
+│   │   ├── server.py          # ① FastMCP
+│   │   └── env.py             # MLOrchestrator에서 추출한 순수 시뮬레이터
+│   ├── policy/
+│   │   ├── server.py          # ②
+│   │   ├── descriptions.py    # 도구 설명 2벌 (§6.3)
+│   │   ├── rule.py  lstm.py  dqn.py  classify.py
+│   ├── market/
+│   │   ├── server.py          # ③
+│   │   └── scoring.py         # engine.py에서 추출
+│   ├── audit/
+│   │   ├── server.py          # ④
+│   │   └── metrics.py         # 관측 가능 지표만
+│   └── feedback/
+│       ├── server.py          # ⑤
+│       └── reliability.py     # EMA 갱신 (§6.2)
+├── orchestrator/
+│   ├── run.py                 # 에이전트 루프 + 비교군 스위치
+│   └── prompts/
+├── eval/
+│   ├── score.py               # 정답 조인 → 정답 의존 지표
+│   └── plots.py
+├── data/                      # 실행에 걸쳐 유지
+│   └── vendors.json           # ③ 소유 (부트스트랩 시 모델 A 복사)
+├── runs/{run_id}/             # 실행마다 새로 (§5.0)
+│   ├── decisions.json         # ④ 기록 · ⑤ 추가기입
+│   ├── truth.jsonl            # ① 기록. 도구 미노출
+│   ├── reliability.json       # ⑤ (cold 모드)
+│   └── context/               # C의 누출 검사 덤프
+└── tools/
+    └── step0_verify_models.py # 0단계
+</code></pre>
+<p><strong>기존 코드는 건드리지 않는다.</strong> <code>mcp/</code>는 <code>ml_orchestrator_demo.py</code>·<code>engine.py</code>에서 로직을 <strong>추출(copy-and-adapt)</strong> 하지 저 파일들을 import 하지 않는다. 이유: 두 파일 다 최상단에서 무거운 부작용을 일으킨다 (<code>MLOrchestrator.__init__</code>이 <code>results/</code> 폴더 생성, 모듈 레벨 TF import). 추출 대상은 §4에 위치를 명시했다.</p>
+<h1>기술 스택</h1>
+<table>
+<thead>
+<tr>
+<th>항목</th>
+<th>선택</th>
+<th>근거</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MCP 프레임워크</td>
+<td><code>fastmcp</code></td>
+<td>데코레이터 기반. 서버당 100줄 내외</td>
+</tr>
+<tr>
+<td>Python</td>
+<td><strong>3.10</strong></td>
+<td>TF 2.15 호환 상한</td>
+</tr>
+<tr>
+<td>TensorFlow</td>
+<td><strong>2.15.1 고정</strong></td>
+<td>Keras 2. SavedModel 직접 적재 (정정 I)</td>
+</tr>
+<tr>
+<td>스키마</td>
+<td><code>pydantic</code> v2</td>
+<td>FastMCP가 타입힌트에서 JSON Schema 자동 생성</td>
+</tr>
+<tr>
+<td>가상환경</td>
+<td><strong>신규 생성</strong></td>
+<td>동봉된 <code>venv/</code>는 Python 3.14 + 타 PC 절대경로. 사용 불가</td>
+</tr>
+</tbody>
+</table>
+<hr /></section><section class="doc"><div class="doc-hd" style="border-left-color:#898781"><div class="t">공유 데이터 스키마</div><div class="s">공통 계약 · claude/build/store.md</div></div><p>실행 생명주기 · decisions.json · reliability.json · truth.jsonl · vendors.json</p>
+<h1>5. 공유 데이터 스키마</h1>
+<h1>5.0 실행 생명주기 — 무엇이 언제 초기화되는가</h1>
+<p><strong><code>reset()</code>은 ①만 초기화한다.</strong> ②③④⑤의 상태는 그대로 남는다. 비교군 4 × 시나리오 5 × 시드 3 = <strong>60회를 돌리는데 산출물 경로가 단일 파일</strong>이면 전부 덮어쓰거나 뒤섞인다.</p>
+<p><strong>실행 단위로 경로를 나눈다.</strong></p>
+<pre><code>data/                         ← 실행에 걸쳐 유지
+  vendors.json                ③ 소유. 레이팅이 누적된다
+  reliability.json            ⑤ 소유. warm 모드에서만 사용
+
+runs/{run_id}/                ← 실행마다 새로
+  decisions.json              ④ 생성 · ⑤ 추가기입
+  truth.jsonl                 ① 기록. 도구 미노출
+  reliability.json            ⑤. cold 모드에서만 사용
+  context/                    C의 누출 검사용 덤프
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>서버</th>
+<th>상태</th>
+<th>실행 시작 시</th>
+<th>근거</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>①</td>
+<td>배분·용량·이력·리스</td>
+<td><strong><code>reset()</code>이 전부 초기화</strong></td>
+<td>에피소드가 곧 ①의 수명</td>
+</tr>
+<tr>
+<td>②</td>
+<td>없음 (모델만 상주)</td>
+<td>초기화 불필요</td>
+<td>무상태</td>
+</tr>
+<tr>
+<td>③</td>
+<td><code>vendors.json</code>의 <code>rating</code></td>
+<td><strong>초기화 안 함</strong> (기본)</td>
+<td>레이팅 누적이 자기 개선의 증거</td>
+</tr>
+<tr>
+<td>④</td>
+<td><code>runs/{run_id}/decisions.json</code></td>
+<td>첫 <code>record_decision</code>이 파일 생성</td>
+<td>별도 도구 불필요</td>
+</tr>
+<tr>
+<td>⑤</td>
+<td><code>reliability.json</code></td>
+<td><strong>모드에 따라 다름</strong></td>
+<td>아래</td>
+</tr>
+</tbody>
+</table>
+<p><strong>⑤와 ③의 초기화는 실험 변수다.</strong></p>
+<table>
+<thead>
+<tr>
+<th>모드</th>
+<th>⑤ <code>reliability.json</code></th>
+<th>③ <code>vendors.json</code></th>
+<th>보이는 것</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>cold</code></td>
+<td><code>runs/{run_id}/</code> — 실행마다 새로</td>
+<td>부트스트랩 재실행</td>
+<td>단일 에피소드 내 적응</td>
+</tr>
+<tr>
+<td><code>warm</code></td>
+<td><code>data/</code> — 전체 누적</td>
+<td>누적</td>
+<td><strong>장기 자기 개선</strong> (주 결과)</td>
+</tr>
+</tbody>
+</table>
+<p>모드는 ⑤·③ 서버 기동 시 환경변수(<code>SLICE_MEMORY_MODE</code>)로 정하고, <code>decisions.json</code>의 <code>config</code>에 기록한다. <strong>60회 실행을 섞어 돌리면 안 된다</strong> — <code>warm</code> 실행들 사이에 <code>cold</code> 실행이 끼면 누적 레이팅이 오염된다. 모드별로 묶어서 돌린다.</p>
+<blockquote>
+<p><strong><code>run_id</code>를 발급하는 것은 에이전트(C)다.</strong> 형식 <code>{arm}-{scenario}-s{seed}</code>. ①의 <code>reset()</code>과 ④의 모든 기록에 같은 값이 들어가야 <code>truth.jsonl</code>과 <code>decisions.json</code>이 <code>step</code>으로 조인된다 (§1.5 V3).</p>
+</blockquote>
+<h1><code>runs/{run_id}/decisions.json</code></h1>
+<p>④가 생성하고 ⑤가 같은 레코드에 덧붙인다 (분리 설계서 §2.1).</p>
+<pre><code class="language-json">{
+  &quot;run_id&quot;: &quot;exp-proposed-emergency-s0&quot;,
+  &quot;config&quot;: {&quot;scenario&quot;: &quot;emergency&quot;, &quot;seed&quot;: 0, &quot;arm&quot;: &quot;proposed&quot;,
+             &quot;desc_mode&quot;: &quot;minimal&quot;, &quot;tau&quot;: 0.45},
+  &quot;decisions&quot;: [
+    {
+      &quot;decision_id&quot;: &quot;exp-proposed-emergency-s0-0012&quot;,
+      &quot;step&quot;: 12,
+      &quot;kind&quot;: &quot;decision&quot;,
+      &quot;situation&quot;: &quot;emergency&quot;,
+      &quot;chosen_policy&quot;: &quot;rule_based&quot;,
+      &quot;allocation&quot;: {&quot;embb&quot;: 0.20, &quot;urllc&quot;: 0.70, &quot;mmtc&quot;: 0.10},
+      &quot;confidence&quot;: {&quot;intrinsic&quot;: 0.72, &quot;empirical&quot;: 0.88, &quot;combined&quot;: 0.80},
+      &quot;rationale&quot;: &quot;URLLC util 1.52 &gt; 1.2, eMBB 동반 상승 없음&quot;,
+      &quot;observation&quot;: { ... },
+
+      &quot;outcome&quot;: {                      // ← ⑤가 report_outcome에서 추가
+        &quot;sla_met&quot;: false,
+        &quot;error&quot;: 0.18,
+        &quot;vendor_id&quot;: null,
+        &quot;scored_at_step&quot;: 13
+      }
+    },
+    { &quot;decision_id&quot;: &quot;...-0031&quot;, &quot;kind&quot;: &quot;escalation&quot;,
+      &quot;situation&quot;: &quot;emergency&quot;, &quot;reason&quot;: &quot;combined 0.31 &lt; tau 0.45&quot;,
+      &quot;confidence&quot;: {...} }
+  ]
+}
+</code></pre>
+<ul>
+<li><code>kind</code>로 결정과 에스컬레이션을 한 배열에 둔다. 시간순 재구성이 쉬워진다.</li>
+<li><code>config</code>를 파일에 박는다. 비교군 4 × 시나리오 5 × 시드 N의 산출물이 섞이지 않는다.</li>
+<li><code>outcome</code>이 없는 레코드 = 마지막 스텝 또는 실행 실패. 집계에서 제외 (§3.1 규칙 2).</li>
+</ul>
+<h1><code>reliability.json</code> (⑤ 소유)</h1>
+<pre><code class="language-json">{
+  &quot;rule_based&quot;:    {&quot;r&quot;: 0.91, &quot;n&quot;: 120, &quot;alpha&quot;: 0.2},
+  &quot;lstm_forecast&quot;: {&quot;r&quot;: 0.84, &quot;n&quot;: 95,  &quot;alpha&quot;: 0.2}
+}
+</code></pre>
+<p><strong>에피소드 간 유지 여부가 실험 설계 변수다.</strong> §6.2 참조.</p>
+<h1><code>runs/{run_id}/truth.jsonl</code> (① 기록, 도구 미노출)</h1>
+<pre><code class="language-json">{&quot;step&quot;: 12, &quot;is_emergency&quot;: true, &quot;is_special_event&quot;: false, &quot;is_iot_surge&quot;: false}
+</code></pre>
+<h1><code>data/vendors.json</code> (③ 소유)</h1>
+<p>모델 A + <code>regions</code>. ⑤는 직접 쓰지 않는다 (분리 설계서 §2.1 승계).</p>
+<hr /></section><section class="doc"><div class="doc-hd" style="border-left-color:#898781"><div class="t">3인 역할 분담 — 공통</div><div class="s">공통 계약 · claude/team/roles.md</div></div><h2>0. 병렬 개발의 전제</h2>
+<p>3명이 동시에 손대면 <strong>반드시 두 곳에서 막힙니다.</strong></p>
+<ol>
+<li><strong>A의 <code>Observation</code> 스키마를 B와 C가 동시에 소비한다.</strong> 이게 안 얼면 아무도 시작할 수 없습니다.</li>
+<li><strong>C는 ①~⑤가 다 있어야 루프를 돌릴 수 있다.</strong> 순진하게 짜면 C는 마지막 주까지 대기합니다.</li>
+</ol>
+<p>두 문제를 <strong>Day 0 계약 동결</strong>과 <strong>C가 만드는 목 서버</strong>로 풉니다. §1과 §6이 이 문서의 핵심입니다.</p>
+<hr />
+<h2>1. Day 0 — 3명이 같이 앉아 끝낼 것 (반나절)</h2>
+<p>이걸 안 하고 흩어지면 3일 뒤에 합쳤을 때 아무것도 안 맞습니다.</p>
+<h3>1.1 저장소 정리 — 지금 당장 ⚠️</h3>
+<p>현재 저장소에 병렬 개발을 방해하는 것이 둘 있습니다. 확인한 내용입니다.</p>
+<p><strong>(1) <code>.gitignore</code>가 UTF-16으로 저장되어 있어 규칙이 먹지 않습니다.</strong></p>
+<pre><code>$ file .gitignore
+.gitignore: Unicode text, UTF-16, little-endian text, with CRLF
+</code></pre>
+<p>Git은 <code>.gitignore</code>를 바이트로 읽습니다. UTF-16이면 모든 ASCII 문자 뒤에 <code>\x00</code>이 붙어 패턴이 깨집니다. 실제로 <code>venv/</code>가 무시되는 건 pip이 만든 <code>venv/.gitignore</code> 덕분이지 루트 규칙 때문이 아닙니다.</p>
+<p><strong>3명이 각자 실행하면 <code>data/*.json</code>, <code>results/</code>, <code>.venv310/</code>이 전부 커밋 대상으로 잡혀 매 병합마다 충돌합니다.</strong> UTF-8로 다시 저장하고 런타임 산출물을 추가하세요.</p>
+<pre><code class="language-bash"># UTF-8(BOM 없음)로 재작성
+printf '%s\n' '__pycache__/' '*.pyc' '*.egg-info/' 'venv/' '.venv*/' 'logs/' '*.env' \
+  'results/' 'runs/' 'data/decisions.json' 'data/reliability.json' \
+  'SRM-main-mcp/' &gt; .gitignore
+</code></pre>
+<blockquote>
+<p><code>models/</code>와 <code>*.h5</code>는 <strong>넣지 마세요.</strong> 이미 추적 중이라 ignore 규칙이 적용되지 않고, 규칙만 보고 "가중치가 없구나" 오해하게 됩니다. 확인 결과 <strong>가중치는 실물입니다</strong> (LFS 스텁 아님, <code>variables.data-00000-of-00001</code> = 1.5 MB). B가 clone만 하면 바로 씁니다.</p>
+</blockquote>
+<p><strong>(2) 저장소 안에 저장소가 클론되어 있습니다.</strong></p>
+<pre><code>srm-main_mcp/
+└── SRM-main-mcp/     ← 중첩 클론. git status에 ?? 로 뜸
+    ├── .git
+    └── README.md
+</code></pre>
+<p>지우거나 밖으로 옮기세요. 그대로 두면 누군가 <code>git add .</code> 할 때 들어갑니다.</p>
+<p><strong>(3) 작업 기준 디렉터리 하나로 고정.</strong> <code>D:\pj\SRM-main\SRM-main</code>은 옛 사본입니다. 3명 모두 <code>srm-main_mcp/</code>만 씁니다.</p>
+<h3>1.2 계약 동결 — <code>mcp/common/</code></h3>
+<p><strong>A가 작성하고, 3명이 같이 읽고, 그 자리에서 확정합니다.</strong> 이후 변경은 PR + 3명 합의.</p>
+<pre><code>mcp/common/
+├── schema.py      # Observation, Decision, PolicyProposal, Outcome  (pydantic)
+├── const.py       # 하드코딩 상수 전부
+└── store.py       # 원자적 JSON 읽기/쓰기
+</code></pre>
+<p><strong><code>const.py</code>에 들어갈 값</strong> — 흩어지면 3명이 각자 다른 값을 쓰게 됩니다.</p>
+<table>
+<thead>
+<tr>
+<th>상수</th>
+<th>값</th>
+<th>출처</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>THRESHOLDS</code></td>
+<td><code>{"embb": 0.9, "urllc": 1.2, "mmtc": 0.8}</code></td>
+<td><code>ml_orchestrator_demo.py:174</code></td>
+</tr>
+<tr>
+<td><code>INIT_ALLOCATION</code></td>
+<td><code>{"embb": 0.4, "urllc": 0.4, "mmtc": 0.2}</code></td>
+<td><code>:171</code></td>
+</tr>
+<tr>
+<td><code>STABILITY_FACTOR</code></td>
+<td><code>0.7</code></td>
+<td><code>:458</code></td>
+</tr>
+<tr>
+<td><code>ALLOC_CLIP</code></td>
+<td><code>(0.1, 0.8)</code></td>
+<td><code>:461</code></td>
+</tr>
+<tr>
+<td><code>MINUTES_PER_STEP</code></td>
+<td><code>15</code></td>
+<td>신규 (정정 F)</td>
+</tr>
+<tr>
+<td><code>START_HOUR</code></td>
+<td><strong><code>0</code></strong></td>
+<td>신규. §1.7에서 8 → 0으로 재조정</td>
+</tr>
+<tr>
+<td><code>SEQUENCE_LENGTH</code></td>
+<td><code>10</code></td>
+<td><code>:190</code></td>
+</tr>
+<tr>
+<td><code>TAU</code> (에스컬레이션 문턱)</td>
+<td><code>0.45</code></td>
+<td>설계서 §6.2</td>
+</tr>
+<tr>
+<td><code>EMA_ALPHA</code></td>
+<td><code>0.2</code></td>
+<td>§6.2</td>
+</tr>
+<tr>
+<td><code>SHRINK_R0</code>, <code>SHRINK_M</code></td>
+<td><code>0.5</code>, <code>5</code></td>
+<td>§6.2</td>
+</tr>
+<tr>
+<td><code>RATING_DELTA</code></td>
+<td><code>(+0.05, -0.20)</code></td>
+<td>§4 ③</td>
+</tr>
+<tr>
+<td><code>FEATURE_COLUMNS</code></td>
+<td>11개 문자열 리스트</td>
+<td><code>:513~526</code></td>
+</tr>
+<tr>
+<td><code>CAPACITY_BASE</code></td>
+<td><strong><code>1.6</code></strong></td>
+<td>신규. 평시 여유 확보 (§1.7)</td>
+</tr>
+<tr>
+<td><code>CAPACITY_MAX</code></td>
+<td><strong><code>2.6</code></strong></td>
+<td>기본 + 조달 4회분 (§1.7)</td>
+</tr>
+<tr>
+<td><code>REFERENCE_BANDWIDTH</code></td>
+<td><code>{eMBB: 1100, URLLC: 500, mMTC: 120}</code></td>
+<td><code>vendors.json</code> 중앙값 실측</td>
+</tr>
+<tr>
+<td><code>GAIN_SCALE</code></td>
+<td><code>0.25</code></td>
+<td>신규. 튜닝 가능</td>
+</tr>
+<tr>
+<td><code>COST_PER_STEP</code></td>
+<td><code>cost × MINUTES_PER_STEP / 60</code></td>
+<td>시간당 단가 → 스텝 환산 (W3)</td>
+</tr>
+<tr>
+<td><code>MEMORY_MODE</code></td>
+<td><code>"warm"</code></td>
+<td><code>cold</code> / <code>warm</code>. ③⑤의 실행 간 유지 여부 (W5)</td>
+</tr>
+<tr>
+<td><code>SCENARIO_STEPS</code></td>
+<td><code>{normal:60, emergency:60, special_event:60, iot_surge:60, mixed:120}</code></td>
+<td><code>test_scenarios.py:54</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong><code>TAU</code>는 실험 전에 확정하고 이후 절대 건드리지 않습니다.</strong> 조정하면 개입 횟수를 원하는 값으로 만들 수 있어 결과가 무의미해집니다.</p>
+<h3>1.3 파일 소유권 — 충돌 방지</h3>
+<p><strong>한 파일은 한 사람만 수정합니다.</strong> 3인 병합 충돌의 90%가 여기서 예방됩니다.</p>
+<table>
+<thead>
+<tr>
+<th>경로</th>
+<th>소유</th>
+<th>비고</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>mcp/common/</code></td>
+<td><strong>A</strong></td>
+<td>Day 0 이후 변경은 3인 합의</td>
+</tr>
+<tr>
+<td><code>mcp/observe/</code>, <code>mcp/audit/</code></td>
+<td>A</td>
+<td></td>
+</tr>
+<tr>
+<td><code>eval/</code>, <code>fixtures/</code>, <code>tools/record_fixtures.py</code></td>
+<td>A</td>
+<td></td>
+</tr>
+<tr>
+<td><code>mcp/policy/</code>, <code>mcp/market/</code>, <code>mcp/feedback/</code></td>
+<td><strong>B</strong></td>
+<td></td>
+</tr>
+<tr>
+<td><code>tools/step0_verify_models.py</code>, <code>tools/bootstrap_vendors.py</code></td>
+<td>B</td>
+<td></td>
+</tr>
+<tr>
+<td><code>mcp/mock/</code></td>
+<td><strong>C</strong></td>
+<td>계약의 실행 가능 명세 (§6)</td>
+</tr>
+<tr>
+<td><code>orchestrator/</code></td>
+<td>C</td>
+<td></td>
+</tr>
+<tr>
+<td><code>docs/</code></td>
+<td>공용</td>
+<td>섹션 단위로 나눠 쓰기</td>
+</tr>
+<tr>
+<td>기존 코드 (<code>ml_orchestrator_demo.py</code> 등)</td>
+<td><strong>아무도 수정 안 함</strong></td>
+<td>읽기 전용. 로직은 복사해 가져감</td>
+</tr>
+</tbody>
+</table>
+<p>마지막 줄이 중요합니다. 기존 파일을 고치면 3명이 같은 995줄 파일을 건드리게 됩니다. <code>mcp/</code>는 <strong>추출(copy-and-adapt)</strong> 이지 import가 아닙니다.</p>
+<h3>1.4 브랜치 규칙</h3>
+<pre><code>main                 ← 통합. 직접 커밋 금지
+├── feature/kim      ← A
+├── feature/lee      ← B
+└── feature/choi     ← C
+</code></pre>
+<ul>
+<li>합류 지점(§7)마다 <code>main</code>으로 PR. 그 사이에는 각자 브랜치에서 자유롭게.</li>
+<li><code>main</code>이 깨지면 3명이 동시에 막히므로, <strong>PR 머지 전 최소 조건은 "내 서버가 단독 기동되고 도구 목록이 나온다"</strong> 하나입니다. 테스트 통과까지 요구하면 초반에 진도가 안 나갑니다.</li>
+</ul>
+<hr />
+<h2>5. 왜 이렇게 묶었나</h2>
+<p><strong>A — 실험 인프라를 한 사람이.</strong> <code>MLOrchestrator</code>에서 <code>run()</code> 루프를 떼어내는 게 이 프로젝트에서 제일 까다롭습니다 (시뮬레이션·추론·시각화가 995줄에 뒤엉킴). ④ audit은 ①의 관측 스키마를 그대로 기록하니 같은 사람이 하면 손발이 맞습니다. 실험 하네스도 ④가 지표를 뽑으니 자연스럽게 따라옵니다.</p>
+<p><strong>B — TensorFlow를 한 사람이.</strong> ②와 ⑤ 모두 "정책"을 알아야 합니다. ⑤의 신뢰도 갱신은 ②가 어떤 정책을 노출하는지에 달려 있어서, 나누면 소통 비용만 늘어납니다. ③ market은 가볍게(<code>engine.py</code> 거의 그대로) 얹어도 부담이 적습니다.</p>
+<p><strong>C — 판단 로직에 집중.</strong> 오케스트레이터는 코드량은 적은데 반복 튜닝이 많습니다. 프롬프트 고치고 돌려보고 또 고치는 일이라, 서버 개발과 리듬이 다릅니다. 한 사람이 전담하는 게 맞습니다.</p>
+<p><strong>부하 균형</strong>: A와 B가 비슷하게 큽니다. C는 코드량이 가장 적은 대신 반복 횟수가 많고, 초반에 비는 시간을 목 서버(C-0)와 누출 검사(C-4)로 채웁니다. 둘 다 C가 아니면 하기 어려운 일입니다.</p>
+<hr />
+<h2>6. 병렬화 장치 — 누가 누구를 기다리는가</h2>
+<pre><code>Day 0  ├─ A: mcp/common/ 작성 ────────────┐  (전원 대기)
+       └─ 3인: 계약 동결 · 저장소 정리      │
+                                          ▼
+Day 1  ├─ A: env.py 추출 시작
+       ├─ B: 0단계 검증 → 결과 공유 → ③ 착수
+       └─ C: 목 서버 5개 → 루프 골격
+                    │
+Day 2  ├─ A: fixtures/ 배포 ──────────┬──→ B: ② 개발 (① 불필요)
+       │                             └──→ C: 목이 fixture 재생
+       ├─ B: ③ 완성
+       └─ C: 목 ③ → 진짜 ③ 교체  ★ M1
+                    │
+ ...   ├─ A: ① 완성 → 재현성 검증  ★ M2
+       ├─ B: ② 완성 → ⑤ 착수
+       └─ C: 프롬프트 반복
+</code></pre>
+<p><strong>막히지 않는 이유 세 가지</strong></p>
+<ol>
+<li><strong>A의 <code>common/</code>이 Day 0에 나온다</strong> — 그 전까지 아무도 못 움직이므로 최우선.</li>
+<li><strong>A의 <code>fixtures/</code>가 Day 2에 나온다</strong> — B는 ① 없이 ②를, C는 ① 없이 프롬프트를 개발.</li>
+<li><strong>C의 목 서버가 Day 1에 나온다</strong> — C는 A·B를 기다리지 않고, 동시에 계약 검증 장치가 생김.</li>
+</ol>
+<p><strong>교차 검증 — 자기 영역은 자기가 못 본다</strong></p>
+<table>
+<thead>
+<tr>
+<th>검증 대상</th>
+<th>검증자</th>
+<th>방법</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>①④의 정답 누출 (정정 D)</td>
+<td><strong>C</strong></td>
+<td>컨텍스트 덤프 금지어 grep. A는 못 찾음</td>
+</tr>
+<tr>
+<td>②의 <code>situation</code> 반영 (정정 E)</td>
+<td><strong>A</strong></td>
+<td><code>baseline</code>과 <code>arm1</code>의 배분이 정답 일치 시 동일한가</td>
+</tr>
+<tr>
+<td>②의 조용한 폴백 (정정 H)</td>
+<td><strong>A</strong></td>
+<td>④ <code>policy_usage</code>와 ⑤ <code>reliability</code>의 <code>n</code>이 어긋나면 폴백 의심</td>
+</tr>
+<tr>
+<td>①의 재현성 (정정 F)</td>
+<td>A 자체</td>
+<td>동일 시드 2회 → <code>truth.jsonl</code> 바이트 비교</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>7. 합류 지점</h2>
+<p>날짜 대신 <strong>조건</strong>으로 정의합니다. 각 지점에서 <code>main</code>으로 PR.</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>조건</th>
+<th>확인 방법</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>M1</strong> 배선</td>
+<td>C의 루프가 <strong>진짜 ③</strong>을 호출해 벤더 5개 점수 수신</td>
+<td>목 하나가 진짜로 교체됨</td>
+</tr>
+<tr>
+<td><strong>M2</strong> 환경</td>
+<td>① 동일 시드 2회 → <code>truth.jsonl</code> 동일. <code>fixtures/</code> 배포 완료</td>
+<td><code>cmp</code> 통과</td>
+</tr>
+<tr>
+<td><strong>M3</strong> 폐루프</td>
+<td>①②④⑤ 전부 진짜로 <strong>1스텝 왕복</strong> + <code>report_outcome</code> 기록</td>
+<td><code>decisions.json</code>에 <code>outcome</code> 필드 존재</td>
+</tr>
+<tr>
+<td><strong>M3.5</strong> 계약</td>
+<td><code>check_contract.py</code> 검사 4개 통과</td>
+<td>값 유실 0건 (§1.5)</td>
+</tr>
+<tr>
+<td><strong>M4</strong> 비교군</td>
+<td>4개 arm이 <code>mixed</code> 120스텝 완주. 누출 검사 0건</td>
+<td><code>leak_check.py</code> 통과</td>
+</tr>
+<tr>
+<td><strong>M5</strong> 결과</td>
+<td>60회 실행 + <code>score.py</code> 지표 산출 + 대표 그래프</td>
+<td>개입↓ / SLA→ 확인</td>
+</tr>
+</tbody>
+</table>
+<p><strong>M1을 가장 먼저, 가장 작게 만드세요.</strong> FastMCP 서버 하나, stdio 연결 하나, 도구 호출 하나가 왕복하면 나머지 20개는 같은 패턴의 반복입니다. ③이 중요해서가 아니라 배선 검증이 목적입니다.</p>
+<p><strong>M2에서 반드시 멈추고 확인하세요.</strong> 재현이 안 되는 채로 M3~M5를 쌓으면 마지막에 전부 다시 돌려야 합니다.</p>
+<hr />
+<h2>8. Day 0 체크리스트</h2>
+<p>셋이 같이 앉아 순서대로.</p>
+<pre><code>[ ] SRM-main-mcp/ 중첩 클론 제거
+[ ] .gitignore UTF-8로 재작성 (models/, *.h5 는 넣지 말 것)
+[ ] 작업 기준 디렉터리 srm-main_mcp/ 하나로 합의
+[ ] docs/ 에 MCP-decomposition.md · MCP-design.md · ROLES.md 배치 후 커밋
+[ ] A/B/C ↔ kim/lee/choi 브랜치 매핑 확정
+[ ] mcp/common/const.py 값 13개 확정 (§1.2) — 특히 TAU = 0.45
+[ ] mcp/common/schema.py 확정 — Observation에 is_emergency 계열 부재 확인
+[ ] docs/contract.json 초안 — 도구 21개의 requires/produces (C가 작성, 3인 검토)
+[ ] run_id 형식 합의: {arm}-{scenario}-s{seed}  (V3)
+[ ] situation ↔ truth 매핑·전환 경계 제외 규칙 확정 (V9) — 채점 전에 못 박을 것
+[ ] 파일 소유권 표 합의 (§1.3)
+[ ] 기존 코드는 아무도 수정하지 않는다 — 합의
+[ ] B: Day 1 오전 0단계 착수, 결과 즉시 공유 — 합의
+</code></pre>
+<p>마지막 두 줄이 사고를 가장 많이 막습니다.</p></section><section class="doc"><div class="doc-hd" style="border-left-color:#1baf7a"><div class="t">① `slice-observe` — 계약</div><div class="s">담당 C · claude/spec/observe.md</div></div><p>시뮬레이션 환경 그 자체. 에이전트가 관측하고 행동을 가하는 대상. 설계 근거는 <code>rationale/observe.md</code>.</p>
+<h2><code>get_observation()</code></h2>
+<p><strong>입력: 없음</strong> · <strong>출력: <code>Observation</code></strong></p>
+<table>
+<thead>
+<tr>
+<th>필드</th>
+<th>타입</th>
+<th>범위</th>
+<th>의미</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>step</code></td>
+<td>int</td>
+<td>0 ~ <code>total_steps</code></td>
+<td>현재 스텝</td>
+</tr>
+<tr>
+<td><code>sim_time.hour_of_day</code></td>
+<td>int</td>
+<td>0~23</td>
+<td><strong>가상 시계.</strong> 벽시계 아님</td>
+</tr>
+<tr>
+<td><code>sim_time.day_of_week</code></td>
+<td>int</td>
+<td>0~6</td>
+<td>0 = 월요일</td>
+</tr>
+<tr>
+<td><code>sim_time.is_weekend</code></td>
+<td>bool</td>
+<td></td>
+<td><code>day_of_week &gt;= 5</code></td>
+</tr>
+<tr>
+<td><code>traffic</code></td>
+<td><code>SliceTriple</code></td>
+<td>0.1 ~ 2.0</td>
+<td>수요. <code>np.clip</code>로 상하한 고정</td>
+</tr>
+<tr>
+<td><code>allocation</code></td>
+<td><code>SliceTriple</code></td>
+<td>각 0.1~0.8, <strong>합 1.0</strong></td>
+<td>현재 적용 중인 배분</td>
+</tr>
+<tr>
+<td><code>utilization</code></td>
+<td><code>SliceTriple</code></td>
+<td>0 ~ 20</td>
+<td><code>traffic / (allocation × capacity)</code></td>
+</tr>
+<tr>
+<td><code>capacity</code></td>
+<td><code>SliceTriple</code></td>
+<td>1.6 ~ 2.6</td>
+<td><strong>슬라이스별 용량 배수.</strong> 기본 <code>1.6</code>, 조달로 증가, 만료로 감소</td>
+</tr>
+<tr>
+<td><code>thresholds</code></td>
+<td><code>SliceTriple</code></td>
+<td>고정</td>
+<td><code>{0.9, 1.2, 0.8}</code>. 상수지만 매번 반환</td>
+</tr>
+<tr>
+<td><code>violations</code></td>
+<td><code>SliceFlags</code></td>
+<td></td>
+<td><code>utilization &gt; thresholds</code></td>
+</tr>
+<tr>
+<td><code>client_count</code></td>
+<td>float</td>
+<td>0 ~ 1</td>
+<td>정규화된 단말 수</td>
+</tr>
+<tr>
+<td><code>bs_count</code></td>
+<td>float</td>
+<td>0 ~ 1</td>
+<td>정규화된 기지국 수</td>
+</tr>
+<tr>
+<td><code>demand_pressure</code></td>
+<td>float</td>
+<td>0 ~ 2</td>
+<td><code>Σᵢ traffic / (θ × capacity)</code>. <strong>1.0 초과면 재배분으로 해결 불가</strong></td>
+</tr>
+</tbody>
+</table>
+<pre><code>demand_pressure &lt; 1.0  →  재배분만으로 해결 가능
+demand_pressure ≥ 1.0  →  용량을 늘리지 않으면 어딘가는 반드시 위반
+</code></pre>
+<p>서버는 <strong>숫자만 주고 "조달하라"는 조언은 하지 않는다.</strong></p>
+<p>실측(60스텝 × 시드 10): <code>normal</code> <strong>5.6%</strong> · <code>emergency</code> 27.7% · <code>special_event</code> 34.3% · <code>iot_surge</code> 28.5%.
+평시는 94%가 재배분으로 해결되고, 이벤트에서만 조달이 정답이 된다. (<code>rationale/environment.md</code>)</p>
+<p><strong>반환하지 않는 것</strong> — <code>is_emergency</code> · <code>is_special_event</code> · <code>is_iot_surge</code>. 환경 내부의 정답이며 <code>runs/{run_id}/truth.jsonl</code>로만 나간다. 어떤 도구도 읽지 않는다. (<code>flow/forbidden.md</code>)</p>
+<p><strong>예시</strong> (비상 상황 전개 중, 에이전트는 그 사실을 모름)</p>
+<pre><code class="language-json">{
+  &quot;step&quot;: 12,
+  &quot;sim_time&quot;: {&quot;hour_of_day&quot;: 3, &quot;day_of_week&quot;: 0, &quot;is_weekend&quot;: false},
+  &quot;traffic&quot;:     {&quot;embb&quot;: 0.400, &quot;urllc&quot;: 0.821, &quot;mmtc&quot;: 0.325},
+  &quot;allocation&quot;:  {&quot;embb&quot;: 0.400, &quot;urllc&quot;: 0.400, &quot;mmtc&quot;: 0.200},
+  &quot;utilization&quot;: {&quot;embb&quot;: 0.624, &quot;urllc&quot;: 1.283, &quot;mmtc&quot;: 1.015},
+  &quot;capacity&quot;:    {&quot;embb&quot;: 1.600, &quot;urllc&quot;: 1.600, &quot;mmtc&quot;: 1.600},
+  &quot;thresholds&quot;:  {&quot;embb&quot;: 0.900, &quot;urllc&quot;: 1.200, &quot;mmtc&quot;: 0.800},
+  &quot;violations&quot;:  {&quot;embb&quot;: false, &quot;urllc&quot;: true,  &quot;mmtc&quot;: true},
+  &quot;client_count&quot;: 0.631,
+  &quot;bs_count&quot;: 0.482,
+  &quot;demand_pressure&quot;: 0.959
+}
+</code></pre>
+<p><code>scenario="emergency", seed=0</code> 의 step 12 실측이다. 트래픽 <strong>구성비</strong>는 eMBB 26% · URLLC 53% · mMTC 21%로,
+평시(44/33/22)와 비교하면 URLLC가 확연히 높다. <code>situation</code> 추론의 주된 근거는 절대량이 아니라 이 구성비다.
+<code>demand_pressure 0.959 &lt; 1.0</code> 이므로 이 스텝은 <strong>재배분만으로 해결 가능하다.</strong></p>
+<hr />
+<h2><code>step(n)</code></h2>
+<table>
+<thead>
+<tr>
+<th>파라미터</th>
+<th>타입</th>
+<th>필수</th>
+<th>기본</th>
+<th>범위</th>
+<th>설명</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>n</code></td>
+<td>int</td>
+<td>아니오</td>
+<td><code>1</code></td>
+<td>1 ~ 10</td>
+<td>전진할 스텝 수</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th>출력 필드</th>
+<th>타입</th>
+<th>설명</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>steps_advanced</code></td>
+<td>int</td>
+<td>실제 전진한 수 (에피소드 끝에 걸리면 요청보다 적음)</td>
+</tr>
+<tr>
+<td><code>episode_done</code></td>
+<td>bool</td>
+<td><code>step &gt;= total_steps</code></td>
+</tr>
+<tr>
+<td><code>observation</code></td>
+<td><code>Observation</code></td>
+<td>전진 후 관측</td>
+</tr>
+</tbody>
+</table>
+<p><strong>동작 순서 (고정)</strong>: 만료된 조달 회수 → <code>capacity</code> 재계산 → <code>traffic_{t+1}</code> 생성 → <code>utilization_{t+1} = traffic_{t+1} / (allocation_t × capacity_{t+1})</code> → <code>truth.jsonl</code> append.</p>
+<ul>
+<li><strong>만료가 <code>traffic</code> 생성보다 먼저다.</strong></li>
+<li>이용률은 <strong>직전에 적용한 배분</strong>으로 계산된다. <code>step()</code> 직후의 관측 = <strong>직전 결정의 성적표</strong>. <code>report_outcome</code>은 반드시 <code>step()</code> <strong>이후</strong>.</li>
+</ul>
+<pre><code class="language-json">{&quot;steps_advanced&quot;: 1, &quot;episode_done&quot;: false,
+ &quot;observation&quot;: {&quot;step&quot;: 13, &quot;traffic&quot;: {&quot;embb&quot;: 0.571, &quot;urllc&quot;: 0.595, &quot;mmtc&quot;: 0.390}, ...}}
+</code></pre>
+<hr />
+<h2><code>apply_allocation(embb, urllc, mmtc)</code></h2>
+<p>배분을 실제로 적용하는 <strong>액추에이터</strong>. 평활·클립·정규화가 전부 여기서 일어난다.</p>
+<table>
+<thead>
+<tr>
+<th>파라미터</th>
+<th>타입</th>
+<th>필수</th>
+<th>범위</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>embb</code> · <code>urllc</code> · <code>mmtc</code></td>
+<td>float</td>
+<td>예</td>
+<td>&gt; 0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>합이 1일 필요 없다.</strong> 서버가 정규화한다.</p>
+<table>
+<thead>
+<tr>
+<th>출력 필드</th>
+<th>타입</th>
+<th>설명</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>accepted</code></td>
+<td>bool</td>
+<td>입력이 유효했는가</td>
+</tr>
+<tr>
+<td><code>requested</code></td>
+<td><code>SliceTriple</code></td>
+<td>정규화만 한 요청값</td>
+</tr>
+<tr>
+<td><code>normalized</code></td>
+<td><code>SliceTriple</code></td>
+<td><strong>실제 적용된 값</strong> (평활 후)</td>
+</tr>
+<tr>
+<td><code>delta</code></td>
+<td>float</td>
+<td><code>L1(requested, normalized) / 2</code>. 얼마나 깎였나</td>
+</tr>
+<tr>
+<td><code>reason</code></td>
+<td>string</td>
+<td>어떤 변형이 가해졌는지</td>
+</tr>
+</tbody>
+</table>
+<p><strong>변형 파이프라인</strong> (<code>ml_orchestrator_demo.py:458~462</code>)</p>
+<pre><code>1. 정규화      a / Σa
+2. 평활        0.7 × 현재배분 + 0.3 × a        ← STABILITY_FACTOR
+3. 클립        clip(·, 0.1, 0.8)
+4. 재정규화    a / Σa
+</code></pre>
+<pre><code class="language-json">// 요청
+{&quot;embb&quot;: 0.20, &quot;urllc&quot;: 0.70, &quot;mmtc&quot;: 0.10}
+// 응답 — 평활 때문에 절반밖에 안 움직임
+{&quot;accepted&quot;: true,
+ &quot;requested&quot;:  {&quot;embb&quot;: 0.200, &quot;urllc&quot;: 0.700, &quot;mmtc&quot;: 0.100},
+ &quot;normalized&quot;: {&quot;embb&quot;: 0.340, &quot;urllc&quot;: 0.490, &quot;mmtc&quot;: 0.170},
+ &quot;delta&quot;: 0.210,
+ &quot;reason&quot;: &quot;smoothed(0.7); within clip [0.1, 0.8]&quot;}
+</code></pre>
+<p><strong><code>accepted: false</code>는 입력이 비정상일 때만</strong> — 음수, 전부 0, NaN. 거부되어도 <strong>기존 배분은 유지된다.</strong></p>
+<pre><code class="language-json">{&quot;accepted&quot;: false, &quot;requested&quot;: null, &quot;normalized&quot;: {&quot;embb&quot;: 0.4, &quot;urllc&quot;: 0.4, &quot;mmtc&quot;: 0.2},
+ &quot;delta&quot;: 0.0, &quot;reason&quot;: &quot;rejected: negative value in urllc(-0.1); allocation unchanged&quot;}
+</code></pre>
+<hr />
+<h2><code>get_history(n)</code></h2>
+<p>LSTM 정책의 입력 시퀀스를 만든다.</p>
+<table>
+<thead>
+<tr>
+<th>파라미터</th>
+<th>타입</th>
+<th>필수</th>
+<th>기본</th>
+<th>범위</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>n</code></td>
+<td>int</td>
+<td>아니오</td>
+<td><code>10</code></td>
+<td>1 ~ 100</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th>출력 필드</th>
+<th>타입</th>
+<th>설명</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>n_requested</code></td>
+<td>int</td>
+<td>요청한 수</td>
+</tr>
+<tr>
+<td><code>n_available</code></td>
+<td>int</td>
+<td><strong>실제 반환한 수.</strong> 초반에는 요청보다 적다</td>
+</tr>
+<tr>
+<td><code>columns</code></td>
+<td><code>[string × 11]</code></td>
+<td>컬럼 이름. 순서 고정</td>
+</tr>
+<tr>
+<td><code>features</code></td>
+<td><code>[[float × 11] × n_available]</code></td>
+<td>오래된 것 → 최신 순</td>
+</tr>
+</tbody>
+</table>
+<p><strong><code>columns</code> 순서</strong> — <code>create_feature_vector()</code>(<code>:513~526</code>)와 <strong>정확히 일치해야 한다.</strong> 매 호출 반환한다.</p>
+<pre><code class="language-json">[&quot;traffic_load&quot;, &quot;hour_of_day&quot;, &quot;day_of_week&quot;,
+ &quot;embb_allocation&quot;, &quot;urllc_allocation&quot;, &quot;mmtc_allocation&quot;,
+ &quot;embb_utilization&quot;, &quot;urllc_utilization&quot;, &quot;mmtc_utilization&quot;,
+ &quot;client_count&quot;, &quot;bs_count&quot;]
+</code></pre>
+<ul>
+<li>피처는 <strong>11차원 고정.</strong> <code>capacity</code>는 포함되지 않는다 (재학습 없이는 추가 불가). 조달 직후 <code>in_distribution: false</code>가 뜰 수 있다 — 버그가 아니다. (<code>rationale/observe.md</code>)</li>
+<li><strong><code>n_available &lt; 10</code>이면 <code>lstm_forecast</code>를 쓸 수 없다.</strong> ②가 <code>status: "unavailable"</code>을 반환한다.</li>
+</ul>
+<pre><code class="language-json">{&quot;n_requested&quot;: 10, &quot;n_available&quot;: 4,
+ &quot;columns&quot;: [&quot;traffic_load&quot;, &quot;hour_of_day&quot;, ...],
+ &quot;features&quot;: [
+   [0.4893, 0.0417, 0.0, 0.400, 0.400, 0.200, 0.605, 1.196, 0.948, 0.610, 0.470],
+   [0.5020, 0.0833, 0.0, 0.400, 0.400, 0.200, 0.613, 1.231, 0.971, 0.618, 0.475],
+   [0.5157, 0.0833, 0.0, 0.400, 0.400, 0.200, 0.619, 1.258, 0.994, 0.625, 0.479],
+   [0.5153, 0.1250, 0.0, 0.400, 0.400, 0.200, 0.624, 1.283, 1.015, 0.631, 0.482]]}
+</code></pre>
+<hr />
+<h2><code>reset(run_id, scenario, seed)</code></h2>
+<table>
+<thead>
+<tr>
+<th>파라미터</th>
+<th>타입</th>
+<th>필수</th>
+<th>기본</th>
+<th>허용값</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>run_id</code></td>
+<td>string</td>
+<td><strong>예</strong></td>
+<td>—</td>
+<td>이 실행의 식별자. <code>truth.jsonl</code>의 모든 줄에 박힌다. ④에도 <strong>같은 값</strong>을 넘긴다</td>
+</tr>
+<tr>
+<td><code>scenario</code></td>
+<td>string</td>
+<td>아니오</td>
+<td><code>"normal"</code></td>
+<td><code>normal</code> · <code>emergency</code> · <code>special_event</code> · <code>iot_surge</code> · <code>mixed</code></td>
+</tr>
+<tr>
+<td><code>seed</code></td>
+<td>int</td>
+<td>아니오</td>
+<td><code>0</code></td>
+<td>임의 정수</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th>출력 필드</th>
+<th>타입</th>
+<th>설명</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>run_id</code></td>
+<td>string</td>
+<td>적용된 실행 식별자</td>
+</tr>
+<tr>
+<td><code>scenario</code></td>
+<td>string</td>
+<td>적용된 시나리오</td>
+</tr>
+<tr>
+<td><code>capacity</code></td>
+<td><code>SliceTriple</code></td>
+<td>항상 <code>{1.6, 1.6, 1.6}</code> (<code>CAPACITY_BASE</code>). 활성 조달 전부 회수</td>
+</tr>
+<tr>
+<td><code>seed</code></td>
+<td>int</td>
+<td>적용된 시드</td>
+</tr>
+<tr>
+<td><code>total_steps</code></td>
+<td>int</td>
+<td>이 에피소드의 길이</td>
+</tr>
+<tr>
+<td><code>observation</code></td>
+<td><code>Observation</code></td>
+<td><code>step: 0</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>시나리오별 길이</strong> (<code>test_scenarios.py:54-102</code>)</p>
+<table>
+<thead>
+<tr>
+<th>시나리오</th>
+<th><code>total_steps</code></th>
+<th>전개</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>normal</code></td>
+<td>60</td>
+<td>평시 유지</td>
+</tr>
+<tr>
+<td><code>emergency</code></td>
+<td>60</td>
+<td>URLLC ×2.0 유지</td>
+</tr>
+<tr>
+<td><code>special_event</code></td>
+<td>60</td>
+<td>eMBB ×1.5 유지</td>
+</tr>
+<tr>
+<td><code>iot_surge</code></td>
+<td>60</td>
+<td>mMTC ×1.8 유지</td>
+</tr>
+<tr>
+<td><code>mixed</code></td>
+<td><strong>120</strong></td>
+<td>20: 이벤트 on / 50: off / 60: 비상 on / 90: off / 100: IoT on</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>동일 <code>seed</code> → 동일 전개.</strong> 전용 RNG(<code>np.random.default_rng(seed)</code>)와 가상 시계.</li>
+<li><strong><code>reset()</code>은 ①만 초기화한다.</strong> ②③④⑤의 상태는 남는다.</li>
+<li><code>truth.jsonl</code> 각 줄: <code>{"run_id": "...", "step": 12, "is_emergency": true, "is_special_event": false, "is_iot_surge": false}</code></li>
+</ul>
+<pre><code class="language-json">{&quot;run_id&quot;: &quot;exp-proposed-emergency-s0&quot;, &quot;scenario&quot;: &quot;emergency&quot;, &quot;seed&quot;: 0, &quot;total_steps&quot;: 60,
+ &quot;observation&quot;: {&quot;step&quot;: 0, &quot;allocation&quot;: {&quot;embb&quot;: 0.4, &quot;urllc&quot;: 0.4, &quot;mmtc&quot;: 0.2}, ...}}
+</code></pre>
+<hr />
+<h2><code>add_capacity(slice_type, amount, expires_at_step, slice_id)</code></h2>
+<p>조달한 슬라이스를 <strong>환경에 실제로 반영</strong>한다. ③의 <code>procure()</code> 출력을 에이전트가 중계한다.</p>
+<table>
+<thead>
+<tr>
+<th>파라미터</th>
+<th>타입</th>
+<th>필수</th>
+<th>범위</th>
+<th>출처</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>slice_type</code></td>
+<td><code>SliceType</code></td>
+<td>예</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>amount</code></td>
+<td>float</td>
+<td>예</td>
+<td>0 &lt; x ≤ 0.5</td>
+<td>③ <code>procure().capacity_gain</code></td>
+</tr>
+<tr>
+<td><code>expires_at_step</code></td>
+<td>int</td>
+<td>예</td>
+<td>&gt; 현재 step</td>
+<td>③ <code>procure().expires_at_step</code></td>
+</tr>
+<tr>
+<td><code>slice_id</code></td>
+<td>string</td>
+<td>예</td>
+<td></td>
+<td>③ <code>procure().slice_id</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>출력: <code>CapacityState</code></strong></p>
+<table>
+<thead>
+<tr>
+<th>필드</th>
+<th>타입</th>
+<th>설명</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>accepted</code></td>
+<td>bool</td>
+<td>상한 초과 시 <code>false</code></td>
+</tr>
+<tr>
+<td><code>capacity</code></td>
+<td><code>SliceTriple</code></td>
+<td>반영 후 용량</td>
+</tr>
+<tr>
+<td><code>demand_pressure</code></td>
+<td>float</td>
+<td>반영 후 압력. <strong>즉시 효과 확인용</strong></td>
+</tr>
+<tr>
+<td><code>active_leases</code></td>
+<td><code>[{slice_id, slice_type, amount, expires_at_step}]</code></td>
+<td>활성 조달 목록</td>
+</tr>
+<tr>
+<td><code>reason</code></td>
+<td>string | null</td>
+<td>거부 사유</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>용량 상한</strong>: 슬라이스당 <code>2.6</code> (기본 <code>1.6</code> + 조달 4회분). 초과 요청은 거부.</li>
+<li>상한을 <code>3.6</code>으로 올리면 모든 스텝이 조달로 해소되어 에스컬레이션이 무의미해진다. <code>2.6</code>에서 막는다.</li>
+<li><strong>거부되어도 ③의 <code>procure()</code>는 이미 일어났다.</strong> 비용은 청구되고 용량은 안 늘어난다. 호출 전에 <code>Observation.capacity</code>로 상한을 확인할 것.</li>
+</ul>
+<pre><code class="language-json">// 요청
+{&quot;slice_type&quot;: &quot;URLLC&quot;, &quot;amount&quot;: 0.25, &quot;expires_at_step&quot;: 22, &quot;slice_id&quot;: &quot;slice-urllc-0012-v1&quot;}
+// 응답 — 압력 0.959 → 0.901. 조달 1회가 약 6%를 덜어낸다
+{&quot;accepted&quot;: true,
+ &quot;capacity&quot;: {&quot;embb&quot;: 1.600, &quot;urllc&quot;: 1.850, &quot;mmtc&quot;: 1.600},
+ &quot;demand_pressure&quot;: 0.901,
+ &quot;active_leases&quot;: [{&quot;slice_id&quot;: &quot;slice-urllc-0012-v1&quot;, &quot;slice_type&quot;: &quot;URLLC&quot;,
+                    &quot;amount&quot;: 0.25, &quot;expires_at_step&quot;: 22}],
+ &quot;reason&quot;: null}
+// 거부
+{&quot;accepted&quot;: false, &quot;capacity&quot;: {&quot;embb&quot;: 1.6, &quot;urllc&quot;: 2.6, &quot;mmtc&quot;: 1.6},
+ &quot;demand_pressure&quot;: 0.842, &quot;active_leases&quot;: [...],
+ &quot;reason&quot;: &quot;capacity_cap_exceeded: urllc 2.60 + 0.25 &gt; 2.6&quot;}
+</code></pre></section><section class="doc"><div class="doc-hd" style="border-left-color:#1baf7a"><div class="t">② `slice-policy` — 계약</div><div class="s">담당 C · claude/spec/policy.md</div></div><p>무상태. 배분 정책 여러 개를 나란히 노출한다. 설계 근거는 <code>rationale/policy.md</code>.</p>
+<h2><code>list_policies()</code></h2>
+<p><strong>입력: 없음</strong> · <strong>출력: <code>[PolicyInfo]</code></strong></p>
+<table>
+<thead>
+<tr>
+<th>필드</th>
+<th>타입</th>
+<th>설명</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>name</code></td>
+<td><code>PolicyName</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>description</code></td>
+<td>string</td>
+<td><strong><code>SLICE_DESC_MODE</code>에 따라 달라짐</strong> (<code>minimal</code> / <code>advisory</code>)</td>
+</tr>
+<tr>
+<td><code>requires</code></td>
+<td>string | null</td>
+<td>전제조건</td>
+</tr>
+<tr>
+<td><code>available</code></td>
+<td>bool</td>
+<td>지금 호출 가능한가</td>
+</tr>
+<tr>
+<td><code>unavailable_reason</code></td>
+<td>string | null</td>
+<td>불가 사유</td>
+</tr>
+</tbody>
+</table>
+<p>TensorFlow 적재에 실패하면 서버는 죽지 않고 해당 정책만 <code>available: false</code>로 내린다.</p>
+<pre><code class="language-json">[
+  {&quot;name&quot;: &quot;rule_based&quot;, &quot;description&quot;: &quot;임계값 기반 배분. 상황 라벨을 입력으로 받는다.&quot;,
+   &quot;requires&quot;: null, &quot;available&quot;: true, &quot;unavailable_reason&quot;: null},
+  {&quot;name&quot;: &quot;lstm_forecast&quot;, &quot;description&quot;: &quot;시계열 모델 기반 배분. 관측 이력 10스텝 필요.&quot;,
+   &quot;requires&quot;: &quot;history &gt;= 10&quot;, &quot;available&quot;: true, &quot;unavailable_reason&quot;: null},
+  {&quot;name&quot;: &quot;dqn&quot;, &quot;description&quot;: &quot;강화학습 정책 기반 배분.&quot;,
+   &quot;requires&quot;: &quot;trained weights&quot;, &quot;available&quot;: false,
+   &quot;unavailable_reason&quot;: &quot;no trained weights&quot;}
+]
+</code></pre>
+<hr />
+<h2><code>propose_allocation(policy, observation, situation, history, recent_error)</code></h2>
+<table>
+<thead>
+<tr>
+<th>파라미터</th>
+<th>타입</th>
+<th>필수</th>
+<th>기본</th>
+<th>출처</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>policy</code></td>
+<td><code>PolicyName</code></td>
+<td><strong>예</strong></td>
+<td>—</td>
+<td></td>
+</tr>
+<tr>
+<td><code>observation</code></td>
+<td><code>Observation</code></td>
+<td><strong>예</strong></td>
+<td>—</td>
+<td>①.<code>get_observation()</code> 그대로</td>
+</tr>
+<tr>
+<td><code>situation</code></td>
+<td><code>Situation</code></td>
+<td><strong>예</strong></td>
+<td><strong>없음</strong></td>
+<td><strong>에이전트가 추론한 상황</strong></td>
+</tr>
+<tr>
+<td><code>history</code></td>
+<td><code>HistoryBlock</code></td>
+<td>아니오</td>
+<td><code>null</code></td>
+<td>①.<code>get_history()</code> 그대로</td>
+</tr>
+<tr>
+<td><code>recent_error</code></td>
+<td>float</td>
+<td>아니오</td>
+<td><code>null</code></td>
+<td>⑤.<code>get_reliability_table()</code>의 <code>{policy}.recent_error</code></td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong><code>situation</code>에 기본값을 두지 않는다.</strong> 모든 정책이 필수로 받는다 (배분에 영향은 <code>rule_based</code>만).</li>
+<li><strong><code>recent_error</code>는 에이전트가 ⑤에서 ②로 중계한다.</strong> ②는 무상태라 ⑤를 조회할 수 없다. <code>null</code>이면 보수적 기본값 <code>0.5</code>를 쓰고 <code>rationale</code>에 그 사실을 적는다.</li>
+</ul>
+<p><strong>출력: <code>PolicyProposal</code></strong></p>
+<table>
+<thead>
+<tr>
+<th>필드</th>
+<th>타입</th>
+<th>설명</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>policy</code></td>
+<td><code>PolicyName</code></td>
+<td>요청한 정책. <strong>절대 다른 값으로 바꾸지 않는다</strong></td>
+</tr>
+<tr>
+<td><code>allocation</code></td>
+<td><code>SliceTriple</code> | <strong>null</strong></td>
+<td>목표 배분. 실패 시 <code>null</code></td>
+</tr>
+<tr>
+<td><code>confidence</code></td>
+<td>float</td>
+<td>0~1. <strong>내재적 신뢰도</strong> — 이번 입력에 대한 확신</td>
+</tr>
+<tr>
+<td><code>in_distribution</code></td>
+<td>bool</td>
+<td>학습 분포 안인가</td>
+</tr>
+<tr>
+<td><code>status</code></td>
+<td><code>Status</code></td>
+<td><code>ok</code> · <code>unavailable</code> · <code>error</code></td>
+</tr>
+<tr>
+<td><code>reason</code></td>
+<td>string | null</td>
+<td><code>status != ok</code>일 때의 사유</td>
+</tr>
+<tr>
+<td><code>rationale</code></td>
+<td>string</td>
+<td>사람이 읽는 근거</td>
+</tr>
+</tbody>
+</table>
+<p><strong>폴백 금지 ⚠️</strong> — 실패 시 다른 정책을 조용히 호출하지 않는다. <code>allocation: null</code> + <code>status</code>로 반환한다. 원본 <code>update_allocation_ml()</code>(<code>:341</code>, <code>:414</code>, <code>:419</code>)의 폴백을 옮기지 말 것. 대체 정책 선택은 에이전트의 일이다.</p>
+<p><strong><code>confidence</code> 산출</strong></p>
+<table>
+<thead>
+<tr>
+<th>정책</th>
+<th>식</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>rule_based</code></td>
+<td><code>0.50 + 0.30 × min(1, minᵢ|uᵢ−θᵢ|/θᵢ)</code></td>
+</tr>
+<tr>
+<td><code>lstm_forecast</code></td>
+<td><code>exp(−3 · ē)</code>, <code>ē</code> = <code>recent_error</code> (최근 5회 예측 오차의 EMA, ⑤가 계산)</td>
+</tr>
+</tbody>
+</table>
+<p><code>recent_error</code>가 <code>null</code>이면 <code>0.5</code>를 쓴다.</p>
+<p><strong>예시 1 — 성공</strong></p>
+<pre><code class="language-json">// 요청
+{&quot;policy&quot;: &quot;rule_based&quot;,
+ &quot;observation&quot;: {&quot;step&quot;: 12, &quot;utilization&quot;: {&quot;embb&quot;: 0.624, &quot;urllc&quot;: 1.283, &quot;mmtc&quot;: 1.015}, ...},
+ &quot;situation&quot;: &quot;emergency&quot;}
+// 응답
+{&quot;policy&quot;: &quot;rule_based&quot;,
+ &quot;allocation&quot;: {&quot;embb&quot;: 0.200, &quot;urllc&quot;: 0.700, &quot;mmtc&quot;: 0.100},
+ &quot;confidence&quot;: 0.521,
+ &quot;in_distribution&quot;: true,
+ &quot;status&quot;: &quot;ok&quot;,
+ &quot;reason&quot;: null,
+ &quot;rationale&quot;: &quot;situation=emergency → URLLC 우선 목표 [0.2, 0.7, 0.1]. 여유가 가장 작은 것은 URLLC(1.283/1.2, 7% 초과)라 분기가 자의적 → confidence 0.521.&quot;}
+</code></pre>
+<p><strong>예시 2 — 이력 부족</strong></p>
+<pre><code class="language-json">{&quot;policy&quot;: &quot;lstm_forecast&quot;, &quot;allocation&quot;: null, &quot;confidence&quot;: 0.0,
+ &quot;in_distribution&quot;: false, &quot;status&quot;: &quot;unavailable&quot;,
+ &quot;reason&quot;: &quot;history_insufficient: 4 &lt; 10&quot;,
+ &quot;rationale&quot;: &quot;시퀀스 길이 미달로 추론하지 않음.&quot;}
+</code></pre>
+<p><strong>예시 3 — 모델 적재 실패</strong></p>
+<pre><code class="language-json">{&quot;policy&quot;: &quot;lstm_forecast&quot;, &quot;allocation&quot;: null, &quot;confidence&quot;: 0.0,
+ &quot;in_distribution&quot;: false, &quot;status&quot;: &quot;error&quot;,
+ &quot;reason&quot;: &quot;model_load_failed: SavedModel requires Keras 2 (tensorflow==2.15.1)&quot;,
+ &quot;rationale&quot;: &quot;모델을 적재하지 못해 추론 불가.&quot;}
+</code></pre>
+<hr />
+<h2><code>compare_policies(observation, situation, history, recent_errors)</code></h2>
+<p><code>propose_allocation</code>에서 <code>policy</code>를 빼고, <code>recent_error</code>를 <strong>정책별 딕셔너리</strong>로 바꾼 것.</p>
+<table>
+<thead>
+<tr>
+<th>파라미터</th>
+<th>타입</th>
+<th>필수</th>
+<th>출처</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>observation</code></td>
+<td><code>Observation</code></td>
+<td>예</td>
+<td></td>
+</tr>
+<tr>
+<td><code>situation</code></td>
+<td><code>Situation</code></td>
+<td>예</td>
+<td></td>
+</tr>
+<tr>
+<td><code>history</code></td>
+<td><code>HistoryBlock</code></td>
+<td>아니오</td>
+<td></td>
+</tr>
+<tr>
+<td><code>recent_errors</code></td>
+<td><code>{PolicyName: float}</code></td>
+<td>아니오</td>
+<td>⑤.<code>get_reliability_table()</code>을 <strong>그대로</strong> 넘긴다</td>
+</tr>
+</tbody>
+</table>
+<p><strong>출력</strong>: <code>[PolicyProposal]</code> — 사용 가능 여부와 무관하게 <strong>전 정책을 반환한다.</strong></p>
+<pre><code class="language-json">[
+  {&quot;policy&quot;: &quot;rule_based&quot;, &quot;allocation&quot;: {&quot;embb&quot;: 0.20, &quot;urllc&quot;: 0.70, &quot;mmtc&quot;: 0.10},
+   &quot;confidence&quot;: 0.521, &quot;status&quot;: &quot;ok&quot;, ...},
+  {&quot;policy&quot;: &quot;lstm_forecast&quot;, &quot;allocation&quot;: null,
+   &quot;confidence&quot;: 0.0, &quot;status&quot;: &quot;unavailable&quot;, &quot;reason&quot;: &quot;history_insufficient: 4 &lt; 10&quot;, ...},
+  {&quot;policy&quot;: &quot;dqn&quot;, &quot;allocation&quot;: null,
+   &quot;confidence&quot;: 0.0, &quot;status&quot;: &quot;unavailable&quot;, &quot;reason&quot;: &quot;no trained weights&quot;, ...}
+]
+</code></pre>
+<p><strong>호출 비용 주의</strong> — 반환량이 <code>propose_allocation</code>의 3배. 정책 전환을 고민할 때만 쓰도록 프롬프트에서 유도한다.</p>
+<hr />
+<h2><code>classify_demand(observation)</code></h2>
+<p>학습된 분류기(<code>TrafficClassifier</code>, 11 → 3 softmax)로 <strong>어떤 수요가 지배적인지</strong>만 알려준다.</p>
+<table>
+<thead>
+<tr>
+<th>파라미터</th>
+<th>타입</th>
+<th>필수</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>observation</code></td>
+<td><code>Observation</code></td>
+<td>예</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th>출력 필드</th>
+<th>타입</th>
+<th>설명</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>dominant</code></td>
+<td><code>SliceType</code></td>
+<td>최대 확률 클래스</td>
+</tr>
+<tr>
+<td><code>probabilities</code></td>
+<td><code>{eMBB, URLLC, mMTC: float}</code></td>
+<td>합 1.0</td>
+</tr>
+<tr>
+<td><code>margin</code></td>
+<td>float</td>
+<td>1등 − 2등 확률차</td>
+</tr>
+<tr>
+<td><code>available</code></td>
+<td>bool</td>
+<td>모델 적재 여부</td>
+</tr>
+</tbody>
+</table>
+<pre><code class="language-json">{&quot;dominant&quot;: &quot;URLLC&quot;,
+ &quot;probabilities&quot;: {&quot;eMBB&quot;: 0.281, &quot;URLLC&quot;: 0.644, &quot;mMTC&quot;: 0.075},
+ &quot;margin&quot;: 0.363,
+ &quot;available&quot;: true}
+</code></pre>
+<p><strong>이 도구는 "비상 상황인가"를 말하지 않는다.</strong> 상황 판단은 에이전트의 몫이다.</p></section><section class="doc"><div class="doc-hd" style="border-left-color:#1baf7a"><div class="t">③ `slice-market` — 계약</div><div class="s">담당 C · claude/spec/market.md</div></div><p>외부 벤더 슬라이스 마켓. 설계 근거는 <code>rationale/market.md</code>.</p>
+<h2><code>qos_requirements</code> 스펙 ⚠️</h2>
+<p>③의 도구 3개(<code>score_offerings</code> · <code>explain_score</code> · <code>procure</code>)가 공통으로 받는다. <strong>코드가 실제로 읽는 키는 이것뿐이다</strong> (<code>engine.py:339</code>, <code>:368</code>, <code>:398</code>):</p>
+<table>
+<thead>
+<tr>
+<th>키</th>
+<th>타입</th>
+<th>기본값</th>
+<th>단위</th>
+<th>의미</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>latency</code></td>
+<td>float</td>
+<td><code>50</code></td>
+<td>ms</td>
+<td>요구 지연 상한</td>
+</tr>
+<tr>
+<td><code>bandwidth</code></td>
+<td>float</td>
+<td><code>100</code></td>
+<td>Mbps</td>
+<td>요구 대역 하한</td>
+</tr>
+<tr>
+<td><code>reliability</code></td>
+<td>float</td>
+<td><code>99.0</code></td>
+<td>%</td>
+<td>요구 신뢰도 하한</td>
+</tr>
+<tr>
+<td><code>advanced_params</code></td>
+<td>object</td>
+<td><code>{}</code></td>
+<td></td>
+<td>선택. 1차 범위에서는 쓰지 않음</td>
+</tr>
+</tbody>
+</table>
+<p><strong>키 이름에 단위를 붙이지 않는다.</strong> <code>latency_ms</code>가 아니라 <code>latency</code>다. 혼동하면 전부 기본값으로 떨어져 모든 벤더가 같은 점수를 받는다.</p>
+<p><code>advanced_params</code> 허용 키: <code>price_sensitivity</code> (<code>high|medium|low</code> → price_weight 0.3/0.2/0.1) · <code>deterministic</code> · <code>missionCritical</code> · <code>maxPacketSize</code> · <code>groupCommunication</code> · <code>availability</code></p>
+<hr />
+<h2><code>list_offerings(slice_type, region)</code></h2>
+<table>
+<thead>
+<tr>
+<th>파라미터</th>
+<th>타입</th>
+<th>필수</th>
+<th>기본</th>
+<th>설명</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>slice_type</code></td>
+<td><code>SliceType</code></td>
+<td>아니오</td>
+<td><code>null</code></td>
+<td>필터. <code>null</code>이면 전부</td>
+</tr>
+<tr>
+<td><code>region</code></td>
+<td>string</td>
+<td>아니오</td>
+<td><code>null</code></td>
+<td>필터</td>
+</tr>
+</tbody>
+</table>
+<p><strong>출력: <code>[Offering]</code></strong> — 벤더 5곳 × 슬라이스 3타입. 원본 <code>data/vendors.json</code>.</p>
+<table>
+<thead>
+<tr>
+<th>필드</th>
+<th>타입</th>
+<th>단위</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>vendor_id</code> · <code>name</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>slice_type</code></td>
+<td><code>SliceType</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>latency</code></td>
+<td>float</td>
+<td>ms</td>
+</tr>
+<tr>
+<td><code>bandwidth</code></td>
+<td>float</td>
+<td>Mbps</td>
+</tr>
+<tr>
+<td><code>reliability</code></td>
+<td>float</td>
+<td>%</td>
+</tr>
+<tr>
+<td><code>cost</code></td>
+<td>float</td>
+<td>시간당</td>
+</tr>
+<tr>
+<td><code>regions</code></td>
+<td><code>[string]</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>rating</code></td>
+<td>float</td>
+<td>1.0 ~ 5.0</td>
+</tr>
+</tbody>
+</table>
+<pre><code class="language-json">// 요청
+{&quot;slice_type&quot;: &quot;URLLC&quot;}
+// 응답 (실측값, 일부)
+[
+  {&quot;vendor_id&quot;: &quot;vendor-1&quot;, &quot;name&quot;: &quot;TelcoNet Solutions&quot;, &quot;slice_type&quot;: &quot;URLLC&quot;,
+   &quot;latency&quot;: 1.0, &quot;bandwidth&quot;: 500.0, &quot;reliability&quot;: 99.999, &quot;cost&quot;: 250.0,
+   &quot;regions&quot;: [&quot;us-east&quot;], &quot;rating&quot;: 4.8},
+  {&quot;vendor_id&quot;: &quot;vendor-2&quot;, &quot;name&quot;: &quot;GlobalConnect 5G&quot;, &quot;slice_type&quot;: &quot;URLLC&quot;,
+   &quot;latency&quot;: 2.0, &quot;bandwidth&quot;: 400.0, &quot;reliability&quot;: 99.99, &quot;cost&quot;: 220.0,
+   &quot;regions&quot;: [&quot;eu-west&quot;], &quot;rating&quot;: 4.5},
+  {&quot;vendor_id&quot;: &quot;vendor-3&quot;, &quot;name&quot;: &quot;NextGen Networks&quot;, &quot;slice_type&quot;: &quot;URLLC&quot;,
+   &quot;latency&quot;: 0.5, &quot;bandwidth&quot;: 600.0, &quot;reliability&quot;: 99.9995, &quot;cost&quot;: 300.0,
+   &quot;regions&quot;: [&quot;ap-northeast&quot;], &quot;rating&quot;: 4.9}
+]
+</code></pre>
+<hr />
+<h2><code>score_offerings(slice_type, qos_requirements)</code></h2>
+<table>
+<thead>
+<tr>
+<th>파라미터</th>
+<th>타입</th>
+<th>필수</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>slice_type</code></td>
+<td><code>SliceType</code></td>
+<td>예</td>
+</tr>
+<tr>
+<td><code>qos_requirements</code></td>
+<td>object</td>
+<td>예</td>
+</tr>
+</tbody>
+</table>
+<p><strong>출력: <code>[ScoredOffering]</code></strong> — 점수 내림차순</p>
+<table>
+<thead>
+<tr>
+<th>필드</th>
+<th>타입</th>
+<th>범위</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>rank</code></td>
+<td>int</td>
+<td>1부터</td>
+</tr>
+<tr>
+<td><code>vendor_id</code> · <code>name</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>score</code></td>
+<td>float</td>
+<td>0 ~ 100</td>
+</tr>
+<tr>
+<td><code>rating</code></td>
+<td>float</td>
+<td>1.0 ~ 5.0</td>
+</tr>
+<tr>
+<td><code>cost</code></td>
+<td>float</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>점수 공식</strong> (<code>engine.py:719~790</code>, <code>score_vendor_offering()</code>)</p>
+<pre><code>qos_score  = Σ(scoreᵢ × weightᵢ) / Σ(weightᵢ)      # 존재하는 기준만, 정규화
+reputation = rating / 5.0                          # 가중치 0.2 (URLLC) / 0.1 (그 외)
+price      = _calculate_price_score(cost, slice_type)   # 가중치 0.2 (기본)
+qos_weight = 1.0 − (reputation_weight + price_weight)
+total      = (qos_score × qos_weight + reputation × rep_w + price × price_w) × 100
+</code></pre>
+<p><code>rating</code>이 총점의 10~20%를 차지한다. <strong>⑤의 피드백이 <code>update_rating</code>으로 여기에 들어와 순위를 바꾼다.</strong></p>
+<pre><code class="language-json">// 요청
+{&quot;slice_type&quot;: &quot;URLLC&quot;, &quot;qos_requirements&quot;: {&quot;latency&quot;: 1.0, &quot;bandwidth&quot;: 400, &quot;reliability&quot;: 99.99}}
+// 응답 (engine.py 실행 실측값)
+[
+  {&quot;rank&quot;: 1, &quot;vendor_id&quot;: &quot;vendor-1&quot;, &quot;name&quot;: &quot;TelcoNet Solutions&quot;,  &quot;score&quot;: 99.20, &quot;rating&quot;: 4.8, &quot;cost&quot;: 250.0},
+  {&quot;rank&quot;: 2, &quot;vendor_id&quot;: &quot;vendor-5&quot;, &quot;name&quot;: &quot;AsiaPacific Telecom&quot;, &quot;score&quot;: 98.00, &quot;rating&quot;: 4.7, &quot;cost&quot;: 260.0},
+  {&quot;rank&quot;: 3, &quot;vendor_id&quot;: &quot;vendor-3&quot;, &quot;name&quot;: &quot;NextGen Networks&quot;,    &quot;score&quot;: 97.60, &quot;rating&quot;: 4.9, &quot;cost&quot;: 300.0},
+  {&quot;rank&quot;: 4, &quot;vendor_id&quot;: &quot;vendor-4&quot;, &quot;name&quot;: &quot;EuroSlice Providers&quot;, &quot;score&quot;: 91.76, &quot;rating&quot;: 4.6, &quot;cost&quot;: 240.0},
+  {&quot;rank&quot;: 5, &quot;vendor_id&quot;: &quot;vendor-2&quot;, &quot;name&quot;: &quot;GlobalConnect 5G&quot;,    &quot;score&quot;: 86.20, &quot;rating&quot;: 4.5, &quot;cost&quot;: 220.0}
+]
+</code></pre>
+<hr />
+<h2><code>explain_score(vendor_id, slice_type, qos_requirements)</code></h2>
+<table>
+<thead>
+<tr>
+<th>파라미터</th>
+<th>타입</th>
+<th>필수</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>vendor_id</code></td>
+<td>string</td>
+<td>예</td>
+</tr>
+<tr>
+<td><code>slice_type</code></td>
+<td><code>SliceType</code></td>
+<td>예</td>
+</tr>
+<tr>
+<td><code>qos_requirements</code></td>
+<td>object</td>
+<td>예</td>
+</tr>
+</tbody>
+</table>
+<p><strong>출력: <code>ScoreBreakdown</code></strong></p>
+<table>
+<thead>
+<tr>
+<th>필드</th>
+<th>타입</th>
+<th>설명</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>total</code></td>
+<td>float</td>
+<td><strong><code>score_offerings</code>의 <code>score</code>와 반드시 일치</strong></td>
+</tr>
+<tr>
+<td><code>criteria_scores</code></td>
+<td><code>{criterion: float}</code></td>
+<td>기준별 원점수 0~1</td>
+</tr>
+<tr>
+<td><code>weights</code></td>
+<td><code>{criterion: float}</code></td>
+<td>적용된 가중치</td>
+</tr>
+<tr>
+<td><code>contributions</code></td>
+<td><code>{criterion: float}</code></td>
+<td>총점 100 기준 기여분</td>
+</tr>
+<tr>
+<td><code>explanation</code></td>
+<td>string</td>
+<td>사람이 읽는 요약</td>
+</tr>
+</tbody>
+</table>
+<p><strong>구현 규칙 ⚠️ (정정 J)</strong>
+- 기존 <code>get_score_breakdown()</code>(<code>engine.py:819</code>)을 <strong>호출하지 않는다.</strong> <code>rating</code> 대신 존재하지 않는 <code>reputation_score</code> 키를 읽어 총점이 어긋난다 (99.20 vs 92.00).
+- <code>score_vendor_offering()</code>의 실제 계산을 분해해 새로 구현한다 (약 30줄).
+- <code>neural_network</code> 키(601바이트, UI용 장식)는 <strong>반환하지 않는다.</strong></p>
+<pre><code class="language-json">{
+  &quot;total&quot;: 99.20,
+  &quot;criteria_scores&quot;: {&quot;latency&quot;: 1.00, &quot;bandwidth&quot;: 1.00, &quot;reliability&quot;: 1.00,
+                      &quot;reputation&quot;: 0.96, &quot;price&quot;: 1.00},
+  &quot;weights&quot;: {&quot;latency&quot;: 0.35, &quot;bandwidth&quot;: 0.10, &quot;reliability&quot;: 0.25,
+              &quot;reputation&quot;: 0.20, &quot;price&quot;: 0.20},
+  &quot;contributions&quot;: {&quot;latency&quot;: 30.00, &quot;bandwidth&quot;: 8.57, &quot;reliability&quot;: 21.43,
+                    &quot;reputation&quot;: 19.20, &quot;price&quot;: 20.00},
+  &quot;explanation&quot;: &quot;지연 1.0ms가 요구 1.0ms를 충족(1.00). 평판 4.8/5.0이 총점의 19.2점을 기여. 가격 250이 URLLC 기준가와 동일해 감점 없음.&quot;
+}
+</code></pre>
+<hr />
+<h2><code>procure(vendor_id, slice_type, qos_requirements, duration_steps, current_step)</code></h2>
+<table>
+<thead>
+<tr>
+<th>파라미터</th>
+<th>타입</th>
+<th>필수</th>
+<th>범위</th>
+<th>설명</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>vendor_id</code></td>
+<td>string</td>
+<td>예</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>slice_type</code></td>
+<td><code>SliceType</code></td>
+<td>예</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>qos_requirements</code></td>
+<td>object</td>
+<td>예</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>duration_steps</code></td>
+<td>int</td>
+<td>예</td>
+<td>1 ~ 60</td>
+<td><strong>시간이 아니라 스텝</strong></td>
+</tr>
+<tr>
+<td><code>current_step</code></td>
+<td>int</td>
+<td><strong>예</strong></td>
+<td>≥ 0</td>
+<td><code>observation.step</code>. ③은 시뮬레이션 시각을 모른다</td>
+</tr>
+</tbody>
+</table>
+<p><strong>비용 환산</strong> — <code>vendors.json</code>의 <code>cost</code>는 시간당, <code>duration_steps</code>는 스텝. <code>MINUTES_PER_STEP = 15</code>.</p>
+<pre><code>cost_total = cost × duration_steps × (MINUTES_PER_STEP / 60)
+           = 250 × 10 × 0.25 = 625.0
+</code></pre>
+<p><strong>용량 환산</strong> — 상수는 <code>const.py</code>.</p>
+<pre><code>capacity_gain   = (offering.bandwidth / REFERENCE_BANDWIDTH[slice_type]) × GAIN_SCALE
+expires_at_step = current_step + duration_steps
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>상수</th>
+<th>값</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>REFERENCE_BANDWIDTH</code></td>
+<td><code>{eMBB: 1100, URLLC: 500, mMTC: 120}</code> (벤더별 슬라이스 대역폭 중앙값)</td>
+</tr>
+<tr>
+<td><code>GAIN_SCALE</code></td>
+<td><code>0.25</code></td>
+</tr>
+<tr>
+<td><code>CAPACITY_BASE</code> / <code>CAPACITY_MAX</code></td>
+<td><code>1.6</code> / <code>2.6</code> (슬라이스당, ①이 강제)</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th>벤더 (URLLC)</th>
+<th>대역폭</th>
+<th><code>capacity_gain</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GlobalConnect 5G</td>
+<td>400</td>
+<td><strong>0.20</strong></td>
+</tr>
+<tr>
+<td>TelcoNet Solutions</td>
+<td>500</td>
+<td><strong>0.25</strong></td>
+</tr>
+<tr>
+<td>NextGen Networks</td>
+<td>600</td>
+<td><strong>0.30</strong></td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th>출력 필드</th>
+<th>타입</th>
+<th>설명</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>slice_id</code></td>
+<td>string</td>
+<td>조달된 슬라이스 식별자. <strong>④ <code>record_decision.slice_id</code>에 기록</strong></td>
+</tr>
+<tr>
+<td><code>status</code></td>
+<td>string</td>
+<td><code>active</code> · <code>rejected</code></td>
+</tr>
+<tr>
+<td><code>vendor_id</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr>
+<td><code>cost_total</code></td>
+<td>float</td>
+<td>위 환산식</td>
+</tr>
+<tr>
+<td><strong><code>capacity_gain</code></strong></td>
+<td>float</td>
+<td><strong>①의 <code>add_capacity(amount=...)</code>에 그대로 넣는다</strong></td>
+</tr>
+<tr>
+<td><code>expires_at_step</code></td>
+<td>int</td>
+<td>만료 스텝</td>
+</tr>
+<tr>
+<td><code>reason</code></td>
+<td>string | null</td>
+<td>거부 사유</td>
+</tr>
+</tbody>
+</table>
+<pre><code class="language-json">// 요청
+{&quot;vendor_id&quot;: &quot;vendor-1&quot;, &quot;slice_type&quot;: &quot;URLLC&quot;,
+ &quot;qos_requirements&quot;: {&quot;latency&quot;: 1.0, &quot;bandwidth&quot;: 400, &quot;reliability&quot;: 99.99},
+ &quot;duration_steps&quot;: 10, &quot;current_step&quot;: 12}
+// 응답
+{&quot;slice_id&quot;: &quot;slice-urllc-0012-v1&quot;, &quot;status&quot;: &quot;active&quot;, &quot;vendor_id&quot;: &quot;vendor-1&quot;,
+ &quot;cost_total&quot;: 625.0, &quot;capacity_gain&quot;: 0.250, &quot;expires_at_step&quot;: 22, &quot;reason&quot;: null}
+</code></pre>
+<p><strong>비용은 제약이 아니다.</strong> 예산 없음. ④가 <code>procurement_cost_total</code>을 집계해 논문 지표로 보고한다.</p>
+<hr />
+<h2><code>update_rating(vendor_id, outcome)</code></h2>
+<p>⑤의 <code>report_outcome</code> 결과를 <strong>에이전트가 중계</strong>해 호출한다.</p>
+<table>
+<thead>
+<tr>
+<th>파라미터</th>
+<th>타입</th>
+<th>필수</th>
+<th>출처</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>vendor_id</code></td>
+<td>string</td>
+<td>예</td>
+<td>⑤ <code>report_outcome().vendor_id</code></td>
+</tr>
+<tr>
+<td><code>outcome.sla_met</code></td>
+<td>bool</td>
+<td>예</td>
+<td>⑤ <code>report_outcome().sla_met</code></td>
+</tr>
+<tr>
+<td><code>outcome.decision_id</code></td>
+<td>string</td>
+<td>예</td>
+<td>추적용</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th>출력 필드</th>
+<th>타입</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>vendor_id</code></td>
+<td>string</td>
+</tr>
+<tr>
+<td><code>rating_before</code> · <code>rating_after</code></td>
+<td>float</td>
+</tr>
+<tr>
+<td><code>delta</code></td>
+<td>float</td>
+</tr>
+</tbody>
+</table>
+<p><strong>갱신식</strong>: <code>rating ← clip(rating + δ, 1.0, 5.0)</code>, <code>δ = +0.05</code> (충족) / <code>−0.20</code> (위반). <code>vendors.json</code>에 반영.</p>
+<pre><code class="language-json">// 요청
+{&quot;vendor_id&quot;: &quot;vendor-1&quot;, &quot;outcome&quot;: {&quot;sla_met&quot;: false, &quot;decision_id&quot;: &quot;exp-proposed-emergency-s0-0012&quot;}}
+// 응답
+{&quot;vendor_id&quot;: &quot;vendor-1&quot;, &quot;rating_before&quot;: 4.80, &quot;rating_after&quot;: 4.60, &quot;delta&quot;: -0.20}
+</code></pre></section><section class="doc"><div class="doc-hd" style="border-left-color:#1baf7a"><div class="t">④ `slice-audit` — 계약</div><div class="s">담당 C · claude/spec/audit.md</div></div><p>판단 기록과 지표 집계. 설계 근거는 <code>rationale/audit.md</code>. 기록 파일: <code>runs/{run_id}/decisions.json</code>.</p>
+<h2><code>record_decision(...)</code></h2>
+<p><strong>판단을 실행(<code>apply_allocation</code>)보다 먼저 기록한다.</strong></p>
+<table>
+<thead>
+<tr>
+<th>파라미터</th>
+<th>타입</th>
+<th>필수</th>
+<th>출처</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>step</code></td>
+<td>int</td>
+<td>예</td>
+<td><code>observation.step</code></td>
+</tr>
+<tr>
+<td><code>observation</code></td>
+<td><code>Observation</code></td>
+<td>예</td>
+<td>판단의 근거가 된 관측 (<code>obs_t</code>)</td>
+</tr>
+<tr>
+<td><code>situation</code></td>
+<td><code>Situation</code></td>
+<td><strong>예</strong></td>
+<td><strong>에이전트의 상황 판단.</strong> <code>perception_accuracy</code>의 입력</td>
+</tr>
+<tr>
+<td><code>chosen_policy</code></td>
+<td><code>PolicyName</code></td>
+<td>예</td>
+<td></td>
+</tr>
+<tr>
+<td><code>allocation</code></td>
+<td><code>SliceTriple</code></td>
+<td>예</td>
+<td>②가 제안한 값 (적용 전)</td>
+</tr>
+<tr>
+<td><code>confidence.situation</code></td>
+<td>float</td>
+<td><strong>예</strong></td>
+<td><strong>상황 판단에 대한 확신. 에이전트가 직접 낸다</strong></td>
+</tr>
+<tr>
+<td><code>confidence.intrinsic</code></td>
+<td>float</td>
+<td>예</td>
+<td>②의 <code>confidence</code> (정책에 대한 확신)</td>
+</tr>
+<tr>
+<td><code>confidence.empirical</code></td>
+<td>float</td>
+<td>예</td>
+<td>⑤의 <code>effective</code></td>
+</tr>
+<tr>
+<td><code>confidence.combined</code></td>
+<td>float</td>
+<td>예</td>
+<td><code>(situation × intrinsic × empirical)^(1/3)</code></td>
+</tr>
+<tr>
+<td><code>rationale</code></td>
+<td>string</td>
+<td>예</td>
+<td>판단 근거</td>
+</tr>
+<tr>
+<td><code>slice_id</code></td>
+<td>string</td>
+<td>아니오</td>
+<td>조달했다면 ③의 <code>slice_id</code></td>
+</tr>
+<tr>
+<td><code>vendor_id</code></td>
+<td>string</td>
+<td>아니오</td>
+<td>조달했다면 ③의 <code>vendor_id</code>. <strong>⑤가 이걸 읽어 에이전트에 돌려준다</strong></td>
+</tr>
+<tr>
+<td><code>in_distribution</code></td>
+<td>bool</td>
+<td>아니오</td>
+<td>②의 <code>PolicyProposal.in_distribution</code></td>
+</tr>
+<tr>
+<td><code>demand_class</code></td>
+<td>object</td>
+<td>아니오</td>
+<td>②의 <code>classify_demand()</code> 출력</td>
+</tr>
+<tr>
+<td><code>considered</code></td>
+<td><code>[{policy, confidence, status}]</code></td>
+<td>아니오</td>
+<td><code>compare_policies</code>를 썼다면 탈락한 후보들</td>
+</tr>
+</tbody>
+</table>
+<p><strong>출력</strong></p>
+<pre><code class="language-json">{&quot;decision_id&quot;: &quot;exp-proposed-emergency-s0-0012&quot;, &quot;recorded_at_step&quot;: 12}
+</code></pre>
+<p><strong><code>decision_id</code> 형식</strong>: <code>{run_id}-{step:04d}</code>. 정렬 가능하고 <code>truth.jsonl</code>과 <code>step</code>으로 조인된다.</p>
+<pre><code class="language-json">// 요청 예시
+{
+  &quot;step&quot;: 12,
+  &quot;observation&quot;: {&quot;step&quot;: 12, &quot;utilization&quot;: {&quot;embb&quot;: 0.624, &quot;urllc&quot;: 1.283, &quot;mmtc&quot;: 1.015}, ...},
+  &quot;situation&quot;: &quot;emergency&quot;,
+  &quot;chosen_policy&quot;: &quot;rule_based&quot;,
+  &quot;allocation&quot;: {&quot;embb&quot;: 0.200, &quot;urllc&quot;: 0.700, &quot;mmtc&quot;: 0.100},
+  &quot;confidence&quot;: {&quot;situation&quot;: 0.70, &quot;intrinsic&quot;: 0.521, &quot;empirical&quot;: 0.880, &quot;combined&quot;: 0.685},
+  &quot;rationale&quot;: &quot;URLLC 구성비 53% (평시 33%), 새벽 3시인데 URLLC 지배적. 이용률 1.283 (임계의 107%). LSTM은 이력 부족으로 사용 불가.&quot;
+}
+</code></pre>
+<p><code>combined = (0.70 × 0.521 × 0.880)^(1/3) = 0.685</code>. <strong>기하평균이라 셋 중 하나만 낮아도 전체가 낮아진다.</strong></p>
+<p><code>confidence.situation</code>이 따로 필요한 이유 — <code>intrinsic</code>·<code>empirical</code>은 둘 다 <strong>정책</strong>에 대한 확신이라
+상황을 잘못 읽었을 가능성이 어디에도 반영되지 않는다. 오판 + 정책 자신감 = 높은 <code>combined</code> =
+<strong>에스컬레이션 안 됨.</strong> <code>normal</code> 인지 정확도가 50.5%라 오탐이 구조적으로 많다 (<code>rationale/environment.md</code>).</p>
+<hr />
+<h2><code>record_escalation(...)</code></h2>
+<p><strong>이 도구를 호출한 것 자체가 개입 1회다.</strong> 사람의 응답을 기다리지 않는다. <strong>한 호출이 <code>kind: "escalation"</code> 레코드와 <code>kind: "decision"</code> 레코드를 같은 <code>step</code>으로 둘 다 남긴다.</strong></p>
+<table>
+<thead>
+<tr>
+<th>파라미터</th>
+<th>타입</th>
+<th>필수</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>step</code></td>
+<td>int</td>
+<td>예</td>
+</tr>
+<tr>
+<td><code>observation</code></td>
+<td><code>Observation</code></td>
+<td>예</td>
+</tr>
+<tr>
+<td><code>situation</code></td>
+<td><code>Situation</code></td>
+<td>예</td>
+</tr>
+<tr>
+<td><code>reason</code></td>
+<td>string</td>
+<td>예</td>
+</tr>
+<tr>
+<td><code>confidence</code></td>
+<td>object</td>
+<td>예 (<code>situation</code> 포함)</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th>출력 필드</th>
+<th>타입</th>
+<th>설명</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>escalation_id</code></td>
+<td>string</td>
+<td>개입 1건의 식별자</td>
+</tr>
+<tr>
+<td><strong><code>decision_id</code></strong></td>
+<td>string</td>
+<td><strong>폴백 결정의 ID. <code>report_outcome</code>에 쓴다</strong></td>
+</tr>
+<tr>
+<td><code>fallback_policy</code></td>
+<td><code>PolicyName</code></td>
+<td><strong>항상 <code>"rule_based"</code></strong></td>
+</tr>
+<tr>
+<td><code>fallback_situation</code></td>
+<td><code>Situation</code></td>
+<td><strong>항상 <code>"normal"</code></strong></td>
+</tr>
+<tr>
+<td><code>fallback_allocation</code></td>
+<td><code>SliceTriple</code></td>
+<td>폴백 정책이 낸 배분. <strong><code>apply_allocation</code>에 넣는다</strong></td>
+</tr>
+<tr>
+<td><code>instruction</code></td>
+<td>string</td>
+<td>에이전트에게 주는 다음 행동 지시</td>
+</tr>
+</tbody>
+</table>
+<pre><code class="language-json">{&quot;escalation_id&quot;: &quot;exp-proposed-mixed-s0-esc-0031&quot;,
+ &quot;decision_id&quot;: &quot;exp-proposed-mixed-s0-0031&quot;,
+ &quot;fallback_policy&quot;: &quot;rule_based&quot;,
+ &quot;fallback_situation&quot;: &quot;normal&quot;,
+ &quot;fallback_allocation&quot;: {&quot;embb&quot;: 0.40, &quot;urllc&quot;: 0.40, &quot;mmtc&quot;: 0.20},
+ &quot;instruction&quot;: &quot;사람 호출을 기록했다. 대기하지 말고 fallback_allocation을 apply_allocation에 넣어 이번 스텝을 진행한 뒤, step() 후 decision_id로 report_outcome을 호출하라.&quot;}
+</code></pre>
+<hr />
+<h2><code>get_decisions(n, kind)</code></h2>
+<table>
+<thead>
+<tr>
+<th>파라미터</th>
+<th>타입</th>
+<th>필수</th>
+<th>기본</th>
+<th>설명</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>n</code></td>
+<td>int</td>
+<td>아니오</td>
+<td><code>50</code></td>
+<td>최근 n건</td>
+</tr>
+<tr>
+<td><code>kind</code></td>
+<td>string</td>
+<td>아니오</td>
+<td><code>null</code></td>
+<td><code>decision</code> · <code>escalation</code> 필터</td>
+</tr>
+</tbody>
+</table>
+<p><strong>출력: <code>[Decision]</code></strong> — <code>decisions.json</code>의 레코드 그대로. ⑤가 채점했으면 <code>outcome</code>이 붙어 있다.</p>
+<pre><code class="language-json">[{&quot;decision_id&quot;: &quot;...-0012&quot;, &quot;step&quot;: 12, &quot;kind&quot;: &quot;decision&quot;,
+  &quot;situation&quot;: &quot;emergency&quot;, &quot;chosen_policy&quot;: &quot;rule_based&quot;,
+  &quot;allocation&quot;: {&quot;embb&quot;: 0.20, &quot;urllc&quot;: 0.70, &quot;mmtc&quot;: 0.10},
+  &quot;confidence&quot;: {&quot;situation&quot;: 0.70, &quot;intrinsic&quot;: 0.521, &quot;empirical&quot;: 0.880, &quot;combined&quot;: 0.685},
+  &quot;outcome&quot;: {&quot;sla_met&quot;: false, &quot;error&quot;: 0.184, &quot;scored_at_step&quot;: 13}}]
+</code></pre>
+<p><strong>컨텍스트 주의</strong> — 각 레코드에 <code>observation</code>이 통째로 들어 있다. 에이전트용 호출은 <strong><code>n ≤ 10</code></strong>. 전량 분석은 <code>eval/score.py</code>가 파일을 직접 읽는다.</p>
+<hr />
+<h2><code>get_metrics(window)</code></h2>
+<table>
+<thead>
+<tr>
+<th>파라미터</th>
+<th>타입</th>
+<th>필수</th>
+<th>기본</th>
+<th>설명</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>window</code></td>
+<td>int</td>
+<td>아니오</td>
+<td><code>null</code></td>
+<td>최근 n스텝만. <code>null</code>이면 전체</td>
+</tr>
+</tbody>
+</table>
+<p><strong>출력: <code>Metrics</code></strong> — <strong>관측만으로 계산되는 지표뿐이다.</strong></p>
+<table>
+<thead>
+<tr>
+<th>필드</th>
+<th>타입</th>
+<th>정의</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>steps</code></td>
+<td>int</td>
+<td><strong>채점 완료된</strong> 결정 수 (= 기록 수 − 1)</td>
+</tr>
+<tr>
+<td><code>interventions</code></td>
+<td>int</td>
+<td><code>record_escalation</code> 호출 횟수</td>
+</tr>
+<tr>
+<td><code>autonomous_rate</code></td>
+<td>float</td>
+<td><code>1 − interventions / steps</code></td>
+</tr>
+<tr>
+<td><code>sla_violations</code></td>
+<td>int</td>
+<td><strong><code>outcome.sla_met == false</code>인 결정 수.</strong> <code>observation.violations</code>로 세지 않는다</td>
+</tr>
+<tr>
+<td><code>mean_utilization</code></td>
+<td><code>SliceTriple</code></td>
+<td>평균 이용률</td>
+</tr>
+<tr>
+<td><code>policy_usage</code></td>
+<td><code>{PolicyName: int}</code></td>
+<td>정책별 채택 횟수</td>
+</tr>
+<tr>
+<td><code>mttr</code></td>
+<td>float</td>
+<td>위반 시작 스텝부터 전부 해소된 스텝까지의 평균 길이</td>
+</tr>
+<tr>
+<td><code>unresolved</code></td>
+<td>int</td>
+<td><strong>복구되지 않은 채 끝난 구간 수</strong></td>
+</tr>
+<tr>
+<td><code>procurements</code></td>
+<td>int</td>
+<td><code>procure()</code> 호출 횟수</td>
+</tr>
+<tr>
+<td><code>procurement_cost_total</code></td>
+<td>float</td>
+<td>조달 비용 합계</td>
+</tr>
+<tr>
+<td><code>mean_capacity</code></td>
+<td><code>SliceTriple</code></td>
+<td>평균 용량 배수</td>
+</tr>
+<tr>
+<td><code>pressure_exceeded</code></td>
+<td>int</td>
+<td><code>demand_pressure ≥ 1.0</code>이던 스텝 수</td>
+</tr>
+</tbody>
+</table>
+<p><strong>반환 금지 ⚠️</strong>: <code>perception_accuracy</code> · <code>escalation_precision</code>. 정답이 필요한 지표는 <code>eval/score.py</code>가 오프라인으로 계산한다. (<code>flow/forbidden.md</code>)</p>
+<p><strong>집계 불변식</strong></p>
+<pre><code>steps              = 채점된 결정 수           (60스텝 에피소드 → 59)
+sum(policy_usage)  = 기록된 결정 수           (60)
+Σ ⑤의 n           = 채점된 결정 수           (59)
+</code></pre>
+<p><code>sum(policy_usage)</code>와 <code>Σn</code>이 <strong>1 차이나는 것은 정상</strong>이다. 2 이상 벌어지면 ②의 조용한 폴백이나 <code>report_outcome</code> 누락을 의심한다.</p>
+<pre><code class="language-json">{&quot;steps&quot;: 59, &quot;interventions&quot;: 4, &quot;autonomous_rate&quot;: 0.932,
+ &quot;sla_violations&quot;: 17,
+ &quot;mean_utilization&quot;: {&quot;embb&quot;: 1.021, &quot;urllc&quot;: 1.183, &quot;mmtc&quot;: 0.742},
+ &quot;policy_usage&quot;: {&quot;rule_based&quot;: 42, &quot;lstm_forecast&quot;: 18, &quot;dqn&quot;: 0},
+ &quot;mttr&quot;: 3.4, &quot;unresolved&quot;: 1,
+ &quot;procurements&quot;: 3, &quot;procurement_cost_total&quot;: 1875.0,
+ &quot;mean_capacity&quot;: {&quot;embb&quot;: 1.600, &quot;urllc&quot;: 1.783, &quot;mmtc&quot;: 1.600},
+ &quot;pressure_exceeded&quot;: 21}
+</code></pre></section><section class="doc"><div class="doc-hd" style="border-left-color:#1baf7a"><div class="t">⑤ `slice-feedback` — 계약</div><div class="s">담당 C · claude/spec/feedback.md</div></div><p>결정을 채점하고 정책별 경험적 신뢰도를 유지한다. 설계 근거는 <code>rationale/feedback.md</code>.</p>
+<h2><code>report_outcome(decision_id, observed)</code></h2>
+<table>
+<thead>
+<tr>
+<th>파라미터</th>
+<th>타입</th>
+<th>필수</th>
+<th>출처</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>decision_id</code></td>
+<td>string</td>
+<td>예</td>
+<td>④가 발급한 것</td>
+</tr>
+<tr>
+<td><code>observed</code></td>
+<td><code>Observation</code></td>
+<td>예</td>
+<td><strong><code>step()</code> 이후의 관측</strong> (= <code>obs_{t+1}</code>)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>반드시 <code>step()</code> 이후에 호출한다.</strong> <code>obs_{t+1}.allocation</code>이 t에 적용된 배분, <code>obs_{t+1}.traffic</code>이 그 배분이 감당해야 했던 수요다. <code>step()</code> 전 호출은 <code>premature_scoring</code> 오류 (<code>flow/errors.md</code>).</p>
+<p><strong>출력: <code>Outcome</code></strong></p>
+<table>
+<thead>
+<tr>
+<th>필드</th>
+<th>타입</th>
+<th>설명</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>sla_met</code></td>
+<td>bool</td>
+<td><code>violations</code>가 전부 <code>false</code></td>
+</tr>
+<tr>
+<td><code>policy</code></td>
+<td><code>PolicyName</code></td>
+<td>채점 대상 정책</td>
+</tr>
+<tr>
+<td><code>error</code></td>
+<td>float</td>
+<td>0~1. 이상 배분과의 거리</td>
+</tr>
+<tr>
+<td><code>ideal_allocation</code></td>
+<td><code>SliceTriple</code></td>
+<td>위반이 딱 없어지는 배분</td>
+</tr>
+<tr>
+<td><code>applied_allocation</code></td>
+<td><code>SliceTriple</code></td>
+<td><strong>실제 적용된 배분</strong> (= <code>observed.allocation</code>)</td>
+</tr>
+<tr>
+<td><code>requested_allocation</code></td>
+<td><code>SliceTriple</code></td>
+<td>에이전트가 요청했던 배분 (<code>decisions.json</code>에서 조회)</td>
+</tr>
+<tr>
+<td><code>actuator_delta</code></td>
+<td>float</td>
+<td>둘 사이의 거리. 액추에이터가 얼마나 깎았나</td>
+</tr>
+<tr>
+<td><code>observed_violations</code></td>
+<td><code>SliceFlags</code></td>
+<td>채점 시점의 위반. MTTR 재구성용</td>
+</tr>
+<tr>
+<td><code>vendor_id</code></td>
+<td>string | null</td>
+<td><strong>있으면 에이전트가 ③ <code>update_rating</code>에 중계</strong></td>
+</tr>
+<tr>
+<td><code>reliability_before</code> · <code>reliability_after</code></td>
+<td>float</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong><code>error</code> 계산</strong> — 정답을 쓰지 않고 관측만으로 나온다. <strong><code>capacity</code>를 빼면 안 된다.</strong></p>
+<pre><code>a*    = normalize(traffic / (thresholds × capacity))   # 이상 배분
+error = L1(applied_allocation, a*) / 2                 # [0, 1]
+</code></pre>
+<p><strong>신뢰도 갱신</strong>: <code>r ← (1−0.2)·r + 0.2·(sla_met ? 1 : 0)</code></p>
+<p><strong>부작용</strong>: ④의 해당 레코드에 <code>outcome</code>을 덧붙인다 (<code>sla_met</code>, <code>error</code>, <code>scored_at_step</code>, <code>applied_allocation</code>, <code>requested_allocation</code>, <code>actuator_delta</code>, <code>observed_violations</code>).</p>
+<pre><code class="language-json">// 요청 — step() 후의 관측
+{&quot;decision_id&quot;: &quot;exp-proposed-emergency-s0-0012&quot;,
+ &quot;observed&quot;: {&quot;step&quot;: 13,
+   &quot;traffic&quot;:     {&quot;embb&quot;: 0.571, &quot;urllc&quot;: 0.595, &quot;mmtc&quot;: 0.390},
+   &quot;allocation&quot;:  {&quot;embb&quot;: 0.340, &quot;urllc&quot;: 0.490, &quot;mmtc&quot;: 0.170},
+   &quot;capacity&quot;:    {&quot;embb&quot;: 1.600, &quot;urllc&quot;: 1.600, &quot;mmtc&quot;: 1.600},
+   &quot;utilization&quot;: {&quot;embb&quot;: 1.050, &quot;urllc&quot;: 0.760, &quot;mmtc&quot;: 1.435},
+   &quot;violations&quot;:  {&quot;embb&quot;: true,  &quot;urllc&quot;: false, &quot;mmtc&quot;: true}, ...}}
+// 응답
+{&quot;sla_met&quot;: false,
+ &quot;policy&quot;: &quot;rule_based&quot;,
+ &quot;error&quot;: 0.184,
+ &quot;ideal_allocation&quot;:     {&quot;embb&quot;: 0.392, &quot;urllc&quot;: 0.306, &quot;mmtc&quot;: 0.301},
+ &quot;applied_allocation&quot;:   {&quot;embb&quot;: 0.340, &quot;urllc&quot;: 0.490, &quot;mmtc&quot;: 0.170},
+ &quot;requested_allocation&quot;: {&quot;embb&quot;: 0.200, &quot;urllc&quot;: 0.700, &quot;mmtc&quot;: 0.100},
+ &quot;actuator_delta&quot;: 0.210,
+ &quot;observed_violations&quot;: {&quot;embb&quot;: true, &quot;urllc&quot;: false, &quot;mmtc&quot;: true},
+ &quot;vendor_id&quot;: null,
+ &quot;reliability_before&quot;: 0.880,
+ &quot;reliability_after&quot;: 0.704}
+</code></pre>
+<p>계산 확인: <code>a* = normalize([0.571/(0.9×1.6), 0.595/(1.2×1.6), 0.390/(0.8×1.6)]) = [0.392, 0.306, 0.301]</code>,
+<code>error = (|0.340−0.392| + |0.490−0.306| + |0.170−0.301|) / 2 = 0.184</code>, <code>r = 0.8 × 0.880 = 0.704</code>.</p>
+<blockquote>
+<p><strong>이 예시가 <code>rule_based</code>의 한계를 보여준다.</strong> <code>situation="emergency"</code>의 고정 목표 <code>[0.2, 0.7, 0.1]</code>은
+과잉 반응이었다 — URLLC에 0.49를 줬는데 이용률 0.76으로 여유가 남았고, 굶긴 mMTC가 1.435로 터졌다.
+<strong>상황 판단은 맞았는데 정책이 틀렸다.</strong> ⑤가 <code>rule_based</code>의 신뢰도를 낮춘다.</p>
+</blockquote>
+<hr />
+<h2><code>get_reliability_table()</code></h2>
+<p><strong>입력: 없음</strong> · <strong>출력: <code>ReliabilityTable</code></strong></p>
+<table>
+<thead>
+<tr>
+<th>필드</th>
+<th>타입</th>
+<th>설명</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>{policy}.reliability</code></td>
+<td>float</td>
+<td>EMA 원값</td>
+</tr>
+<tr>
+<td><code>{policy}.n</code></td>
+<td>int</td>
+<td>누적 표본 수</td>
+</tr>
+<tr>
+<td><code>{policy}.effective</code></td>
+<td>float</td>
+<td><strong>축소 보정값. 에이전트는 이걸 쓴다</strong> → ④ <code>confidence.empirical</code></td>
+</tr>
+<tr>
+<td><code>{policy}.recent_error</code></td>
+<td>float</td>
+<td>최근 5회 <code>error</code>의 EMA. <strong>② <code>propose_allocation.recent_error</code>에 중계</strong></td>
+</tr>
+</tbody>
+</table>
+<p><strong>축소 보정</strong>: <code>effective = (r·n + 0.5·5) / (n + 5)</code></p>
+<pre><code class="language-json">{&quot;rule_based&quot;:    {&quot;reliability&quot;: 0.910, &quot;n&quot;: 120, &quot;effective&quot;: 0.894, &quot;recent_error&quot;: 0.094},
+ &quot;lstm_forecast&quot;: {&quot;reliability&quot;: 0.840, &quot;n&quot;: 95,  &quot;effective&quot;: 0.823, &quot;recent_error&quot;: 0.112},
+ &quot;dqn&quot;:           {&quot;reliability&quot;: 0.420, &quot;n&quot;: 6,   &quot;effective&quot;: 0.456, &quot;recent_error&quot;: 0.380}}
+</code></pre>
+<p><strong>두 종류의 신뢰도</strong> — 종합은 에이전트만 한다.</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>제공</th>
+<th>의미</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>내재적 (<code>confidence</code>)</td>
+<td>②</td>
+<td><strong>이번 입력</strong>에 대한 확신</td>
+</tr>
+<tr>
+<td>경험적 (<code>effective</code>)</td>
+<td>⑤</td>
+<td>이 정책이 <strong>평소</strong> 얼마나 맞았나</td>
+</tr>
+</tbody>
+</table>
+<pre><code>combined = (situation × intrinsic × effective)^(1/3)
+escalate if combined &lt; 0.45
+</code></pre>
+<p><strong>셋의 기하평균이다.</strong> <code>situation</code>은 에이전트가 내는 <strong>상황 판단 자체에 대한 확신</strong>이며
+②·⑤ 어느 쪽도 주지 않는다. 이게 없으면 상황을 잘못 읽고도 정책에 자신 있을 때
+<code>combined</code>가 높게 나와 <strong>에스컬레이션이 일어나지 않는다.</strong> <code>normal</code> 인지 정확도가
+50.5%라 오탐이 구조적으로 많다 (<code>rationale/environment.md</code>).</p></section><section class="doc"><div class="doc-hd" style="border-left-color:#1baf7a"><div class="t">계약 검증 — 값 유실 20건</div><div class="s">담당 C · claude/rationale/verification.md</div></div><p>생산자 없는 소비 · 소비자 없는 생산 · 근본 원인 3패턴 · 재발 방지</p>
+<h1>1.5 도구 계약 검증 — 값 유실 9건</h1>
+<p>정정 A~K가 <strong>기존 코드</strong>의 문제였다면, 이 절은 <strong><code>TOOLS.md</code>의 도구 계약 자체</strong>를 검증한 결과다. 도구 21개의 모든 입력 필드에 대해 <em>"이 값을 누가 생산하는가"</em> 를, 모든 출력 필드에 대해 <em>"이 값을 누가 소비하는가"</em> 를 역추적했다.</p>
+<p><strong>생산자 없는 소비 4건, 소비자 없는 생산 5건이 나왔다.</strong> 전부 코드 버그가 아니라 <strong>계약의 구멍</strong>이며, 구현 전에 메우지 않으면 통합 시점에 드러난다.</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>값</th>
+<th>증상</th>
+<th>등급</th>
+<th>담당</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>V2</strong></td>
+<td><code>decision_id</code> (에스컬레이션 시)</td>
+<td>그 스텝의 SLA 결과가 통계에서 <strong>소멸</strong></td>
+<td>치명</td>
+<td>A</td>
+</tr>
+<tr>
+<td><strong>V3</strong></td>
+<td><code>run_id</code></td>
+<td><code>truth.jsonl</code> × <code>decisions.json</code> <strong>조인 불가</strong></td>
+<td>치명</td>
+<td>A · C</td>
+</tr>
+<tr>
+<td><strong>V4</strong></td>
+<td><code>recent_error</code></td>
+<td>②의 LSTM 신뢰도를 <strong>계산할 수 없음</strong></td>
+<td>중대</td>
+<td>B · C</td>
+</tr>
+<tr>
+<td><strong>V5</strong></td>
+<td><code>applied_allocation</code></td>
+<td>기록(요청)과 채점(적용)의 <strong>기준 불일치</strong></td>
+<td>중대</td>
+<td>B</td>
+</tr>
+<tr>
+<td><strong>V6</strong></td>
+<td><code>outcome.sla_met</code></td>
+<td><code>sla_violations</code>가 <strong>1스텝 어긋남</strong></td>
+<td>중대</td>
+<td>A</td>
+</tr>
+<tr>
+<td><strong>V7</strong></td>
+<td><code>in_distribution</code></td>
+<td>논문 주장을 <strong>하되 검증 불가</strong></td>
+<td>경미</td>
+<td>A · B</td>
+</tr>
+<tr>
+<td><strong>V8</strong></td>
+<td><code>demand_class</code></td>
+<td>분류기 오류와 판단 오류를 <strong>구분 불가</strong></td>
+<td>경미</td>
+<td>A · C</td>
+</tr>
+<tr>
+<td><strong>V9</strong></td>
+<td><code>situation</code> ↔ <code>truth</code> 매핑</td>
+<td>채점 기준이 <strong>사후 해석 가능</strong></td>
+<td>경미</td>
+<td>A</td>
+</tr>
+<tr>
+<td><strong>V10</strong></td>
+<td><code>Σ policy_usage</code> vs <code>Σ n</code></td>
+<td>정상 차이를 <strong>버그로 오인</strong></td>
+<td>경미</td>
+<td>A</td>
+</tr>
+</tbody>
+</table>
+<p>도구별 반영 내용은 <code>TOOLS.md</code>의 해당 절에 ⚠️ 블록으로 들어가 있다. 여기서는 <strong>왜 생겼는가</strong>와 <strong>어떻게 막는가</strong>만 적는다.</p>
+<h1>근본 원인 — 세 가지 패턴</h1>
+<p>아홉 건이 무작위로 생긴 게 아니다. 서버를 나눈 방식에서 구조적으로 유도된다.</p>
+<p><strong>패턴 1 — 호출 순서가 값의 가용 시점을 어긋나게 한다</strong> (V5, V6)</p>
+<p><code>record_decision</code>(3단계)이 <code>apply_allocation</code>(4단계)보다 먼저다. 기록 시점에 "실제 적용된 값"은 아직 존재하지 않는다. 그런데 채점은 적용값 기준이다.</p>
+<pre><code>기록 시점 t:  요청 allocation = {0.20, 0.70, 0.10}    ← ④에 남는 것
+적용 시점 t:  실제 allocation = {0.34, 0.49, 0.17}    ← 아무데도 안 남던 것
+채점 시점 t+1: error는 적용값 기준 = 0.086
+              요청값 기준이었다면      = 0.316        ← 4배 차이
+</code></pre>
+<p>같은 이유로 ④가 보는 <code>observation.violations</code>는 <strong>직전 결정</strong>의 결과라 1스텝 어긋난다.</p>
+<blockquote>
+<p><strong>판정법</strong>: 도구 X의 출력이 도구 Y의 입력인데 <strong>호출 순서가 Y → X</strong>라면, 그 값은 유실된다. 순서를 바꾸거나, 나중에 그 값을 보는 제3자(여기서는 ⑤)가 채워 넣어야 한다.</p>
+</blockquote>
+<p><strong>패턴 2 — 무상태 원칙이 누적값의 공급선을 끊는다</strong> (V4)</p>
+<p>②는 무상태이고 ⑤를 호출할 수 없다(서버 간 직접 호출 금지, §2.2). 그런데 <code>lstm_forecast</code>의 신뢰도 <code>exp(−3·ē)</code>에서 <code>ē</code>는 <strong>누적 오차</strong>다. ②가 원리적으로 알 수 없는 값을 식에 넣어 두었다.</p>
+<p>해결은 §2.2의 원칙 그대로다 — <strong>에이전트가 중계한다.</strong> ⑤가 <code>recent_error</code>를 반환하고, 에이전트가 <code>propose_allocation</code>의 인자로 넘긴다. ②는 여전히 무상태다.</p>
+<blockquote>
+<p><strong>판정법</strong>: 무상태 서버의 산출식에 "최근 N회", "누적", "평균" 같은 말이 들어가면 그 값은 반드시 <strong>인자</strong>여야 한다.</p>
+</blockquote>
+<p><strong>패턴 3 — 식별자를 쓰기만 하고 발급하지 않는다</strong> (V2, V3)</p>
+<p><code>decision_id = {run_id}-{step:04d}</code>라고 형식만 정하고 <code>run_id</code>를 발급하는 도구를 두지 않았다. 에스컬레이션도 마찬가지로 <code>escalation_id</code>만 주고 <code>decision_id</code>를 안 줘서, 그 스텝은 <code>report_outcome</code>을 호출할 방법이 없었다.</p>
+<blockquote>
+<p><strong>판정법</strong>: 명세에 등장하는 모든 식별자에 대해 <em>"이걸 처음 만드는 도구가 무엇인가"</em> 를 답할 수 있어야 한다. 답이 없으면 유실이다.</p>
+</blockquote>
+<h1>V2가 가장 위험한 이유</h1>
+<p>나머지 여덟 건은 지표가 틀리거나 분석이 제약되는 수준이다. <strong>V2만 논증 자체를 무너뜨린다.</strong></p>
+<p>에스컬레이션한 스텝은 정의상 <strong>에이전트가 가장 자신 없던 스텝</strong>이다. <code>decision_id</code>가 없어 채점되지 않으면 그 스텝들이 통계에서 통째로 빠진다.</p>
+<pre><code>proposed arm:  어려운 스텝 4개를 에스컬레이션 → 그 4개가 집계에서 제외
+baseline arm:  에스컬레이션 없음 → 60개 전부 집계
+</code></pre>
+<p><strong>비교군마다 표본이 다르다.</strong> <code>proposed</code>의 <code>sla_violations</code>가 낮게 나와도 그건 어려운 스텝을 빼고 센 결과다. 핵심 논증인 <em>"개입은 줄었는데 SLA 위반은 늘지 않았다"</em> 가 <strong>편향된 표본 위에서 성립</strong>한다. 심사에서 지적당하면 방어할 말이 없다.</p>
+<p>→ <code>record_escalation</code>이 <code>escalation_id</code>와 <code>decision_id</code>를 <strong>한 번의 호출로 둘 다</strong> 발급한다. 나눠 두면 에이전트가 빠뜨릴 수 있다.</p>
+<h1>재발 방지 — 계약 검사</h1>
+<p>도구는 앞으로도 늘어난다(이미 20 → 21). 사람이 매번 역추적하면 또 놓친다.</p>
+<p><strong><code>docs/contract.json</code>에 기계가 읽을 수 있는 계약을 둔다.</strong> 도구마다 필수 입력, 출력 필드, 그리고 각 필수 입력의 <strong>생산자</strong>를 명시한다.</p>
+<pre><code class="language-json">{&quot;propose_allocation&quot;: {
+   &quot;server&quot;: &quot;policy&quot;,
+   &quot;requires&quot;: {&quot;observation&quot;: &quot;observe.get_observation&quot;,
+                &quot;situation&quot;:   &quot;AGENT&quot;,
+                &quot;recent_error&quot;:&quot;feedback.get_reliability_table&quot;},
+   &quot;produces&quot;: [&quot;policy&quot;,&quot;allocation&quot;,&quot;confidence&quot;,&quot;in_distribution&quot;,&quot;status&quot;]}}
+</code></pre>
+<p><code>tools/check_contract.py</code>가 검사할 것:</p>
+<ol>
+<li>모든 필수 입력에 생산자가 있는가 (<code>AGENT</code> 명시 포함) → <strong>V3, V4 유형 차단</strong></li>
+<li>생산자의 호출 순서가 소비자보다 <strong>앞인가</strong> → <strong>V5, V6 유형 차단</strong></li>
+<li>명세에 등장하는 모든 식별자에 발급 도구가 있는가 → <strong>V2 유형 차단</strong></li>
+<li><code>produces</code> 중 아무도 소비하지 않는 필드 목록 → <strong>V7, V8 유형 경고</strong> (의도적일 수 있으므로 경고)</li>
+</ol>
+<p><strong><code>AGENT</code>가 생산자인 값은 네 개뿐이고, 그 넷이 연구의 기여 지점 전체다</strong> — <code>situation</code>, <code>confidence.combined</code>, 에스컬레이션 판단, 정책 선택. 이 목록이 늘어나면 에이전트가 해야 할 판단이 서버로 새고 있다는 뜻이므로, 검사기가 <strong>넷을 넘으면 경고</strong>하도록 한다.</p>
+<p>소유는 C다. 목 서버와 같은 성격 — <strong>계약의 실행 가능한 명세</strong>이고, C는 A·B의 서버를 소비하는 쪽이라 불일치를 가장 먼저 만난다.</p>
+<hr />
+<h1>1.6 전면 재검증 — 추가 11건</h1>
+<p>§1.5 이후 <code>capacity</code> 도입(정정 K)으로 계약이 바뀌었다. 세 문서를 교차 대조하고 모든 예시를 재계산한 결과 <strong>11건이 더 나왔다.</strong> 절반은 <code>capacity</code> 도입이 만든 파급이고, 절반은 처음부터 있던 사각지대다.</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>항목</th>
+<th>증상</th>
+<th>등급</th>
+<th>담당</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>W1</strong></td>
+<td>조달이 루프의 어디에 들어가는가</td>
+<td>순서 미정. <code>add_capacity</code>가 <code>step()</code> 뒤로 가면 <strong>조달한 스텝이 효과를 못 봄</strong></td>
+<td>중대</td>
+<td>C</td>
+</tr>
+<tr>
+<td><strong>W2</strong></td>
+<td>③이 현재 스텝을 모른다</td>
+<td><code>expires_at_step</code>을 <strong>계산할 수 없음</strong></td>
+<td>중대</td>
+<td>B</td>
+</tr>
+<tr>
+<td><strong>W3</strong></td>
+<td><code>cost_total</code> 단위 불일치</td>
+<td>시간당 단가 × 스텝 수 → <strong>비용 4배 부풀림</strong></td>
+<td>중대</td>
+<td>B</td>
+</tr>
+<tr>
+<td><strong>W4</strong></td>
+<td>⑤가 <code>vendor_id</code>를 모른다</td>
+<td><code>update_rating</code> 중계 <strong>불가</strong></td>
+<td>중대</td>
+<td>A · B</td>
+</tr>
+<tr>
+<td><strong>W5</strong></td>
+<td>실행 생명주기 미정</td>
+<td>60회 산출물이 <strong>한 파일에 덮어쓰기</strong></td>
+<td>치명</td>
+<td>A · C</td>
+</tr>
+<tr>
+<td><strong>W6</strong></td>
+<td><code>compare_policies</code>의 <code>recent_error</code></td>
+<td>스칼라라 전 정책이 <strong>같은 오차 공유</strong></td>
+<td>중대</td>
+<td>B</td>
+</tr>
+<tr>
+<td><strong>W7</strong></td>
+<td>① 도구 목록에 <code>add_capacity</code> 누락</td>
+<td>설계서 ↔ 명세서 불일치</td>
+<td>경미</td>
+<td>—</td>
+</tr>
+<tr>
+<td><strong>W8</strong></td>
+<td>LSTM이 <code>capacity</code>를 못 봄</td>
+<td>11차원 고정. <strong>한계로 명시 필요</strong></td>
+<td>경미</td>
+<td>B</td>
+</tr>
+<tr>
+<td><strong>W9</strong></td>
+<td><code>demand_pressure</code> 계산 오류</td>
+<td>1.061 → <strong>1.069</strong></td>
+<td>경미</td>
+<td>—</td>
+</tr>
+<tr>
+<td><strong>W10</strong></td>
+<td>컨텍스트 예산이 20개 기준</td>
+<td>21개 + <code>Observation</code> 확장 반영</td>
+<td>경미</td>
+<td>C</td>
+</tr>
+<tr>
+<td><strong>W11</strong></td>
+<td>오류 규약에 조달 케이스 없음</td>
+<td>상한 초과·순서 위반 미정의</td>
+<td>경미</td>
+<td>A · B</td>
+</tr>
+</tbody>
+</table>
+<h1>W5가 가장 위험하다</h1>
+<p><strong>§1.5의 V3(<code>run_id</code> 부재)를 고치고도 절반만 해결했다.</strong> <code>run_id</code>를 발급하게 만들었지만, <strong>산출물 경로는 여전히 <code>data/decisions.json</code> 단일</strong>이었다.</p>
+<pre><code>exp-baseline-normal-s0     → data/decisions.json  (덮어씀)
+exp-arm1-normal-s0         → data/decisions.json  (덮어씀)
+...60회...
+                           → 마지막 1회분만 남음
+</code></pre>
+<p><code>reset()</code>이 ①만 초기화한다는 점도 명시되지 않았다. ③의 벤더 레이팅과 ⑤의 신뢰도는 실행을 넘어 살아남는데, <strong>그게 의도인지 버그인지 문서 어디에도 없었다.</strong> <code>cold</code>/<code>warm</code> 모드는 §6.2에 있었으나 <strong>파일 경로와 연결되지 않아 실행 불가능한 규약</strong>이었다.</p>
+<p>→ §5.0에 실행 생명주기를 명시했다. <code>runs/{run_id}/</code>로 분리하고, 서버별로 무엇이 초기화되고 무엇이 남는지 표로 고정했다.</p>
+<h1>W1·W2·W3 — <code>capacity</code> 도입의 파급</h1>
+<p>정정 K는 ①에 용량을 넣는 것으로 끝나지 않았다. <strong>조달이 실제로 동작하게 되자 그동안 무해했던 공백이 드러났다.</strong></p>
+<ul>
+<li><strong>W1</strong>: 조달이 장식일 때는 <code>procure()</code>를 언제 부르든 상관없었다. 이제 <code>add_capacity</code>가 <code>step()</code> 뒤로 가면 조달한 스텝이 효과를 못 본다 — 에이전트 입장에서 <em>"샀는데 아무 일도 안 일어났다"</em> 가 되어 조달 학습이 왜곡된다.</li>
+<li><strong>W2</strong>: 만료가 없을 때는 <code>expires_at_step</code>이 의미 없었다. 이제 ③이 그 값을 계산해야 하는데 <strong>①과 별개 프로세스라 현재 스텝을 모른다.</strong> 에이전트가 <code>current_step</code>을 넘겨야 한다.</li>
+<li><strong>W3</strong>: 비용이 집계되지 않을 때는 단위가 무의미했다. 이제 <code>procurement_cost_total</code>이 논문 지표이므로 <strong>시간당 단가 × 스텝 수</strong>를 그대로 곱하면 4배 부풀려진다.</li>
+</ul>
+<pre><code>cost_total = cost × duration_steps × (MINUTES_PER_STEP / 60)
+           = 250 × 10 × 0.25 = 625.0        # 2500.0 이 아니다
+</code></pre>
+<blockquote>
+<p><strong>교훈</strong>: 죽은 기능은 계약의 구멍을 감춘다. 정정 K로 ③이 살아나자 W1·W2·W3가 동시에 드러났다. 1차 범위에서 제외한 <code>dqn</code>도 2차에 넣는 순간 같은 일이 일어날 것이다.</p>
+</blockquote>
+<h1>W6 — V4를 고치면서 만든 새 구멍</h1>
+<p>§1.5의 V4를 고쳐 <code>propose_allocation</code>에 <code>recent_error</code>(스칼라)를 넣었다. 그런데 <code>compare_policies</code>는 <strong>전 정책을 동시에 평가</strong>한다. 스칼라를 받으면 모든 정책이 같은 오차 이력을 공유하는 셈이라 신뢰도 비교가 무의미해진다.</p>
+<p>→ <code>compare_policies</code>는 <code>recent_errors: {policy: float}</code> 딕셔너리를 받는다. ⑤의 <code>get_reliability_table()</code> 출력을 그대로 넘기면 된다.</p>
+<blockquote>
+<p><strong>수정이 새 구멍을 만든다.</strong> W6은 V4의 직접적 부산물이다. §1.5의 계약 검사기(<code>check_contract.py</code>)를 <strong>수정할 때마다</strong> 돌려야 하는 이유다.</p>
+</blockquote>
+<hr /></section><section class="doc"><div class="doc-hd" style="border-left-color:#1baf7a"><div class="t">환경 검증 — 실험에 신호가 있는가</div><div class="s">담당 C · claude/rationale/environment.md</div></div><p>시나리오별 압력 실측 · 상수 재조정 · 상황 인지 상한</p>
+<h1>1.7 환경 검증 — 실험에 신호가 있는가</h1>
+<p>계약이 맞아도 <strong>환경이 잘못 조율되어 있으면 결과가 안 나온다.</strong> 시나리오별로 트래픽 생성기를 직접 돌려(60스텝 × 시드 10~20) 확인했다.</p>
+<h1>발견 1 — 평시에도 절반 이상이 재배분으로 해결 불가였다</h1>
+<table>
+<thead>
+<tr>
+<th>시나리오</th>
+<th>평균 <code>demand_pressure</code></th>
+<th><strong>1.0 초과 비율</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>normal</code></td>
+<td>1.049</td>
+<td><strong>53%</strong></td>
+</tr>
+<tr>
+<td><code>emergency</code></td>
+<td>1.204</td>
+<td>74%</td>
+</tr>
+<tr>
+<td><code>special_event</code></td>
+<td>1.237</td>
+<td>78%</td>
+</tr>
+<tr>
+<td><code>iot_surge</code></td>
+<td>1.189</td>
+<td>70%</td>
+</tr>
+</tbody>
+</table>
+<p><code>demand_pressure &gt; 1.0</code>은 <em>"어떤 배분으로도 전 슬라이스 SLA를 지킬 수 없다"</em> 를 뜻한다(§ <code>TOOLS.md</code> 2.1). <strong>평시의 절반이 그 상태</strong>라면:</p>
+<ul>
+<li>SLA 위반 지표가 <strong>포화</strong>되어 비교군 간 차이가 드러나지 않는다</li>
+<li><code>demand_pressure ≥ 1.0</code>을 조달 트리거로 쓰면 에이전트가 <strong>평시에도 계속 산다</strong></li>
+</ul>
+<p>원인은 시간 요인이다. <code>daily_factor</code>(±0.3)와 <code>weekly_factor</code>(+0.2)를 합하면 평시 피크가 <strong>1.5배</strong>인데, 이벤트 효과(URLLC 2배 = 전체 압력 +26%)와 비슷하거나 더 크다. <code>START_HOUR = 8</code>이 하필 고부하 구간이었다.</p>
+<h1>조정 — 상수 세 개</h1>
+<p>원 코드의 상수(<code>THRESHOLDS</code>, <code>BASE_TRAFFIC</code>, 시간 계수)는 <strong>건드리지 않는다.</strong> 조정 대상은 이 설계가 새로 도입한 값뿐이다.</p>
+<table>
+<thead>
+<tr>
+<th>상수</th>
+<th>기존</th>
+<th>변경</th>
+<th>근거</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>CAPACITY_BASE</code></td>
+<td>(없음, 1.0)</td>
+<td><strong>1.6</strong></td>
+<td>평시 여유 확보. 정정 K가 도입한 개념이므로 기준점 선택이 자유롭다</td>
+</tr>
+<tr>
+<td><code>CAPACITY_MAX</code></td>
+<td>2.0</td>
+<td><strong>2.6</strong></td>
+<td>기본 + 조달 4회분</td>
+</tr>
+<tr>
+<td><code>START_HOUR</code></td>
+<td>8</td>
+<td><strong>0</strong></td>
+<td>자정 시작. 60스텝(15시간)이 저부하→피크를 모두 덮는다</td>
+</tr>
+</tbody>
+</table>
+<p>조정 후 실측:</p>
+<table>
+<thead>
+<tr>
+<th>시나리오</th>
+<th><code>demand_pressure</code> &gt; 1.0</th>
+<th>초기 배분에서 위반 스텝</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>normal</code></td>
+<td><strong>5.6%</strong></td>
+<td>68.4%</td>
+</tr>
+<tr>
+<td><code>emergency</code></td>
+<td>27.7%</td>
+<td>75.2%</td>
+</tr>
+<tr>
+<td><code>special_event</code></td>
+<td>34.3%</td>
+<td>94.2%</td>
+</tr>
+<tr>
+<td><code>iot_surge</code></td>
+<td>28.5%</td>
+<td>91.7%</td>
+</tr>
+</tbody>
+</table>
+<p><strong>두 숫자의 관계가 실험의 구조다.</strong></p>
+<ul>
+<li><strong>위반은 어디서나 흔하다</strong> (68~94%) → 정책이 할 일이 있다. 초기 배분 <code>[0.4, 0.4, 0.2]</code>은 어느 시나리오에도 최적이 아니다.</li>
+<li><strong>평시의 위반은 94%가 재배분으로 고칠 수 있다</strong> → 조달 없이 해결하는 것이 정답이다.</li>
+<li><strong>이벤트에서는 28~34%가 재배분으로 불가</strong> → 여기서만 조달이 정답이 된다.</li>
+</ul>
+<p>즉 <strong>"고칠 수 있는가"의 분포가 시나리오를 가른다.</strong> 이게 에이전트가 재배분과 조달을 구분해 배워야 할 신호다.</p>
+<h1>발견 2 — 조달로도 다 해결되면 안 된다</h1>
+<p>압력이 1.0을 넘는 비상 스텝을 1.0 아래로 내리는 데 필요한 조달 횟수: <strong>평균 2.1회, 중앙값 2회, 최대 8회</strong> (<code>GAIN_SCALE = 0.25</code> 기준).</p>
+<p><code>CAPACITY_MAX</code>를 <code>3.6</code>(= 1.6 + 8×0.25)으로 잡으면 <strong>모든 스텝이 조달로 해소 가능</strong>해진다. 그러면 어려운 상황이 사라져 <strong>에스컬레이션이 무의미해진다.</strong> <code>2.6</code>에서 막으면 중앙값 사례는 해결되고 극단 사례는 남는다.</p>
+<h1>발견 3 — 상황 인지의 상한은 약 72%</h1>
+<p>절대량이 아니라 <strong>구성비</strong>가 신호다. 구성비만으로 최근접중심 분류 시 <strong>71.7%</strong>, <code>normal</code>만 <strong>50.5%</strong> (무작위 25%). 상세는 <code>TOOLS.md</code> §10.</p>
+<p>이는 나쁜 소식이 아니다. 천장이 100%가 아니라 <strong>비교군 간 차이가 드러날 여지</strong>가 있다는 뜻이다. 다만 <code>normal</code> 50.5%는 <strong>오탐이 구조적으로 많다</strong>는 뜻이므로, 상황 판단 자체의 확신(<code>confidence.situation</code>)을 에스컬레이션 경로에 넣어야 한다 — <code>TOOLS.md</code> §5.1.</p>
+<hr /></section><section class="doc"><div class="doc-hd" style="border-left-color:#1baf7a"><div class="t">컨텍스트 예산 (에이전트 런타임)</div><div class="s">담당 C · claude/rationale/context-budget.md</div></div><p>도구 설명과 반환값이 매 턴 LLM 컨텍스트를 차지한다. <strong>21개 도구의 설명만으로 이미 상당하다.</strong></p>
+<table>
+<thead>
+<tr>
+<th>항목</th>
+<th>대략</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>도구 21개의 이름 + 설명 + 스키마</td>
+<td>2,600 ~ 3,700 토큰 (상주)</td>
+</tr>
+<tr>
+<td><code>Observation</code> 1건</td>
+<td>약 210 토큰 (<code>capacity</code> · <code>demand_pressure</code> 추가분 포함)</td>
+</tr>
+<tr>
+<td><code>PolicyProposal</code> 1건</td>
+<td>약 120 토큰</td>
+</tr>
+<tr>
+<td><code>compare_policies</code> (3정책)</td>
+<td>약 360 토큰</td>
+</tr>
+<tr>
+<td><code>score_offerings</code> (벤더 5)</td>
+<td>약 250 토큰</td>
+</tr>
+<tr>
+<td><code>get_decisions(n=50)</code></td>
+<td><strong>약 10,500 토큰</strong> ⚠️</td>
+</tr>
+<tr>
+<td><code>explain_score</code> (<code>neural_network</code> 포함 시)</td>
+<td>약 500 토큰 (제거하면 200)</td>
+</tr>
+</tbody>
+</table>
+<h2>주의할 호출 세 개</h2>
+<ul>
+<li><code>get_decisions(n=50)</code> — 각 레코드에 <code>observation</code>이 통째로 들어 있고, V7·V8로 필드가 늘었다. 에이전트용은 <code>n ≤ 10</code>.</li>
+<li><code>compare_policies</code> — <code>propose_allocation</code>의 3배. 정책 전환을 고민할 때만.</li>
+<li><code>record_decision</code> — <strong>입력</strong>이 크다. <code>observation</code> + <code>considered</code> + <code>demand_class</code>를 매 스텝 보낸다. 출력은 <code>decision_id</code> 하나뿐이지만 요청 토큰이 관측 1건 이상이다.</li>
+</ul>
+<h2>규모</h2>
+<p>스텝당 3~5회 × 120스텝 × 60회 실행 ≈ <strong>2~3만 호출</strong>. 모델 선정 전에 예산을 산정해야 한다 (<code>MCP-design.md</code> §9-5, 미해소).</p></section><section class="doc"><div class="doc-hd" style="border-left-color:#1baf7a"><div class="t">산출식</div><div class="s">담당 C · claude/build/formulas.md</div></div><p>내재적 신뢰도 · 경험적 신뢰도 · 도구 설명 수위</p>
+<h1>6. 미결 사항 해소안</h1>
+<h1>6.1 내재적 신뢰도 산출식 (§9 3번)</h1>
+<table>
+<thead>
+<tr>
+<th>정책</th>
+<th>산출식</th>
+<th>근거</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>rule_based</code></td>
+<td><code>0.50 + 0.30 · min(1, mᵢₙ)</code><br><code>mᵢₙ = minᵢ \|uᵢ − θᵢ\| / θᵢ</code></td>
+<td>이용률이 임계값에 바짝 붙어 있으면 규칙의 이산 분기가 자의적 → 확신 낮음. 여유가 크면 분기가 명확. 범위 [0.50, 0.80]</td>
+</tr>
+<tr>
+<td><code>lstm_forecast</code></td>
+<td><code>exp(−3 · ē) · 𝟙[in_distribution]</code><br><code>ē</code> = 최근 5회 <code>error</code>의 EMA (§4 ⑤ 정의)</td>
+<td>모델에 추론 시 dropout이 없어 분산 추정이 불가. 최근 실적이 유일하게 값싼 대리 지표. <code>ē=0.1 → 0.74</code>, <code>ē=0.3 → 0.41</code></td>
+</tr>
+<tr>
+<td><code>dqn</code></td>
+<td><code>σ(Q₍₁₎ − Q₍₂₎) · 𝟙[in_distribution]</code></td>
+<td>상위 2개 Q값 마진. 2차</td>
+</tr>
+</tbody>
+</table>
+<p><code>rule_based</code>의 하한을 0.50으로 잡은 것은 의도적이다. <strong>항상 가용한 안전 기본값</strong>이므로 다른 정책이 전부 실패해도 이것 하나는 에스컬레이션 문턱(τ=0.45) 위에 있다. 이 상수가 곧 "언제 사람을 부를 것인가"의 하한을 정의한다.</p>
+<p>첫 5스텝은 <code>ē</code> 표본이 없다. <code>lstm_forecast</code>는 <code>status="unavailable"</code> (history &lt; 10)이므로 자연히 배제된다 — 별도 처리 불필요.</p>
+<h1>6.2 경험적 신뢰도 갱신식 (§9 4번)</h1>
+<pre><code>r ← (1 − α)·r + α·s          α = 0.2,  s = 1 if sla_met else 0
+n ← n + 1
+
+effective = (r·n + r₀·m) / (n + m)      r₀ = 0.5,  m = 5
+</code></pre>
+<ul>
+<li><strong>α = 0.2</strong> — 반감기 약 3스텝. 시나리오가 전환되는 <code>mixed</code>(120스텝, 5회 전환)에서 전환 후 5~10스텝 내에 신뢰도가 따라붙는다. α가 작으면 <code>mixed</code>에서 자기 개선이 안 보이고, 크면 잡음을 학습한다.</li>
+<li><strong>축소 항 (m=5)</strong> — <code>n</code>이 작을 때 <code>r</code>이 0 또는 1로 튀는 것을 막는다. 첫 성공 1회로 신뢰도 1.0이 되면 에이전트가 그 정책에 고착된다.</li>
+<li><strong>에이전트의 종합</strong> (분리 설계서 §2.2):</li>
+</ul>
+<pre><code>combined = sqrt( intrinsic × effective )          # 기하평균
+escalate if combined &lt; τ,   τ = 0.45              # 사전 확정
+</code></pre>
+<p>기하평균을 쓰는 이유: 한쪽이 낮으면 전체가 낮아진다. 산술평균은 "이번엔 확신 없지만 평소 잘 맞으니 간다"를 허용하는데, 그건 에스컬레이션이 필요한 바로 그 상황이다.</p>
+<p><strong>τ = 0.45 고정.</strong> 실험 전에 확정하고 절대 조정하지 않는다. 조정하면 개입 횟수를 원하는 대로 만들 수 있어 결과가 무의미해진다. τ 민감도는 <strong>사후 분석</strong>으로 별도 보고한다 (<code>decisions.json</code>에 <code>combined</code>를 기록해 두었으므로 재실행 없이 τ를 바꿔 곡선을 그릴 수 있다).</p>
+<p><strong>에피소드 간 신뢰도 유지 여부</strong> — 두 모드를 모두 지원하고 실험 변수로 삼는다.</p>
+<table>
+<thead>
+<tr>
+<th>모드</th>
+<th><code>reliability.json</code></th>
+<th>보이는 것</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>cold</code></td>
+<td>시나리오마다 초기화</td>
+<td>단일 에피소드 내 적응</td>
+</tr>
+<tr>
+<td><code>warm</code></td>
+<td>전체 실행에 걸쳐 누적</td>
+<td><strong>장기 자기 개선</strong> (논문의 §5 주장)</td>
+</tr>
+</tbody>
+</table>
+<p>주 결과는 <code>warm</code>. <code>cold</code>는 대조군.</p>
+<h1>6.3 도구 설명 수위 (§9 8번)</h1>
+<p>분리 설계서의 지적이 정확하다. MCP는 도구 설명을 LLM 컨텍스트에 그대로 넣으므로, <code>"평시 효율 우수"</code>는 사실상 프롬프트다.</p>
+<p><strong>두 벌을 <code>mcp/policy/descriptions.py</code>에 두고 환경변수로 전환한다.</strong></p>
+<pre><code class="language-python">DESC = {
+  &quot;minimal&quot;: {
+    &quot;rule_based&quot;:    &quot;임계값 기반 배분. 상황 라벨을 입력으로 받는다.&quot;,
+    &quot;lstm_forecast&quot;: &quot;시계열 모델 기반 배분. 관측 이력 10스텝 필요.&quot;,
+    &quot;dqn&quot;:           &quot;강화학습 정책 기반 배분.&quot;,
+  },
+  &quot;advisory&quot;: {
+    &quot;rule_based&quot;:    &quot;이용률 임계값 기반. 항상 가용, 보수적.&quot;,
+    &quot;lstm_forecast&quot;: &quot;시계열 예측 기반. 평시 효율 우수.&quot;,
+    &quot;dqn&quot;:           &quot;강화학습 정책. 학습 분포 내에서 우수.&quot;,
+  },
+}
+MODE = os.environ.get(&quot;SLICE_DESC_MODE&quot;, &quot;minimal&quot;)
+</code></pre>
+<p><code>minimal</code>판은 <strong>무엇을 하는지와 전제조건만</strong> 말하고 <strong>언제 쓰라는 말을 하지 않는다.</strong> <code>lstm_forecast</code>의 <code>"이력 10스텝 필요"</code>는 조언이 아니라 호출 규약이므로 남긴다.</p>
+<p><strong>주 실험은 <code>minimal</code>로 돌린다.</strong> <code>advisory</code>는 비교 실행으로 붙인다.</p>
+<ul>
+<li>두 조건의 정책 선택 분포가 비슷 → 에이전트가 관측으로 판단했다는 증거</li>
+<li>크게 다름 → 설명에 이끌렸다는 증거이며, 이것도 <strong>보고할 가치가 있는 결과</strong>다 (MCP 기반 에이전트 설계의 일반 교훈)</li>
+</ul>
+<p>어느 쪽이든 §9 8번이 위험에서 기여로 바뀐다. <code>desc_mode</code>를 <code>decisions.json</code>의 <code>config</code>에 기록한다.</p>
+<hr /></section><section class="doc"><div class="doc-hd" style="border-left-color:#1baf7a"><div class="t">구현 순서와 미결 사항</div><div class="s">담당 C · claude/build/order.md</div></div><p>단계별 완료 판정 · ③ 서버 골격 · 남은 결정</p>
+<h1>8. 구현 순서와 체크포인트</h1>
+<p>분리 설계서 §7을 유지하되, 각 단계의 <strong>완료 판정 기준</strong>을 붙인다.</p>
+<table>
+<thead>
+<tr>
+<th>순서</th>
+<th>대상</th>
+<th>완료 판정</th>
+<th>작업량</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>0</strong></td>
+<td>모델 적재 검증</td>
+<td>§7의 6개 항목 통과. <code>ranges.json</code> 생성</td>
+<td>小</td>
+</tr>
+<tr>
+<td><strong>1</strong></td>
+<td>③ <code>slice-market</code></td>
+<td>에이전트가 <code>score_offerings</code> 호출 → 5개 벤더 점수 수신. <strong>MCP 배선 검증</strong></td>
+<td>小</td>
+</tr>
+<tr>
+<td><strong>2</strong></td>
+<td>① <code>slice-observe</code></td>
+<td>동일 시드 2회 실행 → <code>truth.jsonl</code> <strong>바이트 단위 동일</strong> (정정 F 검증)</td>
+<td>中</td>
+</tr>
+<tr>
+<td><strong>3</strong></td>
+<td>④ <code>slice-audit</code></td>
+<td><code>get_metrics()</code> 반환 필드에 정답 의존 지표 <strong>부재</strong> 확인 (정정 D)</td>
+<td>小~中</td>
+</tr>
+<tr>
+<td><strong>4</strong></td>
+<td>② <code>slice-policy</code></td>
+<td><code>situation</code> 인자로 배분이 바뀜(정정 E). LSTM 실패 시 <code>status="unavailable"</code> 반환(정정 H)</td>
+<td>中</td>
+</tr>
+<tr>
+<td><strong>5</strong></td>
+<td>⑤ <code>slice-feedback</code></td>
+<td><code>warm</code> 모드 120스텝에서 <code>reliability.json</code>의 값이 실제로 움직임</td>
+<td>中</td>
+</tr>
+<tr>
+<td><strong>6</strong></td>
+<td><code>eval/score.py</code></td>
+<td><code>truth.jsonl</code> × <code>decisions.json</code> 조인 → <code>perception_accuracy</code> 산출</td>
+<td>小</td>
+</tr>
+<tr>
+<td><strong>7</strong></td>
+<td>베이스라인 실행</td>
+<td>비교군 4개 × 시나리오 5개 × 시드 3개 = 60회</td>
+<td>中</td>
+</tr>
+<tr>
+<td><strong>8</strong></td>
+<td>② <code>dqn</code> 추가</td>
+<td>선택. 데이터 재생성 선행</td>
+<td>大</td>
+</tr>
+</tbody>
+</table>
+<p><strong>2단계의 완료 판정이 가장 중요하다.</strong> 동일 시드 재현이 안 되면 이후 모든 비교가 무의미하다. 여기서 반드시 멈추고 확인한다.</p>
+<p>1단계(③)를 먼저 하는 이유는 분리 설계서와 같다 — <strong>MCP 배선 자체를 검증</strong>하는 것이 목적이지 ③이 중요해서가 아니다. FastMCP 서버 하나, stdio 연결 하나, 도구 호출 하나가 왕복하면 나머지는 같은 패턴의 반복이다.</p>
+<h1>③ 서버 골격 (1단계 산출물 예시)</h1>
+<pre><code class="language-python"># mcp/market/server.py
+from fastmcp import FastMCP
+from mcp.common.store import read_json, write_json_atomic
+from mcp.common.paths import VENDORS
+from mcp.market.scoring import score_vendor_offering, get_score_breakdown
+
+mcp = FastMCP(&quot;slice-market&quot;)
+
+@mcp.tool()
+def score_offerings(slice_type: str, qos_requirements: dict) -&gt; list[dict]:
+    &quot;&quot;&quot;주어진 slice_type과 QoS 요구에 대해 등록된 모든 벤더를 점수화한다.&quot;&quot;&quot;
+    vendors = read_json(VENDORS)
+    out = [{&quot;vendor_id&quot;: v[&quot;id&quot;], &quot;name&quot;: v[&quot;name&quot;],
+            &quot;score&quot;: score_vendor_offering(v, slice_type, qos_requirements),
+            &quot;rating&quot;: v[&quot;rating&quot;]}
+           for v in vendors if slice_type in v.get(&quot;offerings&quot;, {})]
+    return sorted(out, key=lambda x: x[&quot;score&quot;], reverse=True)
+
+@mcp.tool()
+def update_rating(vendor_id: str, outcome: dict) -&gt; dict:
+    &quot;&quot;&quot;결과 보고를 반영해 벤더 레이팅을 갱신한다. ⑤의 보고를 에이전트가 중계한다.&quot;&quot;&quot;
+    vendors = read_json(VENDORS)
+    delta = 0.05 if outcome.get(&quot;sla_met&quot;) else -0.20
+    for v in vendors:
+        if v[&quot;id&quot;] == vendor_id:
+            v[&quot;rating&quot;] = max(1.0, min(5.0, v[&quot;rating&quot;] + delta))
+            write_json_atomic(VENDORS, vendors)
+            return {&quot;vendor_id&quot;: vendor_id, &quot;rating&quot;: v[&quot;rating&quot;], &quot;delta&quot;: delta}
+    return {&quot;error&quot;: f&quot;unknown vendor: {vendor_id}&quot;}
+
+if __name__ == &quot;__main__&quot;:
+    mcp.run()
+</code></pre>
+<p>도구 <strong>docstring이 곧 LLM 프롬프트</strong>라는 점을 여기서부터 의식한다 (§6.3).</p>
+<hr />
+<h1>9. 남은 미결 사항</h1>
+<p>분리 설계서 §9 중 이 문서에서 해소되지 않은 것.</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>항목</th>
+<th>상태</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0</td>
+<td>TF 적재 검증</td>
+<td><strong>§7로 절차 확정. 실행 대기</strong></td>
+</tr>
+<tr>
+<td>1</td>
+<td>DQN 1차 포함 여부</td>
+<td><strong>해소 — 포함하지 않음</strong> (§7)</td>
+</tr>
+<tr>
+<td>2</td>
+<td>DQN 상태의 <code>is_emergency</code> 차원</td>
+<td>2차로 이월. 에이전트 추론값 주입이 기본안</td>
+</tr>
+<tr>
+<td>3</td>
+<td>내재적 신뢰도 산출식</td>
+<td><strong>해소</strong> (§6.1)</td>
+</tr>
+<tr>
+<td>4</td>
+<td>경험적 신뢰도 갱신식</td>
+<td><strong>해소</strong> (§6.2)</td>
+</tr>
+<tr>
+<td>5</td>
+<td>오케스트레이터 LLM 선택·비용</td>
+<td><strong>미해소.</strong> 스텝당 3~5회 도구 호출 × 120스텝 × 60회 실행 ≈ 2~3만 호출. 모델 선정 전 토큰 예산 산정 필요</td>
+</tr>
+<tr>
+<td>6</td>
+<td>문헌 조사</td>
+<td>미해소 (3단계)</td>
+</tr>
+<tr>
+<td>7</td>
+<td>Dashboard API 재활용</td>
+<td>미해소 (6단계)</td>
+</tr>
+<tr>
+<td>8</td>
+<td>도구 설명 수위</td>
+<td><strong>해소 — 실험 변수로 승격</strong> (§6.3)</td>
+</tr>
+<tr>
+<td>9</td>
+<td>에이전트 프롬프트 배경 지식 범위</td>
+<td><strong>미해소.</strong> §6.3과 같은 문제가 프롬프트에도 있음. <code>decisions.json</code>에 프롬프트 해시를 기록해 사후 추적 가능하게 할 것</td>
+</tr>
+<tr>
+<td>10</td>
+<td>조달의 환경 반영 방식</td>
+<td><strong>해소 — ①에 용량 배수 도입</strong> (정정 K)</td>
+</tr>
+<tr>
+<td>11</td>
+<td>조달 비용 억제 장치</td>
+<td><strong>해소 — 예산 대신 상한·만료 + 비용을 논문 지표로 보고</strong></td>
+</tr>
+</tbody>
+</table>
+<p><strong>5번이 다음 병목이다.</strong> 2~3만 회의 도구 호출은 비용과 시간 모두에서 무시할 수 없다. 2단계 개발계획서에서 다음을 정해야 한다.</p>
+<ul>
+<li>모델 선정 (로컬 Ollama vs API)</li>
+<li>시드 3개가 맞는지, 시나리오 5개를 다 돌릴지</li>
+<li>스텝당 호출 횟수 상한 (도구 호출 루프가 발산하지 않도록)</li>
+</ul>
+<p><strong>9번은 8번과 같은 위험</strong>이다. 도구 설명을 최소판으로 만들어도 시스템 프롬프트에 <em>"URLLC 이용률이 높으면 비상 상황일 수 있다"</em> 라고 적으면 같은 문제가 된다. 프롬프트도 최소판/조언판 두 벌을 준비하고 <code>config</code>에 기록한다.</p>
+<hr /></section><section class="doc"><div class="doc-hd" style="border-left-color:#1baf7a"><div class="t">C · 에이전트 — 작업 목록</div><div class="s">담당 C · claude/team/roles.md</div></div><h2>4. C — 에이전트</h2>
+<p><strong>한 줄 요약</strong>: 논문의 주인공. 코드량은 적고 반복 튜닝이 많다.</p>
+<h3>4.1 작업 목록</h3>
+<h4>C-0. 목 서버 5개 (Day 1) ⚠️ 최우선</h4>
+<p><strong>C는 ①~⑤가 다 있어야 루프를 돌릴 수 있습니다.</strong> 그대로 기다리면 마지막 주까지 아무것도 못 합니다.</p>
+<p><code>mcp/mock/</code>에 <strong>고정 응답만 돌려주는 5개 서버</strong>를 Day 1에 만드세요. <code>mcp/common/schema.py</code>만 있으면 됩니다.</p>
+<pre><code class="language-python"># mcp/mock/observe.py — 30줄이면 충분
+@mcp.tool()
+def get_observation() -&gt; dict:
+    return {&quot;step&quot;: 12, &quot;sim_time&quot;: {...},
+            &quot;traffic&quot;: {&quot;embb&quot;: 0.52, &quot;urllc&quot;: 0.61, &quot;mmtc&quot;: 0.19},
+            &quot;utilization&quot;: {&quot;embb&quot;: 1.30, &quot;urllc&quot;: 1.52, &quot;mmtc&quot;: 0.95},
+            &quot;violations&quot;: {&quot;embb&quot;: True, &quot;urllc&quot;: True, &quot;mmtc&quot;: True}, ...}
+</code></pre>
+<p>A의 <code>fixtures/</code>가 나오면 목이 그걸 재생하게 바꿉니다. 그러면 <strong>실제 시나리오 전개에 대고 프롬프트를 다듬을 수 있습니다.</strong></p>
+<blockquote>
+<p><strong>목 서버가 계약의 실행 가능한 명세가 됩니다.</strong> A·B가 진짜 서버를 완성한 뒤 목과 응답 형식이 다르면 그게 계약 위반입니다. 3인 병렬 개발에서 스키마 불일치를 잡는 가장 값싼 장치입니다.</p>
+</blockquote>
+<h4>C-1. 오케스트레이터 루프 — <code>orchestrator/run.py</code></h4>
+<p>설계서 §3.1의 순서를 그대로 구현합니다. <strong>순서가 곧 지표의 정의입니다.</strong></p>
+<pre><code>1.  obs_t   = ①.get_observation()          # util_t 는 a_{t-1}의 성적표
+2.  [판단]  ②.classify_demand / propose_allocation · ⑤.get_reliability_table
+3.  ④.record_decision(...) → decision_id   # 판단을 먼저 기록 (실행 전)
+4.  ①.apply_allocation(a_t)
+5.  ①.step()
+6.  ⑤.report_outcome(decision_id, obs_{t+1})
+</code></pre>
+<p><strong>규칙 셋:</strong>
+1. <strong>채점은 1스텝 지연됩니다.</strong> <code>report_outcome</code>은 반드시 <code>step()</code> <strong>이후</strong>에.
+2. <strong>에피소드 마지막 결정은 채점 불가.</strong> 집계에서 제외 (60스텝 → 유효 59).
+3. <strong>기록(3)이 실행(4)보다 먼저.</strong> 실행 후 기록이면 실패 사례가 사라져 자율 처리율이 과대평가됩니다.</p>
+<h4>루프는 파이썬이 돌립니다 — LLM에게 순서를 맡기지 마세요 ⚠️</h4>
+<p><strong>MCP는 도구를 줄 뿐 호출 순서를 강제하지 않습니다.</strong> 스텝당 6~10회 × 120스텝 × 60회 동안 LLM은 반드시 <code>report_outcome</code>을 빠뜨리고, 순서를 뒤집고, 20~30스텝 뒤 드리프트합니다. <strong>호출하지 않은 것은 오류를 내지 않으므로 대부분 조용히 누락됩니다.</strong></p>
+<pre><code class="language-python">for t in range(total_steps):
+    obs = observe.get_observation()
+    rel = feedback.get_reliability_table()
+
+    j = ask_llm(obs, rel, recent)      # ← LLM은 여기서만
+    #   situation · confidence.situation · policy · procure? · escalate?
+
+    if j.procure: ...                   # 2b
+    audit.record_decision(...)          # 3   ← 파이썬이 보장
+    observe.apply_allocation(...)       # 4
+    observe.step()                      # 5
+    feedback.report_outcome(...)        # 6
+</code></pre>
+<p>LLM이 답할 것은 <strong>네 가지뿐</strong>입니다. §1.5의 <em>"<code>AGENT</code>가 생산자인 값은 네 개"</em> 와 정확히 일치합니다.</p>
+<p><strong>논문에도 유리합니다.</strong> 자율성 주장은 <strong>판단</strong>에 관한 것이지 도구 호출 순서가 아닙니다. 루프를 고정하면 비교군 간 차이가 전부 판단에서 나오고, <em>"루프를 잘못 돌아서 SLA가 나빴다"</em> 는 반론이 차단됩니다.</p>
+<h4>컨텍스트는 스텝마다 재구성합니다</h4>
+<p>120스텝 대화를 누적하면 후반에 <strong>100k 토큰</strong>을 넘습니다. 대화 이력을 이어붙이지 마세요.</p>
+<pre><code>시스템 프롬프트 (고정) + 현재 관측 1건 + 신뢰도 표 + 최근 5스텝 요약(한 줄씩)
+</code></pre>
+<p>최근 이력은 <strong>원본이 아니라 요약</strong>입니다. <code>get_decisions(n=5)</code>를 그대로 넣으면 관측이 딸려와 5배가 됩니다.</p>
+<p><strong>중계 책임 — 서버끼리 대화하지 않으므로 값을 옮겨 심는 건 전부 C의 일입니다.</strong></p>
+<table>
+<thead>
+<tr>
+<th>옮길 값</th>
+<th>출처</th>
+<th>목적지</th>
+<th>빠뜨리면</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>run_id</code></td>
+<td><strong>C가 발급</strong></td>
+<td>①.<code>reset</code> · ④ 전체</td>
+<td><code>truth.jsonl</code> 조인 불가 (V3)</td>
+</tr>
+<tr>
+<td><code>recent_error</code></td>
+<td>⑤.<code>get_reliability_table</code></td>
+<td>②.<code>propose_allocation</code></td>
+<td>LSTM 신뢰도 계산 불가 (V4)</td>
+</tr>
+<tr>
+<td><code>in_distribution</code></td>
+<td>②.<code>propose_allocation</code></td>
+<td>④.<code>record_decision</code></td>
+<td>논문 주장 검증 불가 (V7)</td>
+</tr>
+<tr>
+<td><code>demand_class</code></td>
+<td>②.<code>classify_demand</code></td>
+<td>④.<code>record_decision</code></td>
+<td>분류기/판단 오류 구분 불가 (V8)</td>
+</tr>
+<tr>
+<td><code>capacity_gain</code></td>
+<td>③.<code>procure</code></td>
+<td>①.<code>add_capacity</code></td>
+<td>조달이 환경에 무반영 (정정 K)</td>
+</tr>
+<tr>
+<td><code>observation.step</code></td>
+<td>①.<code>get_observation</code></td>
+<td>③.<code>procure</code> (<code>current_step</code>)</td>
+<td>만료 시점 계산 불가 (W2)</td>
+</tr>
+<tr>
+<td><code>recent_errors</code> (전체)</td>
+<td>⑤.<code>get_reliability_table</code></td>
+<td>②.<code>compare_policies</code></td>
+<td>전 정책이 같은 오차 공유 (W6)</td>
+</tr>
+<tr>
+<td><code>vendor_id</code></td>
+<td>⑤.<code>report_outcome</code></td>
+<td>③.<code>update_rating</code></td>
+<td>벤더 레이팅 미갱신</td>
+</tr>
+</tbody>
+</table>
+<p><strong><code>run_id</code>는 C가 만듭니다.</strong> 형식은 <code>{arm}-{scenario}-s{seed}</code> — 예: <code>proposed-emergency-s0</code>. ①과 ④에 <strong>같은 값</strong>을 넘겨야 <code>decision_id</code>(<code>{run_id}-{step:04d}</code>)가 <code>truth.jsonl</code>과 <code>step</code>으로 조인됩니다.</p>
+<p><strong>W1 — 조달은 <code>record_decision</code> 전, <code>step()</code> 전에 합니다.</strong></p>
+<pre><code>2b. [조달 분기]  obs.demand_pressure ≥ 1.0 일 때만
+      ③.score_offerings → ③.procure(..., current_step=obs.step)
+      ①.add_capacity(amount=capacity_gain, expires_at_step)
+3.  ④.record_decision(..., slice_id, vendor_id)
+4.  ①.apply_allocation
+5.  ①.step()
+</code></pre>
+<p><code>add_capacity</code>가 <code>step()</code> <strong>뒤로 가면 조달한 바로 그 스텝이 효과를 못 봅니다.</strong> 에이전트 입장에서 <em>"샀는데 아무 일도 안 일어났다"</em> 가 되어 조달 학습이 왜곡됩니다.</p>
+<p>조달이 기록(3)보다 앞서는 것은 규칙 3("기록이 실행보다 먼저")의 <strong>유일한 예외</strong>입니다 — <code>record_decision</code>이 <code>slice_id</code>·<code>vendor_id</code>를 인자로 받기 때문입니다. 조달에 실패해도 <code>slice_id=null</code>과 <code>rationale</code>로 기록하세요. <strong>시도했다는 사실 자체가 판단의 증거</strong>입니다.</p>
+<p><strong>에스컬레이션한 스텝도 루프를 끝까지 돕니다</strong> (V2). <code>record_escalation</code>이 <code>decision_id</code>와 <code>fallback_allocation</code>을 함께 주므로, 그걸로 <code>apply_allocation</code> → <code>step()</code> → <code>report_outcome</code>을 평소대로 호출하세요. 여기서 멈추면 그 스텝이 통계에서 사라집니다.</p>
+<p><strong>신뢰도 종합은 에이전트만 합니다</strong> — 어느 서버에도 이 코드가 없습니다.</p>
+<pre><code>combined = sqrt(intrinsic × effective)
+escalate if combined &lt; TAU (0.45)
+</code></pre>
+<h4>C-2. 비교군 스위치</h4>
+<p><code>--arm</code> 하나로 4개 비교군을 만듭니다. <strong>A의 하네스가 이걸 호출합니다.</strong></p>
+<table>
+<thead>
+<tr>
+<th><code>--arm</code></th>
+<th>상황 인지</th>
+<th>정책 선택</th>
+<th>에스컬레이션</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>baseline</code></td>
+<td><strong><code>truth.jsonl</code>에서 주입</strong></td>
+<td>고정 <code>rule_based</code></td>
+<td>없음</td>
+</tr>
+<tr>
+<td><code>arm1</code></td>
+<td>에이전트</td>
+<td>고정 <code>rule_based</code></td>
+<td>없음</td>
+</tr>
+<tr>
+<td><code>arm2</code></td>
+<td>에이전트</td>
+<td>에이전트</td>
+<td>없음</td>
+</tr>
+<tr>
+<td><code>proposed</code></td>
+<td>에이전트</td>
+<td>에이전트</td>
+<td><strong>신뢰도 기반</strong></td>
+</tr>
+</tbody>
+</table>
+<p><strong><code>baseline</code>만 <code>truth.jsonl</code>을 읽습니다.</strong> 기존 시스템(CLI <code>--emergency</code>)의 재현이므로 정당하지만, <strong>코드 경로를 물리적으로 분리하세요.</strong> 같은 함수에 <code>if arm == "baseline"</code>으로 두면 실수로 다른 비교군에 새어 들어갑니다.</p>
+<h4>C-3. 프롬프트 설계 — <code>orchestrator/prompts/</code></h4>
+<p><strong>여기에 시간이 가장 많이 듭니다.</strong> 서버 개발과 리듬이 다릅니다.</p>
+<p>도구 설명과 <strong>정확히 같은 문제가 프롬프트에도 있습니다</strong> (설계서 §9-9). 시스템 프롬프트에 <em>"URLLC 이용률이 높으면 비상 상황일 수 있다"</em> 라고 적으면, 에이전트가 판단한 게 아니라 받아쓴 것이 됩니다.</p>
+<pre><code>prompts/
+├── system_minimal.md     # 역할·도구 사용 규약만. 판단 기준 없음
+├── system_advisory.md    # 배경 지식 포함
+└── step.md               # 스텝별 사용자 메시지 템플릿
+</code></pre>
+<p><strong>주 실험은 <code>minimal</code>.</strong> <code>PROMPT_HASH</code>를 <code>decisions.json</code>의 <code>config</code>에 기록해 사후 추적 가능하게 하세요.</p>
+<p><strong>LLM은 <code>confidence.situation</code>도 함께 답해야 합니다.</strong> <code>intrinsic</code>·<code>empirical</code>은 둘 다 <em>정책</em>에 대한 확신이라 <strong>상황을 잘못 읽었을 가능성이 어디에도 반영되지 않습니다.</strong></p>
+<pre><code>combined = (situation × intrinsic × empirical)^(1/3)
+escalate if combined &lt; 0.45
+</code></pre>
+<p>실측상 상황 인지의 상한이 약 72%, <code>normal</code>은 51%입니다 (<code>TOOLS.md</code> §10). <strong>오탐이 구조적으로 많다</strong>는 뜻이므로, 이 경로가 없으면 <em>"무슨 일인지 모르겠다"</em> 는 이유로는 영영 사람을 부르지 않습니다.</p>
+<h4>C-4. 누출 검사 — <code>orchestrator/leak_check.py</code></h4>
+<p><strong>C만 할 수 있는 일입니다.</strong> A가 자기 코드를 아무리 봐도 못 찾습니다. 에이전트의 실제 컨텍스트를 덤프해서 금지어를 찾습니다.</p>
+<pre><code class="language-python">FORBIDDEN = [&quot;is_emergency&quot;, &quot;is_special_event&quot;, &quot;is_iot_surge&quot;,
+             &quot;perception_accuracy&quot;, &quot;escalation_precision&quot;, &quot;ground_truth&quot;]
+</code></pre>
+<p><code>baseline</code>을 제외한 모든 실행에서 <strong>0건이어야 합니다.</strong> 1건이라도 나오면 그 실행은 폐기입니다.</p>
+<h4>C-5. 계약 검사 — <code>docs/contract.json</code> + <code>tools/check_contract.py</code></h4>
+<p>도구 계약 검증에서 <strong>값 유실 9건</strong>이 나왔습니다 (설계서 §1.5). 도구는 앞으로도 늘어나고(이미 20 → 21), 사람이 매번 역추적하면 또 놓칩니다.</p>
+<p>기계가 읽을 계약을 두고 검사기를 돌립니다. 목 서버와 같은 성격 — <strong>계약의 실행 가능한 명세</strong>이고, C는 A·B의 서버를 소비하는 쪽이라 불일치를 가장 먼저 만납니다.</p>
+<pre><code class="language-json">{&quot;propose_allocation&quot;: {
+   &quot;server&quot;: &quot;policy&quot;, &quot;order&quot;: 2,
+   &quot;requires&quot;: {&quot;observation&quot;: &quot;observe.get_observation&quot;,
+                &quot;situation&quot;:   &quot;AGENT&quot;,
+                &quot;recent_error&quot;:&quot;feedback.get_reliability_table&quot;},
+   &quot;produces&quot;: [&quot;policy&quot;,&quot;allocation&quot;,&quot;confidence&quot;,&quot;in_distribution&quot;,&quot;status&quot;]}}
+</code></pre>
+<p>검사 4개:</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>검사</th>
+<th>차단하는 유형</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>모든 필수 입력에 생산자가 있는가 (<code>AGENT</code> 명시 포함)</td>
+<td>V3 · V4</td>
+</tr>
+<tr>
+<td>2</td>
+<td>생산자의 호출 순서가 소비자보다 <strong>앞인가</strong></td>
+<td>V5 · V6</td>
+</tr>
+<tr>
+<td>3</td>
+<td>명세의 모든 식별자에 <strong>발급 도구</strong>가 있는가</td>
+<td>V2</td>
+</tr>
+<tr>
+<td>4</td>
+<td>아무도 소비하지 않는 출력 필드 목록 (경고)</td>
+<td>V7 · V8</td>
+</tr>
+</tbody>
+</table>
+<p><strong>추가 검사 — <code>AGENT</code>가 생산자인 값은 네 개뿐이어야 합니다.</strong></p>
+<pre><code>situation · confidence.combined · 에스컬레이션 판단 · 정책 선택
+</code></pre>
+<p><strong>이 넷이 연구의 기여 지점 전체입니다.</strong> 목록이 늘어나면 에이전트가 해야 할 판단이 서버로 새고 있다는 뜻이므로, 넷을 넘으면 경고하도록 하세요. 줄어들어도 경고입니다 — 기여가 사라진 겁니다.</p>
+<h3>4.2 완료 판정</h3>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>판정</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>C-0</td>
+<td>목 5개로 루프 1회전 완주</td>
+</tr>
+<tr>
+<td>C-1</td>
+<td>진짜 서버 5개로 60스텝 무인 완주</td>
+</tr>
+<tr>
+<td>C-2</td>
+<td>비교군 4개가 동일 시드에서 <strong>동일 스텝 수</strong>를 소화</td>
+</tr>
+<tr>
+<td>C-3</td>
+<td><code>minimal</code> / <code>advisory</code> 두 벌 실행 가능</td>
+</tr>
+<tr>
+<td>C-4</td>
+<td><code>proposed</code> 실행의 컨텍스트 덤프에서 금지어 <strong>0건</strong></td>
+</tr>
+<tr>
+<td>C-5</td>
+<td><code>check_contract.py</code>가 검사 4개 통과. <code>AGENT</code> 생산 값이 <strong>정확히 4개</strong></td>
+</tr>
+<tr>
+<td>C-1</td>
+<td>120스텝 실행에서 <code>report_outcome</code> 누락 <strong>0건</strong> (파이썬이 보장하므로 자동)</td>
+</tr>
+<tr>
+<td>C-1</td>
+<td>스텝당 프롬프트 토큰이 <strong>스텝 수에 무관하게 일정</strong></td>
+</tr>
+<tr>
+<td>C-1</td>
+<td>에스컬레이션한 스텝도 <code>outcome</code>이 붙는다 (V2)</td>
+</tr>
+</tbody>
+</table>
+<p>C-2의 "동일 스텝 수"가 중요합니다. 에스컬레이션 후에도 에이전트는 <strong><code>rule_based</code> + <code>situation="normal"</code>로 계속 진행합니다.</strong> 사람을 기다리지 않습니다. 그래야 모든 비교군이 같은 스텝을 소화해 SLA 위반 비교가 공정해집니다.</p>
+<h3>4.3 C의 함정</h3>
+<ul>
+<li><strong>도구 호출 루프가 발산할 수 있습니다.</strong> 스텝당 호출 횟수 상한(예: 8회)을 두고, 초과하면 강제 에스컬레이션 처리하세요.</li>
+<li><strong>비용</strong>: 스텝당 3~5회 × 120스텝 × 60회 ≈ <strong>2~3만 호출</strong>. 모델 선정 전에 토큰 예산을 산정하세요 (설계서 §9-5, 현재 미해소).</li>
+<li><strong>LLM은 비결정적입니다.</strong> 환경은 시드로 고정되지만 에이전트는 아닙니다. 그래서 시드 3개 × 반복이 필요합니다. "동일 시드 → 동일 결과"를 요구할 수 있는 건 <strong>A의 ①까지</strong>입니다.</li>
+</ul>
+<hr /></section></body></html>

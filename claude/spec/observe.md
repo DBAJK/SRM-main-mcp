@@ -15,12 +15,12 @@
 | `traffic` | `SliceTriple` | 0.1 ~ 2.0 | 수요. `np.clip`로 상하한 고정 |
 | `allocation` | `SliceTriple` | 각 0.1~0.8, **합 1.0** | 현재 적용 중인 배분 |
 | `utilization` | `SliceTriple` | 0 ~ 20 | `traffic / (allocation × capacity)` |
-| `capacity` | `SliceTriple` | 1.0 ~ 2.0 | **슬라이스별 용량 배수.** 조달로 증가, 만료로 감소 |
+| `capacity` | `SliceTriple` | 1.6 ~ 2.6 | **슬라이스별 용량 배수.** 기본 `1.6`, 조달로 증가, 만료로 감소 |
 | `thresholds` | `SliceTriple` | 고정 | `{0.9, 1.2, 0.8}`. 상수지만 매번 반환 |
 | `violations` | `SliceFlags` | | `utilization > thresholds` |
 | `client_count` | float | 0 ~ 1 | 정규화된 단말 수 |
 | `bs_count` | float | 0 ~ 1 | 정규화된 기지국 수 |
-| `demand_pressure` | float | 0 ~ 3 | `Σᵢ traffic / (θ × capacity)`. **1.0 초과면 재배분으로 해결 불가** |
+| `demand_pressure` | float | 0 ~ 2 | `Σᵢ traffic / (θ × capacity)`. **1.0 초과면 재배분으로 해결 불가** |
 
 ```
 demand_pressure < 1.0  →  재배분만으로 해결 가능
@@ -29,6 +29,9 @@ demand_pressure ≥ 1.0  →  용량을 늘리지 않으면 어딘가는 반드�
 
 서버는 **숫자만 주고 "조달하라"는 조언은 하지 않는다.**
 
+실측(60스텝 × 시드 10): `normal` **5.6%** · `emergency` 27.7% · `special_event` 34.3% · `iot_surge` 28.5%.
+평시는 94%가 재배분으로 해결되고, 이벤트에서만 조달이 정답이 된다. (`rationale/environment.md`)
+
 **반환하지 않는 것** — `is_emergency` · `is_special_event` · `is_iot_surge`. 환경 내부의 정답이며 `runs/{run_id}/truth.jsonl`로만 나간다. 어떤 도구도 읽지 않는다. (`flow/forbidden.md`)
 
 **예시** (비상 상황 전개 중, 에이전트는 그 사실을 모름)
@@ -36,18 +39,22 @@ demand_pressure ≥ 1.0  →  용량을 늘리지 않으면 어딘가는 반드�
 ```json
 {
   "step": 12,
-  "sim_time": {"hour_of_day": 11, "day_of_week": 0, "is_weekend": false},
-  "traffic":     {"embb": 0.520, "urllc": 0.610, "mmtc": 0.190},
+  "sim_time": {"hour_of_day": 3, "day_of_week": 0, "is_weekend": false},
+  "traffic":     {"embb": 0.400, "urllc": 0.821, "mmtc": 0.325},
   "allocation":  {"embb": 0.400, "urllc": 0.400, "mmtc": 0.200},
-  "utilization": {"embb": 1.300, "urllc": 1.525, "mmtc": 0.950},
-  "capacity":    {"embb": 1.000, "urllc": 1.000, "mmtc": 1.000},
+  "utilization": {"embb": 0.624, "urllc": 1.283, "mmtc": 1.015},
+  "capacity":    {"embb": 1.600, "urllc": 1.600, "mmtc": 1.600},
   "thresholds":  {"embb": 0.900, "urllc": 1.200, "mmtc": 0.800},
-  "violations":  {"embb": true,  "urllc": true,  "mmtc": true},
+  "violations":  {"embb": false, "urllc": true,  "mmtc": true},
   "client_count": 0.631,
   "bs_count": 0.482,
-  "demand_pressure": 1.324
+  "demand_pressure": 0.959
 }
 ```
+
+`scenario="emergency", seed=0` 의 step 12 실측이다. 트래픽 **구성비**는 eMBB 26% · URLLC 53% · mMTC 21%로,
+평시(44/33/22)와 비교하면 URLLC가 확연히 높다. `situation` 추론의 주된 근거는 절대량이 아니라 이 구성비다.
+`demand_pressure 0.959 < 1.0` 이므로 이 스텝은 **재배분만으로 해결 가능하다.**
 
 ---
 
@@ -70,7 +77,7 @@ demand_pressure ≥ 1.0  →  용량을 늘리지 않으면 어딘가는 반드�
 
 ```json
 {"steps_advanced": 1, "episode_done": false,
- "observation": {"step": 13, "traffic": {"embb": 0.550, ...}, ...}}
+ "observation": {"step": 13, "traffic": {"embb": 0.571, "urllc": 0.595, "mmtc": 0.390}, ...}}
 ```
 
 ---
@@ -153,10 +160,10 @@ LSTM 정책의 입력 시퀀스를 만든다.
 {"n_requested": 10, "n_available": 4,
  "columns": ["traffic_load", "hour_of_day", ...],
  "features": [
-   [0.4367, 0.4583, 0.0, 0.400, 0.400, 0.200, 1.180, 1.310, 0.880, 0.610, 0.470],
-   [0.4400, 0.4583, 0.0, 0.400, 0.400, 0.200, 1.220, 1.390, 0.910, 0.618, 0.475],
-   [0.4433, 0.4583, 0.0, 0.400, 0.400, 0.200, 1.260, 1.460, 0.930, 0.625, 0.479],
-   [0.4400, 0.4583, 0.0, 0.400, 0.400, 0.200, 1.300, 1.525, 0.950, 0.631, 0.482]]}
+   [0.4893, 0.0417, 0.0, 0.400, 0.400, 0.200, 0.605, 1.196, 0.948, 0.610, 0.470],
+   [0.5020, 0.0833, 0.0, 0.400, 0.400, 0.200, 0.613, 1.231, 0.971, 0.618, 0.475],
+   [0.5157, 0.0833, 0.0, 0.400, 0.400, 0.200, 0.619, 1.258, 0.994, 0.625, 0.479],
+   [0.5153, 0.1250, 0.0, 0.400, 0.400, 0.200, 0.624, 1.283, 1.015, 0.631, 0.482]]}
 ```
 
 ---
@@ -173,7 +180,7 @@ LSTM 정책의 입력 시퀀스를 만든다.
 |---|---|---|
 | `run_id` | string | 적용된 실행 식별자 |
 | `scenario` | string | 적용된 시나리오 |
-| `capacity` | `SliceTriple` | 항상 `{1.0, 1.0, 1.0}`. 활성 조달 전부 회수 |
+| `capacity` | `SliceTriple` | 항상 `{1.6, 1.6, 1.6}` (`CAPACITY_BASE`). 활성 조달 전부 회수 |
 | `seed` | int | 적용된 시드 |
 | `total_steps` | int | 이 에피소드의 길이 |
 | `observation` | `Observation` | `step: 0` |
@@ -220,21 +227,22 @@ LSTM 정책의 입력 시퀀스를 만든다.
 | `active_leases` | `[{slice_id, slice_type, amount, expires_at_step}]` | 활성 조달 목록 |
 | `reason` | string \| null | 거부 사유 |
 
-- **용량 상한**: 슬라이스당 `2.0`. 초과 요청은 거부.
+- **용량 상한**: 슬라이스당 `2.6` (기본 `1.6` + 조달 4회분). 초과 요청은 거부.
+- 상한을 `3.6`으로 올리면 모든 스텝이 조달로 해소되어 에스컬레이션이 무의미해진다. `2.6`에서 막는다.
 - **거부되어도 ③의 `procure()`는 이미 일어났다.** 비용은 청구되고 용량은 안 늘어난다. 호출 전에 `Observation.capacity`로 상한을 확인할 것.
 
 ```json
 // 요청
 {"slice_type": "URLLC", "amount": 0.25, "expires_at_step": 22, "slice_id": "slice-urllc-0012-v1"}
-// 응답 — 압력 1.324 → 1.222. 여전히 1.0 초과 (의도된 설계)
+// 응답 — 압력 0.959 → 0.901. 조달 1회가 약 6%를 덜어낸다
 {"accepted": true,
- "capacity": {"embb": 1.000, "urllc": 1.250, "mmtc": 1.000},
- "demand_pressure": 1.222,
+ "capacity": {"embb": 1.600, "urllc": 1.850, "mmtc": 1.600},
+ "demand_pressure": 0.901,
  "active_leases": [{"slice_id": "slice-urllc-0012-v1", "slice_type": "URLLC",
                     "amount": 0.25, "expires_at_step": 22}],
  "reason": null}
 // 거부
-{"accepted": false, "capacity": {"embb": 1.0, "urllc": 2.0, "mmtc": 1.0},
- "demand_pressure": 1.069, "active_leases": [...],
- "reason": "capacity_cap_exceeded: urllc 2.00 + 0.25 > 2.0"}
+{"accepted": false, "capacity": {"embb": 1.6, "urllc": 2.6, "mmtc": 1.6},
+ "demand_pressure": 0.842, "active_leases": [...],
+ "reason": "capacity_cap_exceeded: urllc 2.60 + 0.25 > 2.6"}
 ```

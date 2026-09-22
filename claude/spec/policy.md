@@ -64,21 +64,23 @@ TensorFlow 적재에 실패하면 서버는 죽지 않고 해당 정책만 `avai
 | `rule_based` | `0.50 + 0.30 × min(1, minᵢ|uᵢ−θᵢ|/θᵢ)` |
 | `lstm_forecast` | `exp(−3 · ē)`, `ē` = `recent_error` (최근 5회 예측 오차의 EMA, ⑤가 계산) |
 
+`recent_error`가 `null`이면 `0.5`를 쓴다.
+
 **예시 1 — 성공**
 
 ```json
 // 요청
 {"policy": "rule_based",
- "observation": {"step": 12, "utilization": {"embb": 1.300, "urllc": 1.525, "mmtc": 0.950}, ...},
+ "observation": {"step": 12, "utilization": {"embb": 0.624, "urllc": 1.283, "mmtc": 1.015}, ...},
  "situation": "emergency"}
 // 응답
 {"policy": "rule_based",
  "allocation": {"embb": 0.200, "urllc": 0.700, "mmtc": 0.100},
- "confidence": 0.556,
+ "confidence": 0.521,
  "in_distribution": true,
  "status": "ok",
  "reason": null,
- "rationale": "situation=emergency → URLLC 우선 목표 [0.2, 0.7, 0.1]. URLLC 이용률 1.525가 임계 1.2를 27% 초과."}
+ "rationale": "situation=emergency → URLLC 우선 목표 [0.2, 0.7, 0.1]. 여유가 가장 작은 것은 URLLC(1.283/1.2, 7% 초과)라 분기가 자의적 → confidence 0.521."}
 ```
 
 **예시 2 — 이력 부족**
@@ -117,7 +119,7 @@ TensorFlow 적재에 실패하면 서버는 죽지 않고 해당 정책만 `avai
 ```json
 [
   {"policy": "rule_based", "allocation": {"embb": 0.20, "urllc": 0.70, "mmtc": 0.10},
-   "confidence": 0.556, "status": "ok", ...},
+   "confidence": 0.521, "status": "ok", ...},
   {"policy": "lstm_forecast", "allocation": null,
    "confidence": 0.0, "status": "unavailable", "reason": "history_insufficient: 4 < 10", ...},
   {"policy": "dqn", "allocation": null,

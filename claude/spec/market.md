@@ -168,7 +168,7 @@ expires_at_step = current_step + duration_steps
 |---|---|
 | `REFERENCE_BANDWIDTH` | `{eMBB: 1100, URLLC: 500, mMTC: 120}` (벤더별 슬라이스 대역폭 중앙값) |
 | `GAIN_SCALE` | `0.25` |
-| `CAPACITY_MAX` | `2.0` (슬라이스당, ①이 강제) |
+| `CAPACITY_BASE` / `CAPACITY_MAX` | `1.6` / `2.6` (슬라이스당, ①이 강제) |
 
 | 벤더 (URLLC) | 대역폭 | `capacity_gain` |
 |---|---|---|

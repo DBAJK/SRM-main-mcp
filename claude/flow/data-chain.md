@@ -20,9 +20,10 @@
             │
             │ allocation, confidence(내재적)
             ▼
-    [에이전트: combined = √(intrinsic × effective)]
+    [에이전트: combined = (situation × intrinsic × effective)^(1/3)]
             │
-            ├── combined < 0.45 ──→ ④.record_escalation(...) ──→ decision_id + fallback 지시
+            ├── combined < 0.45 ──→ ④.record_escalation(..., slice_id, vendor_id, cost_total)
+            │                       ──→ decision_id + fallback 지시 (조달 3필드는 아래와 같은 중계선)
             │
             ▼
     ④.record_decision(step, obs, situation, policy, allocation, confidence, rationale, ...)
@@ -62,7 +63,8 @@ obs.demand_pressure ≥ 1.0
         │ demand_pressure (반영 후)
         ▼
   [에이전트: 여전히 ≥ 1.0이면 추가 조달 또는 위반 감수]
-  slice_id · vendor_id → ④.record_decision에 함께 기록
+  slice_id · vendor_id · cost_total → ④.record_decision 에 함께 기록
+                                      (에스컬레이션한 스텝이면 ④.record_escalation 에)
 ```
 
 **③과 ①은 직접 대화하지 않는다.** `capacity_gain`을 에이전트가 옮겨 심는다. ⑤ → ③의 `update_rating` 중계, ⑤ → ②의 `recent_error` 중계와 같은 패턴이다.
@@ -83,8 +85,9 @@ obs.demand_pressure ≥ 1.0
 | ②.`classify_demand` | 출력 전체 | ④.`record_decision` | `demand_class` |
 | ②.`compare_policies` | 탈락 후보 목록 | ④.`record_decision` | `considered` |
 | ③.`score_offerings` | `vendor_id` | ③.`explain_score` · ③.`procure` | `vendor_id` |
-| ③.`procure` | `slice_id` | ④.`record_decision` · ①.`add_capacity` | `slice_id` |
-| | `vendor_id` | ④.`record_decision` | `vendor_id` |
+| ③.`procure` | `slice_id` | ④.`record_decision` \| `record_escalation` · ①.`add_capacity` | `slice_id` |
+| | `vendor_id` | ④.`record_decision` \| `record_escalation` | `vendor_id` |
+| | `cost_total` | ④.`record_decision` \| `record_escalation` | `cost_total` |
 | | `capacity_gain` | ①.`add_capacity` | `amount` |
 | | `expires_at_step` | ①.`add_capacity` | `expires_at_step` |
 | ④.`record_decision` | `decision_id` | ⑤.`report_outcome` | `decision_id` |
@@ -98,11 +101,21 @@ obs.demand_pressure ≥ 1.0
 
 ## 에이전트가 만들어내는 값
 
-어느 도구에서도 오지 않는다. **이 네 가지가 연구의 기여 지점 전체다.** 어느 서버에도 이 코드가 없다.
+어느 도구에서도 오지 않는다. **LLM이 답하는 값은 정확히 넷이다.** 어느 서버에도 이 코드가 없다.
 
 | 값 | 쓰이는 곳 | 근거 |
 |---|---|---|
-| `situation` | ②.`propose_allocation`, ④.`record_decision` | 관측으로부터 **추론** |
-| `confidence.combined` | ④.`record_decision` | `√(intrinsic × effective)` |
-| 에스컬레이션 판단 | ④.`record_escalation` | `combined < 0.45` |
+| `situation` | ②.`propose_allocation`, ④.`record_decision` | 관측(특히 트래픽 **구성비**)으로부터 추론 |
+| `confidence.situation` | ④.`record_decision` | **상황 판단 자체에 대한 확신.** 어느 도구도 주지 않는다 |
 | 정책 선택 | ②.`propose_allocation`의 `policy` | 신뢰도 비교 |
+| 조달 여부 | ③.`procure` 호출 여부 | `demand_pressure` + 비용 판단 |
+
+**나머지 둘은 파이썬이 기계적으로 계산한다.** LLM에게 묻지 않는다.
+
+| 값 | 계산 |
+|---|---|
+| `confidence.combined` | `(situation × intrinsic × empirical)^(1/3)` |
+| 에스컬레이션 여부 | `combined < 0.45` |
+
+`check_contract.py`는 `AGENT` 생산 값이 **정확히 이 넷**인지 검사한다 — 늘면 판단이 서버로 샌 것이고,
+줄면 기여가 사라진 것이다. (`flow/loop.md` — 루프는 파이썬이 돌리고 LLM은 판단 지점에서만 호출한다)
