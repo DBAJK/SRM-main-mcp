@@ -21,6 +21,9 @@
 - 정책 선택: effective 는 그 정책의 과거 성적(0~1), n 은 표본 수다. n=0 이면 effective 는
   사전값이라 성적을 쌓은 정책과 같은 자로 비교할 수 없다. recent_error 가 크면 최근 빗나가고
   있다. 성적이 높은 쪽이 기본이지만 상황이 평소와 다르다고 보면 바꿔도 된다.
+- lstm_forecast 는 `history` 인자가 있어야 돈다. `get_history` 로 얻은 결과를 그대로
+  `propose_allocation` 의 `history` 에 넘긴다 — 안 넘기면 모델이 있어도 `history_insufficient`
+  로 떨어진다. 이력이 10스텝 미만이면 그 정책은 이번 스텝에 쓸 수 없다.
 - 조달: demand_pressure 가 1.0 이상이면 배분을 어떻게 나눠도 모자란다. 조달에는 비용이 들고,
   조달한 용량은 add_capacity 로 환경에 넣어야 효과가 난다. 벤더는 점수와 설명을 보고 네가 고른다.
 - 신뢰도: intrinsic 은 propose_allocation 의 confidence, empirical 은 get_reliability_table 의
