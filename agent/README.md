@@ -35,6 +35,10 @@ MCP 서버 5개를 조합해 자원 배분을 판단한다. **판단은 전부 �
 .venv/Scripts/python tools/check_orchestrator.py     # LLM 없이 게이트웨이·심판 검사
 ```
 
+orchestrator 는 **기본으로 콘솔에 호출 추적을 쏟는다** — `[MCP→LLM] ② propose_allocation({…}) → {…}`
+처럼 경로 · 서버 · 함수(인자) · 반환이 한 호출당 두 줄이다. `[host    ]` 는 호스트 직통(reset · get_metrics).
+서버가 예외를 내면 `✗ 예외 — <메시지>`, 상한에 걸리면 `✗ 상한 초과`. 끄려면 `--quiet`.
+
 산출물은 `runs/<run_id>/orchestrator/` — `calls.jsonl`(호출 하나하나) · `referee.jsonl`(스텝별 판정) ·
 `steps.jsonl`(LLM 요약 · 비용) · `summary.json` · `servers.json`(CLI 가 읽은 MCP 설정).
 설계 근거는 `claude/flow/loop.md` §3.3b.

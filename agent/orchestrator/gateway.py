@@ -48,6 +48,11 @@ HIDDEN = {("observe", "reset")}
 
 DEFAULT_MAX_CALLS = 20
 
+# 콘솔 추적의 경로 표기. 같은 서버 도구라도 누가 불렀는지 한눈에 갈리게.
+VIA_MCP = "[MCP→LLM]"    # CLI 안의 LLM 이 MCP(HTTP) 로 게이트웨이를 거쳐 부른 것
+VIA_HOST = "[host    ]"  # 호스트가 직통으로 부른 것 (reset · get_metrics). LLM 은 모른다
+ARGS_WIDTH = 72          # 콘솔에 실을 인자 요약 길이
+
 # 게이트웨이 자체 도구. 서버 어디에도 없고 에이전트 쪽 공식(schema.py)을 그대로 옮겼다.
 CONFIDENCE_DESC = (
     "결합 신뢰도를 계산한다. combined = √(intrinsic × empirical). "
@@ -129,7 +134,8 @@ class GatewayMiddleware(Middleware):
             }
             gw.log.record(server=server, tool=name, args=args, refused=True, result=out)
             gw.budget_hits += 1
-            logger.debug("  %s %-24s ✗ 상한 초과", mark, name)
+            logger.debug("  %s %s %s(%s)\n        ✗ 상한 초과 — 게이트웨이가 값으로 거부",
+                         VIA_MCP, mark, name, brief(args, ARGS_WIDTH))
             return _to_result(out)
 
         t0 = time.monotonic()
@@ -140,7 +146,10 @@ class GatewayMiddleware(Middleware):
             error = f"{type(e).__name__}: {e}"
             gw.log.record(server=server, tool=name, args=args, ok=False, error=error,
                           elapsed=time.monotonic() - t0)
-            logger.debug("  %s %-24s ✗ %s", mark, name, brief(error))
+            # 서버가 예외를 냈다 = 인자가 계약을 어겼다 (flow/errors.md). LLM 은 이 문구를
+            # 받아 스스로 고친다. 콘솔에는 "왜" 가 보여야 하므로 메시지를 그대로 싣는다.
+            logger.debug("  %s %s %s(%s)\n        ✗ 예외 — %s",
+                         VIA_MCP, mark, name, brief(args, ARGS_WIDTH), brief(error, 200))
             raise
 
         payload = _payload_of(result)
@@ -157,10 +166,12 @@ class GatewayMiddleware(Middleware):
             result=payload, elapsed=time.monotonic() - t0,
             **_extract(name, payload),
         )
+        # 콘솔: 경로(MCP) · 서버 · 함수(인자 요약) → 반환 요약. 파일: 인자·반환 전문.
         logger.debug(
-            "  %s %-24s → %s", mark, name, brief(payload),
-            extra={"full": f"  {mark} {name}({brief(args, 10**6)})"
-                           f"\n      → {brief(payload, 10**6)}"},
+            "  %s %s %s(%s)\n        → %s",
+            VIA_MCP, mark, name, brief(args, ARGS_WIDTH), brief(payload),
+            extra={"full": f"  {VIA_MCP} {mark} {name}({brief(args, 10**6)})"
+                           f"\n        → {brief(payload, 10**6)}"},
         )
         return result
 
@@ -214,13 +225,25 @@ class Gateway:
         """호스트 전용 직통 — reset · get_metrics. LLM 의 호출 기록에 섞이지 않는다."""
         args = {k: v for k, v in args.items() if v is not None}
         out = self.backend.call(server, tool, args)
-        return self.guard.check(out, f"{server}.{tool}")
+        out = self.guard.check(out, f"{server}.{tool}")
+        logger.debug(
+            "  %s %s %s(%s)\n        → %s",
+            VIA_HOST, MARK.get(server, " "), tool, brief(args, ARGS_WIDTH), brief(out),
+            extra={"full": f"  {VIA_HOST} {MARK.get(server, ' ')} {tool}({brief(args, 10**6)})"
+                           f"\n        → {brief(out, 10**6)}"},
+        )
+        return out
 
     def begin_step(self, step: int) -> None:
         self.log.begin_step(step)
 
     def start(self) -> str:
         import uvicorn
+
+        # FastMCP 는 도구 예외를 자기 로거로 "Error calling tool 'x'" 라고 한 줄 더 찍는다.
+        # 원인 없는 중복이라 끈다 — 같은 예외를 미들웨어가 인자·메시지와 함께 이미 남긴다.
+        logging.getLogger("fastmcp").setLevel(logging.CRITICAL)
+        logging.getLogger("FastMCP").setLevel(logging.CRITICAL)
 
         app = self._mcp.http_app(path="/mcp")
         config = uvicorn.Config(app, host=self._host, port=self._port,

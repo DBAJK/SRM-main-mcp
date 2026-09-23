@@ -122,6 +122,8 @@ def main() -> int:
     p.add_argument("--trace", action="store_true",
                    help="도구 호출·LLM 문답을 콘솔에도 쏟는다 "
                         "(파일 runs/<run_id>/trace.log 는 항상 남는다)")
+    p.add_argument("--quiet", action="store_true",
+                   help="orchestrator: 도구 호출 추적을 콘솔에 쏟지 않는다 (파일에는 남는다)")
     p.add_argument("--fresh", action="store_true",
                    help="같은 run_id 의 이전 기록을 지우고 시작한다 (duplicate_decision 방지)")
     p.add_argument("-v", "--verbose", action="store_true")
@@ -148,7 +150,10 @@ def main() -> int:
         _reset_vendors()
 
     # 추적은 항상 파일에 남는다. --trace 는 콘솔에도 쏟을지만 정한다.
-    trace_path = setup_trace(run_id, console=args.trace or args.verbose, root=ROOT)
+    # orchestrator 는 기본으로 콘솔에 쏟는다 — LLM 이 어느 도구를 어떤 값으로 부르고
+    # MCP 를 탔는지가 곧 이 드라이버의 관찰 대상이다. 끄려면 --quiet.
+    console = args.trace or args.verbose or (args.driver == "orchestrator" and not args.quiet)
+    trace_path = setup_trace(run_id, console=console, root=ROOT)
     print(f"기록: {trace_path.parent}")
 
     if args.driver == "orchestrator":
