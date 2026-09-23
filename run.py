@@ -273,6 +273,14 @@ def _summarize(tools: Tools, results: list, run_id: str, decide=None) -> None:
           f"판단 {first.decision.situation}/{first.decision.policy} · "
           f"combined {first.decision.combined:.3f}")
 
+    # 실서버로 돌린 실행은 장부가 있으니 리포트를 만든다. 목 백엔드는 파일을 남기지 않는다.
+    if (ROOT / "runs" / run_id / "decisions.json").exists():
+        try:
+            from eval.report import build_report
+            print(f"  리포트      {build_report(run_id)}   ← 브라우저로 열어 본다")
+        except Exception as e:
+            print(f"  [주의] 리포트 생성 실패: {e}")
+
 
 if __name__ == "__main__":
     sys.exit(main())

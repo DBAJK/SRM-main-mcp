@@ -52,12 +52,19 @@ SUMMARY_SCHEMA = {
     "properties": {
         "situation": {"type": "string", "enum": list(SITUATIONS)},
         "situation_confidence": {"type": "number", "minimum": 0, "maximum": 1},
+        # 네 상황을 각각 얼마나 그럴듯하게 봤나. "어떤 비율로 잡혀서 무엇이 선택됐나" 를
+        # 리포트에 그리기 위한 것이고, 판단 자체는 여전히 situation 하나다.
+        "situation_scores": {
+            "type": "object",
+            "properties": {s: {"type": "number", "minimum": 0, "maximum": 1} for s in SITUATIONS},
+            "required": list(SITUATIONS),
+        },
         "policy": {"type": "string"},
         "procured": {"type": "boolean"},
         "escalated": {"type": "boolean"},
         "reasoning": {"type": "string"},
     },
-    "required": ["situation", "situation_confidence", "policy",
+    "required": ["situation", "situation_confidence", "situation_scores", "policy",
                  "procured", "escalated", "reasoning"],
 }
 
@@ -282,6 +289,10 @@ class OrchestratorHost:
                 raise ValueError(f"situation_confidence: {c}")
             if not isinstance(out.get("policy"), str) or not out["policy"]:
                 raise ValueError(f"policy: {out.get('policy')!r}")
+            scores = out.get("situation_scores")
+            if not isinstance(scores, dict) or set(scores) != set(SITUATIONS) \
+                    or not all(isinstance(v, (int, float)) and 0.0 <= v <= 1.0 for v in scores.values()):
+                raise ValueError(f"situation_scores: {scores!r}")
             for k in ("procured", "escalated"):
                 if not isinstance(out.get(k), bool):
                     raise ValueError(f"{k}: {out.get(k)!r}")
@@ -357,6 +368,14 @@ class OrchestratorHost:
         (self.out_dir / "summary.json").write_text(
             json.dumps(summary, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
 
+        # 사람이 볼 리포트. 정답 파일을 읽으므로 에이전트가 끝난 뒤 호스트에서만 만든다.
+        self.report_path: Optional[Path] = None
+        try:
+            from eval.report import build_report
+            self.report_path = build_report(self.run_id)
+        except Exception as e:  # 리포트 실패가 실행 결과를 지우면 안 된다
+            logger.warning("리포트 생성 실패: %s", e)
+
 
 def print_summary(r: EpisodeResult, host: OrchestratorHost) -> None:
     reps = r.reports
@@ -394,3 +413,5 @@ def print_summary(r: EpisodeResult, host: OrchestratorHost) -> None:
     print(f"  토큰        입력 {r.tokens_in:,} · 출력 {r.tokens_out:,} · 비용 ${r.cost_usd:.4f} "
           f"(스텝당 ${r.cost_usd / n:.4f})")
     print(f"  기록        {host.out_dir}")
+    if getattr(host, "report_path", None):
+        print(f"  리포트      {host.report_path}   ← 브라우저로 열어 본다")

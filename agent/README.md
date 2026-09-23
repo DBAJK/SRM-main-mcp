@@ -39,6 +39,11 @@ orchestrator 는 **기본으로 콘솔에 호출 추적을 쏟는다** — `[MCP
 처럼 경로 · 서버 · 함수(인자) · 반환이 한 호출당 두 줄이다. `[host    ]` 는 호스트 직통(reset · get_metrics).
 서버가 예외를 내면 `✗ 예외 — <메시지>`, 상한에 걸리면 `✗ 상한 초과`. 끄려면 `--quiet`.
 
+**결과는 `runs/<run_id>/report.html` 을 브라우저로 열어 본다.** 실행이 끝나면 자동 생성되고
+(`--backend mcp` 고정 루프도 같다), 다시 만들려면 `python -m eval.report <run_id>`. KPI 타일 ·
+스텝 타임라인(정답/판단/일치/SLA/개입/조달) · 신뢰도 추이 · 도구 호출 · 혼동 행렬 · 스텝 상세 표.
+정답 파일을 읽으므로 에이전트 컨텍스트 밖(`eval/`)에 있다.
+
 산출물은 `runs/<run_id>/orchestrator/` — `calls.jsonl`(호출 하나하나) · `referee.jsonl`(스텝별 판정) ·
 `steps.jsonl`(LLM 요약 · 비용) · `summary.json` · `servers.json`(CLI 가 읽은 MCP 설정).
 설계 근거는 `claude/flow/loop.md` §3.3b.

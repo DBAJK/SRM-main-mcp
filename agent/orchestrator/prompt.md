@@ -48,10 +48,12 @@
 
 {"situation": "<위 넷 중 하나>",
  "situation_confidence": <0.0~1.0, 그 상황 판단이 얼마나 확실한가>,
+ "situation_scores": {"normal": <0~1>, "emergency": <0~1>, "special_event": <0~1>, "iot_surge": <0~1>},
  "policy": "<이번 스텝에 배분을 맡긴 정책>",
  "procured": <true 또는 false>,
  "escalated": <true 또는 false>,
  "reasoning": "<왜 그렇게 봤는지 한국어 한 문장>"}
 
 situation_confidence 는 상황 판단에 대한 확신만 말한다. 배분의 정확도나 정책의 성적을 뜻하지
-않는다. 애매하면 낮게 준다.
+않는다. 애매하면 낮게 준다. situation_scores 는 네 상황을 각각 얼마나 그럴듯하게 봤는지의
+비율이며 합이 1 에 가깝게 준다. situation 은 그중 가장 높은 것과 같아야 한다.
