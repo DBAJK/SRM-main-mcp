@@ -95,6 +95,17 @@ class McpBackend:
             return self._mock.call(server, tool, args)
         return self._run(self._call(server, tool, args))
 
+    def list_tools(self, server: str) -> list:
+        """서버가 광고하는 도구 목록(이름·설명·입력 스키마)을 그대로 돌려준다.
+
+        오케스트레이터 게이트웨이가 21개 도구를 LLM 에 재노출할 때 쓴다. 설명을
+        여기서 고치지 않는다 — ②의 `SLICE_DESC_MODE` 실험은 서버가 낸 문자열이
+        그대로 LLM 에 닿는 것을 전제한다.
+        """
+        if server in self._mock_for:
+            raise RuntimeError(f"목으로 대신한 서버 '{server}' 는 도구 목록을 내지 않는다")
+        return self._run(self._list_tools(server))
+
     @property
     def log_dir(self) -> Optional[Path]:
         return self._log_dir
@@ -155,6 +166,14 @@ class McpBackend:
             self._clients[name] = await self._stack.enter_async_context(
                 Client(transport)
             )
+
+    async def _list_tools(self, server: str) -> list:
+        client = self._clients.get(server)
+        if client is None:
+            raise RuntimeError(
+                f"서버 '{server}' 가 기동되지 않았다. live={self.live}"
+            )
+        return await client.list_tools()
 
     async def _call(self, server: str, tool: str, args: dict) -> Any:
         client = self._clients.get(server)

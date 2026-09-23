@@ -29,7 +29,7 @@
 4. **`situation` 기본값 없음** — ②·④의 필수 인자.
 5. **numpy → 파이썬 기본형** — 반환 전 `bool()` · `.tolist()`. `violations`가 `np.bool_`이다.
 6. **`report_outcome`은 `step()` 이후**, **`record_decision`은 `apply_allocation` 이전**, **조달은 `record_decision` 이전.** 에스컬레이션한 스텝도 조달을 건너뛰지 않고, `slice_id`·`vendor_id`·`cost_total`을 `record_escalation`에 넘긴다.
-7. **루프는 파이썬이 돌린다** — LLM이 답하는 값은 `situation` · `confidence.situation` · 정책 선택 · 조달 여부 넷뿐. `combined`와 에스컬레이션 여부는 파이썬이 계산한다.
+7. **드라이버가 둘이다.** `--driver fixed`(`agent/loop.py`)는 루프를 파이썬이 돌리고 LLM은 `situation` · `confidence.situation` · 정책 선택 · 조달 여부 넷만 답한다. `--driver orchestrator`(`agent/orchestrator/`)는 LLM이 게이트웨이를 통해 도구를 직접 부르며 스텝의 흐름을 잡고, 파이썬은 스텝 경계·Guard·심판만 맡는다. **어느 쪽에서도 `combined` 공식은 코드다** (fixed는 `schema.py`, orchestrator는 `compute_confidence` 도구). 두 드라이버는 서로의 대조군이며 같은 서버·장부·채점기를 쓴다.
 8. **`get_history()`를 빠뜨리지 않는다** — `history=null`이면 `lstm_forecast`가 영영 `unavailable`.
 
 ## 코드 참조

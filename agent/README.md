@@ -19,7 +19,29 @@ MCP 서버 5개를 조합해 자원 배분을 판단한다. **판단은 전부 �
 
 ---
 
-## 구조 — 주입점 2개
+## 드라이버 둘 — 누가 다음 도구를 정하나
+
+| | `--driver fixed` (아래 전부) | `--driver orchestrator` (`orchestrator/`) |
+|---|---|---|
+| 도구 호출 순서 | 파이썬 `loop.py` 9스텝 고정 | **LLM** 이 게이트웨이의 도구를 직접 부른다 |
+| LLM 이 답하는 것 | situation · 확신 · 정책 · 조달 여부 | 위 넷 + 어느 도구를 언제 · 벤더 선택 · 에스컬레이션 호출 |
+| `combined` · 에스컬레이션 판정 | `schema.py` 파생 속성 | 게이트웨이 도구 `compute_confidence` (같은 공식) |
+| 절차 위반 | 정의상 0 | 심판 `referee.py` 가 **기록** (`procedure_adherence`) |
+| LLM 연결 | `claude -p` 텍스트 1회 | `claude -p --mcp-config` 게이트웨이(HTTP) |
+| 서버 · Guard · 장부 · 채점기 | 같다 | 같다 |
+
+```bash
+.venv/Scripts/python run.py --driver orchestrator --scenario mixed --seed 0 --fresh
+.venv/Scripts/python tools/check_orchestrator.py     # LLM 없이 게이트웨이·심판 검사
+```
+
+산출물은 `runs/<run_id>/orchestrator/` — `calls.jsonl`(호출 하나하나) · `referee.jsonl`(스텝별 판정) ·
+`steps.jsonl`(LLM 요약 · 비용) · `summary.json` · `servers.json`(CLI 가 읽은 MCP 설정).
+설계 근거는 `claude/flow/loop.md` §3.3b.
+
+---
+
+## 구조 — 주입점 2개 (fixed 드라이버)
 
 ```
 run.py                                  시나리오 · 시드 · arm

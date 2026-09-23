@@ -16,7 +16,7 @@ import sys
 import tempfile
 import time
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 from . import LLMError, extract_json
 
@@ -122,14 +122,28 @@ class ClaudeCLI:
         _NEUTRAL_CWD.mkdir(parents=True, exist_ok=True)
 
     def ask(self, system: str, user: str) -> str:
+        """판단자용 — 도구 없이 한 번 묻는다. 결과 본문만 돌려준다."""
+        env = self.invoke(
+            user,
+            ["--system-prompt", system,   # 기본 시스템 프롬프트를 통째로 대체한다
+             "--strict-mcp-config"],      # MCP 서버를 붙이지 않는다
+        )
+        return self._text_of(env)
+
+    def invoke(self, user: str, extra: list[str], timeout: Optional[float] = None) -> dict:
+        """`claude -p` 를 한 번 띄우고 **봉투 전체**를 돌려준다.
+
+        오케스트레이터가 쓴다 — MCP 설정 · 도구 허용 · 구조화 출력 스키마 같은
+        추가 플래그를 `extra` 로 넘기고, `structured_output` · `num_turns` 를 봉투에서
+        직접 읽는다. 사용량·비용 집계는 여기서 한다.
+        """
         cmd = [
             self.exe,
             "-p",
             "--output-format", "json",
             "--model", self.model,
-            "--system-prompt", system,   # 기본 시스템 프롬프트를 통째로 대체한다
-            "--strict-mcp-config",       # MCP 서버를 붙이지 않는다
             "--no-session-persistence",  # 스텝 간 문맥을 남기지 않는다
+            *extra,
         ]
 
         t0 = time.monotonic()
@@ -141,22 +155,23 @@ class ClaudeCLI:
                 text=True,
                 encoding="utf-8",
                 errors="replace",
-                timeout=self.timeout,
+                timeout=timeout or self.timeout,
                 cwd=str(_NEUTRAL_CWD),
             )
         except subprocess.TimeoutExpired as e:
-            raise LLMError(f"{self.timeout}초 안에 응답이 없었다") from e
+            raise LLMError(f"{timeout or self.timeout}초 안에 응답이 없었다") from e
         finally:
             self.calls += 1
             self.elapsed += time.monotonic() - t0
 
-        return self._unwrap(proc)
+        return self._envelope(proc)
 
     # ── 내부 ──────────────────────────────────────────────────────────
-    def _unwrap(self, proc: subprocess.CompletedProcess) -> str:
-        """CLI 의 result 봉투를 벗긴다.
+    def _envelope(self, proc: subprocess.CompletedProcess) -> dict:
+        """stdout 을 봉투 dict 로. 사용량·비용을 누적한다.
 
-        종료 코드 0 이어도 is_error 가 설 수 있다 — 인증 실패가 그 경우다.
+        --output-format json 이 안 먹어 본문이 그대로 온 경우는
+        `{"result": <본문>, "_raw": True}` 로 감싼다.
         """
         raw = (proc.stdout or "").strip()
         if not raw:
@@ -166,10 +181,9 @@ class ClaudeCLI:
         try:
             env = json.loads(raw)
         except json.JSONDecodeError:
-            # --output-format json 이 안 먹은 경우. 본문이 그대로 왔다고 본다.
             if proc.returncode != 0:
                 raise LLMError(f"CLI 실패({proc.returncode}): {raw[:300]}") from None
-            return raw
+            return {"result": raw, "_raw": True, "returncode": proc.returncode}
 
         u = env.get("usage") or {}
         self.tokens_in += int(u.get("input_tokens", 0) or 0) + \
@@ -177,13 +191,22 @@ class ClaudeCLI:
             int(u.get("cache_creation_input_tokens", 0) or 0)
         self.tokens_out += int(u.get("output_tokens", 0) or 0)
         self.cost_usd += float(env.get("total_cost_usd", 0.0) or 0.0)
+        env["returncode"] = proc.returncode
+        return env
 
+    def _text_of(self, env: dict) -> str:
+        """봉투에서 본문을 꺼낸다. 종료 코드 0 이어도 is_error 가 설 수 있다 — 인증 실패."""
         text = env.get("result", "")
-        if env.get("is_error") or proc.returncode != 0:
-            if "Not logged in" in str(text) or "/login" in str(text):
+        if env.get("is_error") or env.get("returncode", 0) != 0:
+            if self.is_auth_error(text):
                 raise LLMError(self._hint())
             raise LLMError(f"CLI 오류: {str(text)[:300]}")
         return text
+
+    @staticmethod
+    def is_auth_error(text: Any) -> bool:
+        s = str(text)
+        return "Not logged in" in s or "/login" in s
 
     def auth_status(self) -> dict:
         """`claude auth status` 를 그대로 돌려준다."""

@@ -1,12 +1,17 @@
 #!/usr/bin/env python3
 """에이전트 실행기.
 
-목 백엔드 + 규칙 판단자로 한 바퀴 돌려 배선을 검증한다.
-실제 서버와 LLM 은 각각 --backend mcp, --decider llm 으로 갈아끼운다.
+드라이버 둘 (CLAUDE.md 절대 규칙 7):
+  --driver fixed         파이썬이 순서를 정하고 LLM 은 판단만 (agent/loop.py). 기본.
+                         목 백엔드 + 규칙 판단자로 배선을 검증하고, 실제 서버와 LLM 은
+                         각각 --backend mcp, --decider llm 으로 갈아끼운다.
+  --driver orchestrator  LLM 이 게이트웨이의 도구를 직접 들고 스텝의 흐름을 잡는다
+                         (agent/orchestrator/). 항상 실서버 + Claude CLI.
 
 사용 예
   python run.py --scenario emergency --steps 20
-  python run.py --scenario mixed --seed 1
+  python run.py --scenario mixed --seed 1 --backend mcp --decider llm
+  python run.py --driver orchestrator --scenario mixed --seed 0 --fresh
 """
 
 import argparse
@@ -78,7 +83,8 @@ def build_decider(args):
     from agent.deciders.llm import LlmDecider
     from agent.llm.claude_cli import ClaudeCLI
 
-    llm = ClaudeCLI(exe=args.llm_exe, model=args.llm_model, timeout=args.llm_timeout)
+    llm = ClaudeCLI(exe=args.llm_exe, model=args.llm_model,
+                    timeout=args.llm_timeout or 120.0)
     llm.require_login()   # 60스텝 돌다 인증으로 죽는 일이 없게, 시작 전에 확인한다
     print(f"LLM: {llm.exe} · 모델 {llm.model}")
     return LlmDecider(llm)
@@ -90,12 +96,22 @@ def main() -> int:
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--steps", type=int, default=None, help="스텝 제한 (기본: 시나리오 전체)")
     p.add_argument("--arm", default="proposed", help="비교군 이름. run_id 에 박힌다")
+    p.add_argument("--driver", choices=("fixed", "orchestrator"), default="fixed",
+                   help="fixed: 파이썬이 순서를 정하고 LLM 은 판단만 (agent/loop.py). "
+                        "orchestrator: LLM 이 도구를 직접 들고 스텝의 흐름을 잡는다 "
+                        "(agent/orchestrator/). 실서버 + Claude CLI 를 쓴다")
     p.add_argument("--backend", choices=("mock", "mcp"), default="mock")
     p.add_argument("--decider", choices=("rule", "llm"), default="rule")
+    p.add_argument("--max-calls", type=int, default=20,
+                   help="orchestrator: 스텝당 도구 호출 상한. 넘으면 게이트웨이가 값으로 거부")
+    p.add_argument("--step-budget-usd", type=float, default=0.50,
+                   help="orchestrator: 스텝 1회의 LLM 비용 상한 (CLI --max-budget-usd)")
     p.add_argument("--intent", default=None,
                    help="사람이 처음 한 번 주는 자연어 상황. llm 판단자만 읽는다")
     p.add_argument("--llm-model", default="sonnet", help="claude CLI 의 --model")
-    p.add_argument("--llm-timeout", type=float, default=120.0, help="LLM 1회 제한(초)")
+    p.add_argument("--llm-timeout", type=float, default=None,
+                   help="LLM 1회 제한(초). 기본: fixed 120 · orchestrator 300 "
+                        "(한 스텝에 도구 호출 10회 이상이 오간다)")
     p.add_argument("--llm-exe", default=None, help="claude 실행 파일 경로 (기본: 자동 탐색)")
     p.add_argument("--mock-for", default="",
                    help="mcp 백엔드에서 목으로 대신할 서버. 쉼표 구분 (예: observe,audit)")
@@ -134,6 +150,9 @@ def main() -> int:
     # 추적은 항상 파일에 남는다. --trace 는 콘솔에도 쏟을지만 정한다.
     trace_path = setup_trace(run_id, console=args.trace or args.verbose, root=ROOT)
     print(f"기록: {trace_path.parent}")
+
+    if args.driver == "orchestrator":
+        return _run_orchestrator(args, run_id)
     # baseline 만 정답 접근이 허용된다 (flow/forbidden.md:15). 그 arm 은
     # arms/baseline.py 가 별도 경로로 실행하므로 여기서는 항상 검사한다.
     # 판단자를 먼저 만든다. 실행파일·인증 문제로 죽을 거면 서버 5개를 띄우기
@@ -165,6 +184,47 @@ def main() -> int:
     finally:
         if hasattr(backend, "close"):
             backend.close()
+    return 0
+
+
+def _run_orchestrator(args, run_id: str) -> int:
+    """LLM 오케스트레이터. 서버 5개는 항상 실서버, 판단자는 항상 Claude CLI 다.
+
+    --backend · --decider 는 고정 루프의 주입점이라 여기서는 뜻이 없다.
+    """
+    from agent.orchestrator.host import OrchestratorHost, print_summary
+
+    if args.backend != "mock" or args.decider != "rule":
+        print("[주의] --backend · --decider 는 fixed 드라이버의 옵션이다. orchestrator 는 무시한다.")
+
+    try:
+        host = OrchestratorHost(
+            run_id, ROOT,
+            model=args.llm_model, exe=args.llm_exe,
+            step_timeout=args.llm_timeout or 300.0,
+            step_budget_usd=args.step_budget_usd,
+            desc_mode=args.desc_mode, memory_mode=args.memory_mode,
+            max_calls=args.max_calls,
+        )
+    except LLMError as e:
+        print(f"\n[LLM 실패] {e}", file=sys.stderr)
+        return 3
+
+    print(f"LLM: {host.cli.exe} · 모델 {host.cli.model} · 드라이버 orchestrator")
+    try:
+        result = host.run_episode(
+            scenario=args.scenario, seed=args.seed,
+            max_steps=args.steps, intent=args.intent,
+        )
+        print_summary(result, host)
+    except ForbiddenLeak as e:
+        print(f"\n[폐기] {e}", file=sys.stderr)
+        return 2
+    except LLMError as e:
+        print(f"\n[LLM 실패] {e}", file=sys.stderr)
+        return 3
+    finally:
+        host.close()
     return 0
 
 
