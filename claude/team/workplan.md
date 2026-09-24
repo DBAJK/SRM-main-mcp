@@ -31,7 +31,7 @@
      원본 ml_orchestrator_demo.py:446~457 (위반 보정) 이
      ①(평활·클립) 과 ②(목표표) 사이에 빠짐
      → ②.propose() 가 observation 을 안 읽음 → 출력 4가지
-     → SLA 위반의 92% 가 배분 탓 (압력>1.0 은 8%)
+     → SLA 위반의 60~90% 가 배분 탓 (나머지는 압력>1.0 · 조달로만 해소)
 
 2층  실패가 엉뚱한 주체에게 귀속된다                         ← 증폭기
      개입 스텝은 폴백 상수 {0.4,0.4,0.2} 를 적용하는데
@@ -51,7 +51,7 @@
 
 | 관측 | 값 | 실행 |
 |---|---|---|
-| SLA 위반 중 압력>1.0(구조적) | 1/12 | `prompttest-mixed-s0` 12스텝 orchestrator |
+| SLA 위반 중 배분 탓 / 구조적(압력>1.0) | 19·2 (normal) · 12·8 (emergency) · 4·1 (mixed 12스텝) | `measure-*-s0` 30스텝 · `prompttest-mixed-s0`. `python -m eval.breakdown <id>` |
 | 개입 스텝의 적용 배분 = 폴백 | 18/18 · 19/19 | `measure-normal-s0` · `measure-emergency-s0` |
 | `rule_based` r 붕괴 | 0.500 → 0.200 | 120스텝 mixed (덮어써짐, 리포트에 기록) |
 | `combined` 의 SLA 예측력 (AUC) | 0.683 / 0.487 | normal / emergency 30스텝 |
@@ -100,7 +100,7 @@
 |---|---|
 | 무엇 | `PROCURE_PRESSURE = 1.0` (`spec/observe.md:27`). 압력이 1.0 을 넘은 뒤 사면 용량은 다음 스텝에 반영 → 그 스텝 위반 확정 |
 | 선택지 | (a) 양쪽 다 1.0 반응형 (b) 고정 루프 1.0 유지 · 오케스트레이터는 이력 추세로 선제 허용 |
-| **권고** | **(b).** 고정 루프는 기존 기준 그대로, 오케스트레이터에만 재량 → 그 차이가 기여. 단 **B-1 이후**에 켠다 (지금은 위반의 92% 가 조달과 무관해 효과가 안 보임) |
+| **권고** | **(b).** 고정 루프는 기존 기준 그대로, 오케스트레이터에만 재량 → 그 차이가 기여. 단 **B-1 이후**에 켠다 (지금은 위반의 60~90% 가 조달과 무관해 효과가 안 보임) |
 | 여는 작업 | C-8 |
 
 ---
@@ -167,11 +167,14 @@
 → ⚠ `chosen_policy` 중계는 **A-1 이후에** 넣는다. FastMCP 는 모르는 인자를
   `unexpected_keyword_argument` 로 **거부한다**(실측). 미리 보내면 모든 개입 스텝이 죽는다.
 
-**C-2 · `eval/score.py`** — 의존: 없음
-→ (a) `demand_pressure > 1.0` 인 스텝을 `structural` 로 따로 센다. 제외가 아니라 분리.
-  (b) `runs/<id>/orchestrator/referee.jsonl` 이 있으면 `error` 등급 위반 스텝을
-  `perception_accuracy`·`escalation_precision` 에서 빼고 제외 수를 보고한다.
-→ 검증: `measure-emergency-s0` 채점 결과에 `structural: 8` 이 나온다.
+**C-2 · `eval/breakdown.py` 신규** — 의존: 없음 · **완료 2026-09-24**
+→ `eval/score.py` 는 A 소유라 **고치지 않고 감싼다.** 그 공개 함수를 불러 둘을 덧붙인다.
+  (a) SLA 위반을 배분 탓 / 구조적(압력>1.0) / 판정 불가로 나눈다. 제외가 아니라 분리.
+  (b) `runs/<id>/orchestrator/referee.jsonl` 의 `error` 등급 위반 스텝을 빼고 두 지표를
+  다시 계산하며, 뺀 수를 함께 보고한다.
+→ ⚠ 구조적 판정은 **obs_{t+1} 의 압력**으로 한다. SLA 는 `step()` 뒤 관측으로 채점되므로
+  결정 레코드의 obs_t 를 쓰면 한 스텝 어긋난다 (`rationale/audit.md` 의 violations 함정과 같다).
+→ 검증: `python -m eval.breakdown measure-emergency-s0` → 배분 탓 12 · 구조적 8 · 판정 불가 1.
 → 근거: 같은 문서 8번 · `todo` 6번.
 
 **C-3 · `agent/orchestrator/referee.py:64~147`** — 의존: 없음

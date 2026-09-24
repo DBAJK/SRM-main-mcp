@@ -101,7 +101,7 @@ def chain_svg():
     W, H = 700, 270
     o = [f'<svg viewBox="0 0 {W} {H}" width="100%" role="img" aria-label="세 층 인과">', _defs()]
     layers = [
-        (S2, "1층 · 기원", "위반 보정 누락", "배분이 관측에 반응 못 함 → SLA 위반의 92%가 배분 탓"),
+        (S2, "1층 · 기원", "위반 보정 누락", "배분이 관측에 반응 못 함 → SLA 위반의 60~90%가 배분 탓"),
         (CRITICAL, "2층 · 증폭", "개입 스텝 귀속 오류", "폴백 상수의 실패가 정책 점수로 → r 0.50 → 0.20"),
         (S1, "3층 · 지표 무효", "개입 판정 공식", "선행 위험 신호가 없음 → AUC 0.49~0.68 → 논문 지표 무의미"),
     ]
@@ -175,7 +175,7 @@ def digest():
   <p class="lead">인프라는 끝났다. 실험은 원본에서 끊긴 피드백 루프 하나 때문에 아직 시작되지 못했고,
   그 위에 얹힌 개입 판정 공식은 위험을 재지 않아 논문의 핵심 지표가 지금은 무의미하다.</p>
   <div class="nums">
-    <div><b>92%</b><span>SLA 위반 중<br>배분 탓</span></div>
+    <div><b>60~90%</b><span>SLA 위반 중<br>배분 탓</span></div>
     <div><b>0.49</b><span>개입 판정의<br>SLA 예측력 (AUC)</span></div>
     <div><b>3</b><span>코드 전에<br>정할 결정</span></div>
   </div>
@@ -203,7 +203,7 @@ def digest():
   <h2>근거 — 전부 실서버 실측</h2>
   <table class="ev">
     <tr><th>관측</th><th>값</th><th>뜻</th></tr>
-    <tr><td>SLA 위반 중 압력>1.0(구조적)</td><td class="m">1 / 12</td><td>나머지 11건은 배분이 관측에 반응하지 않아서</td></tr>
+    <tr><td>SLA 위반 중 배분 탓 (나머지는 압력>1.0)</td><td class="m">19/21 · 12/20</td><td>normal · emergency 30스텝. 조달이 아니라 배분이 관측에 반응하지 않아서</td></tr>
     <tr><td>개입 스텝의 적용 배분 = 폴백 상수</td><td class="m">18/18 · 19/19</td><td>성적표의 60%가 정책이 하지 않은 일의 점수</td></tr>
     <tr><td><code>rule_based</code> 신뢰도 r</td><td class="m">0.500 → 0.200</td><td>120스텝 동안 붕괴 — 정책이 나빠서가 아니라 개입했기 때문</td></tr>
     <tr><td><code>combined</code> 의 SLA 예측력</td><td class="m">0.683 / 0.487</td><td>normal / emergency. 0.5 = 무작위</td></tr>
