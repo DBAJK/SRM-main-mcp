@@ -142,6 +142,32 @@ def judge(step: int, calls: list[dict], budget_hit: bool = False) -> Verdict:
             flag("procure_after_record", "warn",
                  "조달이 기록 뒤다 — 레코드에 vendor_id 가 없어 ⑤→③ 되먹임이 끊긴다")
 
+    # ── 개입 판정 준수 (workplan C-3) ────────────────────────────────
+    # 프롬프트: "compute_confidence 의 escalate 가 true 면 부른다". 기록 직전의 마지막
+    # 판정과 실제로 부른 기록 도구를 대조한다. 논문의 핵심 지표(개입 횟수)가 LLM 의
+    # 이 선택으로 정해지므로, 어긋난 스텝을 반드시 센다.
+    #
+    # severity 를 error 가 아니라 warn 으로 둔다. error 는 "채점이 불가능하거나 왜곡된
+    # 스텝"이고 eval/breakdown.py 가 채점에서 뺀다. 이 경우는 기록·적용·보고가 멀쩡한
+    # **판단 실패**라 채점에 남아야 한다 — error 로 두면 가장 세야 할 스텝이 지표에서
+    # 사라진다.
+    if i_rec is not None:
+        checks = [c for c in ok_calls[:i_rec] if c["tool"] == "compute_confidence"]
+        rec_tool = order[i_rec]
+        if not checks:
+            flag("no_confidence_check", "warn",
+                 f"compute_confidence 없이 {rec_tool} 을 불렀다 — 개입 여부를 공식 없이 정했다")
+        else:
+            said = bool(checks[-1].get("escalate"))
+            if said and rec_tool == "record_decision":
+                flag("ignored_escalation", "warn",
+                     f"compute_confidence 가 escalate=true (combined {checks[-1].get('combined')})"
+                     " 였는데 record_decision 을 불렀다 — 사람을 불러야 할 스텝을 자율 처리했다")
+            elif not said and rec_tool == "record_escalation":
+                flag("escalation_without_trigger", "warn",
+                     f"compute_confidence 가 escalate=false (combined {checks[-1].get('combined')})"
+                     " 였는데 record_escalation 을 불렀다 — 개입 횟수가 공식보다 많게 센다")
+
     # ── 상한 ─────────────────────────────────────────────────────────
     if budget_hit:
         flag("call_budget_exceeded", "warn", "스텝당 호출 상한에 닿아 뒤 호출이 거부됐다")

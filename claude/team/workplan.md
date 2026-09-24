@@ -177,11 +177,16 @@
 → 검증: `python -m eval.breakdown measure-emergency-s0` → 배분 탓 12 · 구조적 8 · 판정 불가 1.
 → 근거: 같은 문서 8번 · `todo` 6번.
 
-**C-3 · `agent/orchestrator/referee.py:64~147`** — 의존: 없음
-→ `compute_confidence` 가 `escalate:true` 를 냈는데 같은 스텝에 `record_decision` 이 있으면
-  `ignored_escalation`(error) 를 낸다. 호출 기록의 반환값을 봐야 하므로 `calls.jsonl` 의
-  `result` 필드를 쓴다.
-→ 검증: 검증 스크립트로 그런 스텝을 만들어 위반이 잡힌다.
+**C-3 · `agent/orchestrator/referee.py`** — 의존: 없음 · **완료 2026-09-24**
+→ 기록 직전의 마지막 `compute_confidence` 판정과 실제로 부른 기록 도구를 대조한다.
+  `ignored_escalation` (판정 true 인데 decision) · `escalation_without_trigger` (false 인데
+  escalation) · `no_confidence_check` (판정 없이 기록). 호출 기록에 추출된 `escalate` 를 쓴다.
+→ ⚠ severity 는 **warn**. 처음 계획한 error 는 틀렸다 — error 는 "채점이 불가능하거나 왜곡된
+  스텝"이고 C-2 의 `breakdown.py` 가 채점에서 뺀다. 이건 기록·적용·보고가 멀쩡한 판단 실패라
+  **채점에 남아야** 한다. error 로 두면 가장 세야 할 스텝이 지표에서 사라진다.
+→ 검증: `tools/check_orchestrator.py` 에 세 규칙 시험 추가, 전부 통과.
+  기존 합성 "표준 순서" 셋이 `compute_confidence` 를 빼고 있어 함께 고쳤다.
+→ 소급: 지난 LLM 실행 3개(22스텝)에서 위반 0. 판정 true 3회 → 개입 3회. 표본이 작다.
 → 근거: `todo` 7번.
 
 **C-4 · `agent/schema.py:97~105` · `agent/arms/` 신규** — 의존: 없음

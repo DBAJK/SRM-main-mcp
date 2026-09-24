@@ -132,11 +132,12 @@ def main() -> int:
         check("표준 순서 → 위반 0", good.violations == [], good.violations)
 
         proc_good = judge(1, calls("get_observation", "score_offerings", "procure", "add_capacity",
-                                   "record_decision", "apply_allocation", "step",
-                                   "report_outcome", "update_rating"))
+                                   "compute_confidence", "record_decision", "apply_allocation",
+                                   "step", "report_outcome", "update_rating"))
         check("조달 포함 표준 순서 → 위반 0", proc_good.violations == [], proc_good.violations)
 
-        v = judge(2, calls("get_observation", "record_decision", "apply_allocation", "step"))
+        v = judge(2, calls("get_observation", "compute_confidence", "record_decision",
+                           "apply_allocation", "step"))
         check("report 누락 → no_report", [x["code"] for x in v.violations] == ["no_report"],
               [x["code"] for x in v.violations])
 
@@ -168,6 +169,7 @@ def main() -> int:
               any(x["code"] == "multiple_step" and x["severity"] == "error" for x in v.violations))
 
         v = judge(9, [{"tool": "get_observation", "ok": True},
+                      {"tool": "compute_confidence", "ok": True, "escalate": False},
                       {"tool": "record_decision", "ok": True, "value_error": "missing_confidence"},
                       {"tool": "record_decision", "ok": True, "decision_id": "x-0009"},
                       {"tool": "apply_allocation", "ok": True}, {"tool": "step", "ok": True},
@@ -185,6 +187,25 @@ def main() -> int:
         check("사실 추출: escalated · episode_done · sla_met",
               v.escalated and v.episode_done and v.sla_met is False and v.decision_id == "x-0008",
               (v.escalated, v.episode_done, v.sla_met, v.decision_id))
+
+        # 개입 판정 준수 (workplan C-3). 판단 실패라 warn — error 면 breakdown 이 채점에서 뺀다.
+        tail = [{"tool": t, "ok": True} for t in ("apply_allocation", "step", "report_outcome")]
+        conf = lambda esc: {"tool": "compute_confidence", "ok": True, "escalate": esc,  # noqa: E731
+                            "combined": 0.33 if esc else 0.55}
+        codes = lambda v: [(x["code"], x["severity"]) for x in v.violations]           # noqa: E731
+
+        v = judge(10, [{"tool": "get_observation", "ok": True}, conf(True),
+                       {"tool": "record_decision", "ok": True}] + tail)
+        check("판정 true 인데 decision → ignored_escalation (warn)",
+              codes(v) == [("ignored_escalation", "warn")], codes(v))
+        v = judge(11, [{"tool": "get_observation", "ok": True}, conf(False),
+                       {"tool": "record_escalation", "ok": True}] + tail)
+        check("판정 false 인데 escalation → escalation_without_trigger (warn)",
+              codes(v) == [("escalation_without_trigger", "warn")], codes(v))
+        v = judge(12, [{"tool": "get_observation", "ok": True},
+                       {"tool": "record_decision", "ok": True}] + tail)
+        check("판정 없이 기록 → no_confidence_check (warn)",
+              codes(v) == [("no_confidence_check", "warn")], codes(v))
     finally:
         gw.stop()
         if vendors_backup is not None:
