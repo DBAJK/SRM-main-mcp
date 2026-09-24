@@ -220,11 +220,17 @@
   더 깎는다. 사다리의 첫 칸(baseline→arm1)이 신호를 내지 못하므로 **B-1 전에 비교군을 돌리는
   것은 의미가 없다.** D1 의 가장 직접적인 근거다.
 
-**C-5 · `tools/run_matrix.py` 신규** — 의존: C-4
-→ 비교군 4 × 시나리오 5 × 시드 3 을 순서대로 돌리고 `runs/matrix-<날짜>/summary.json` 과
-  각 `report.html` 을 모은다. 비용 상한(`--budget-usd`)과 재시작 지점(`--resume`)을 갖는다.
-  드라이버는 `fixed`·`orchestrator` 를 인자로.
-→ 검증: `--dry-run` 이 60개 명령을 출력한다.
+**C-5 · `tools/run_matrix.py` 신규** — 의존: C-4 · **완료 2026-09-24**
+→ 변형 8종 × 시나리오 5 × 시드 3 = 120칸. 변형은 비교군 × 판단자다 —
+  `baseline` · `arm1_{rule,llm}` · `arm2_{rule,llm}` · `proposed_{rule,llm,orch}`.
+  라벨 첫 토큰이 비교군 동작을 정하도록 `arms.kind_of` 를 넓혔다(판단자만 바꿔도 run_id 가 안 겹침).
+→ **`--go` 없이는 계획과 추정만 출력한다.** 기본이 실행이 아니다. `--budget-usd`(기본 $20,
+  구독 사용량 환산) 누적에 닿으면 다음 칸을 시작하지 않는다. `--resume` 은 state.json 에서
+  성공한 칸을 건너뛴다. 싼 칸(LLM 없음)부터 돈다.
+→ 산출: `runs/_matrix/<이름>/{plan,state,summary}.json · summary.csv · logs/`.
+  칸별 행 = 개입 수·률 · SLA(배분 탓·구조적 분리) · 조달 · 상황 인지 · 개입 정밀도 · 심판 오류.
+→ 전체 추정: 120칸 · 29.7시간 · 사용량 환산 $253 (rule 60 · llm 45 · orch 15칸).
+→ 검증: 무료 3칸(baseline · arm1_rule · proposed_rule, emergency, 10스텝)을 `--go` 로 끝까지.
 
 **C-6 · git** — 의존: 없음
 → `git rm --cached data/vendors.json`. `.gitignore` 에 이미 있다. 부트스트랩이 원본에서 재생성.

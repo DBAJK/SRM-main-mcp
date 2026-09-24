@@ -56,19 +56,23 @@ orchestrator 는 **기본으로 콘솔에 호출 추적을 쏟는다** — `[MCP
 run.py                                  시나리오 · 시드 · arm
    │
    ├─ Tools(backend, guard)             도구 21개 창구
-   │     ├─ MockBackend                 ← 현재 (인프로세스 가짜)
-   │     └─ McpBackend                  ← 미구현 (실제 서버)
+   │     ├─ MockBackend                 인프로세스 가짜 (계약 확인용)
+   │     └─ McpBackend                  실제 서버 5개 stdio
    │            ↑ 주입점 ①: 전송
    │
-   └─ run_episode(tools, decide, ...)
+   └─ run_episode(tools, decide, ..., config)
          └─ run_step()                  9스텝 골격 — 고정
                └─ decide(ctx, proposer)
-                     ├─ rule_decider    ← 현재 (LLM 없음)
-                     └─ llm_decider     ← 미구현 (본체)
-                            ↑ 주입점 ②: 판단
+                     ├─ rule_decider    LLM 없음
+                     ├─ LlmDecider      Claude CLI (agent/llm/)
+                     │      ↑ 주입점 ②: 판단 · ③: LLM
+                     └─ arms.make()     비교군 — 판단자를 감싼다
+                            baseline · arm1 · arm2 · proposed
 ```
 
-`loop.py`에 `if arm == ...` 도 `if backend == ...` 도 **없다.** 백엔드를 갈면 목 ↔ 실제 서버가, 판단자를 갈면 비교군이 바뀐다. 루프 코드는 그대로다.
+`loop.py`에 `if arm == ...` 도 `if backend == ...` 도 **없다.** 백엔드를 갈면 목 ↔ 실제 서버가, 판단자를 감싸는 방식이 바뀌면 비교군이 바뀐다. 루프 코드는 그대로다.
+
+두 번째 드라이버 `--driver orchestrator`(`agent/orchestrator/`)는 LLM 이 도구를 직접 든다. 위 구조의 대조군이다.
 
 ### 파일
 
@@ -137,8 +141,12 @@ py -3.10 run.py --scenario mixed --seed 1
 | 옵션 | 값 |
 |---|---|
 | `--scenario` | `normal` `emergency` `special_event` `iot_surge` `mixed` |
-| `--backend` | `mock`(현재) · `mcp`(미구현) |
-| `--decider` | `rule`(현재) · `llm`(미구현) |
+| `--backend` | `mock` · `mcp` |
+| `--decider` | `rule` · `llm` |
+| `--driver` | `fixed` · `orchestrator` |
+| `--arm` | `baseline` · `arm1` · `arm2` · `proposed` (첫 `_` 앞 토큰으로 판정. 그 외 라벨은 proposed) |
+
+실행은 `.venv310\Scripts\python.exe` 로 한다. 웹 UI는 `web\serve.py`, 본실험 배치는 `tools\run_matrix.py`.
 
 ---
 
@@ -161,13 +169,17 @@ py -3.10 run.py --scenario mixed --seed 1
 
 ## 남은 작업
 
+**정본은 `claude/team/workplan.md`** 다. 여기는 에이전트 쪽 현황만 적는다 (2026-09-24).
+
 | | 상태 |
 |---|---|
-| `escalate`를 파생 속성 → **필드로 수정** | **선행 조건.** 현재는 arm1·arm2(에스컬레이션 없음)를 만들 수 없다 |
-| `deciders/llm.py` + **LLM 출력 유효성 검증** | 본체. LLM 제공자 미정 |
-| `arms/` 4종 | baseline · arm1 · arm2 · proposed |
-| `prompts/system.md` | 배경 지식 범위가 자율성 주장의 경계선 |
-| `backends/mcp.py` | A·B 서버 대기 |
+| `escalate` 필드화 | 완료 — `Decision.escalation` |
+| `deciders/llm.py` · LLM 출력 검증 | 완료 — 형식 위반은 1회 재질의 후 중단 |
+| `arms/` 4종 | 완료 — baseline 만 truth.jsonl 을 연다 |
+| `backends/mcp.py` | 완료 |
+| 실행 조건을 장부에 | 완료 — `config` (scenario·seed·arm·intent …) |
+| 개입 공식(C-7) · 선제 조달(C-8) | **팀 결정 D2 · D3 대기** |
+| `chosen_policy` 중계 | **A-1 대기** — ④가 받기 전에 보내면 FastMCP 가 거부한다 |
 
 ### 유효성 검사가 없다
 
@@ -177,7 +189,7 @@ py -3.10 run.py --scenario mixed --seed 1
 |---|---|
 | 서버 **입력** | FastMCP/pydantic (`claude/flow/errors.md:15`) |
 | 서버 **출력** | 없음 — 계약을 신뢰 |
-| **LLM 출력** | **없음** ← `llm.py` 만들 때 필수 |
+| **LLM 출력** | `deciders/llm.py` `_validate` — situation·policy 범위, confidence 0~1, procure bool |
 
 LLM은 `"situation": "위급"`, `"policy": "rule-based"`(하이픈), `mmtc` 누락, `confidence: 1.3` 같은 걸 태연히 뱉는다. 검증 실패를 재시도할지 에스컬레이션으로 셀지는 **연구상 결정**이다.
 

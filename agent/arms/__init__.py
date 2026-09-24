@@ -8,8 +8,9 @@
     run.py --arm arm2       상황=에이전트     정책=에이전트 개입 없음
     run.py --arm proposed   상황=에이전트     정책=에이전트 개입=신뢰도
 
-`--arm` 은 run_id 에도 박히는 이름이다. 위 넷이 아닌 이름(예: `prompttest`)은
-`proposed` 동작으로 돈다 — 실험용 라벨을 자유롭게 쓸 수 있게 두되, 실행기가
+`--arm` 은 run_id 에도 박히는 이름이다. 첫 `_` 앞 토큰이 넷 중 하나면 그 동작이다 —
+`arm1_llm` · `arm1_rule` 처럼 같은 비교군을 판단자만 바꿔 돌려도 run_id 가 겹치지 않게
+(tools/run_matrix.py). 그 외 이름(예: `prompttest`)은 `proposed` 동작으로 돈다. 실행기가
 어느 동작인지 첫 줄에 찍는다.
 
 사다리와 근거는 supervised.py 머리말. baseline 의 정답 격리는 baseline.py 머리말.
@@ -32,8 +33,12 @@ DESCRIBE = {
 
 
 def kind_of(label: str) -> str:
-    """라벨 → 비교군 동작. 넷 중 하나가 아니면 proposed."""
-    return label if label in KINDS else "proposed"
+    """라벨 → 비교군 동작. 첫 `_` 앞이 넷 중 하나면 그것, 아니면 proposed.
+
+    `arm1_llm` → arm1 · `baseline` → baseline · `prompttest` → proposed
+    """
+    head = label.split("_", 1)[0]
+    return head if head in KINDS else "proposed"
 
 
 def needs_base_decider(kind: str) -> bool:
