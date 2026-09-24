@@ -214,6 +214,7 @@ class Tools:
         slice_id: Optional[str] = None,
         vendor_id: Optional[str] = None,
         cost_total: Optional[float] = None,
+        config: Optional[dict] = None,
     ) -> dict:
         # 이 호출 자체가 개입 1회다 (spec/audit.md:53)
         # 조달 3필드는 record_decision 과 같은 중계선이다 (audit/server.py:84)
@@ -228,6 +229,7 @@ class Tools:
             slice_id=slice_id,
             vendor_id=vendor_id,
             cost_total=cost_total,
+            config=config,
         )
 
     def get_decisions(self, n: int = 10, kind: Optional[str] = None) -> list:

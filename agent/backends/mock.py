@@ -339,13 +339,21 @@ class MockBackend:
         self.decisions[did] = {**kw, "kind": "decision"}
         return {"decision_id": did, "recorded_at_step": kw["step"]}
 
-    def _record_escalation(self, step, observation, situation, reason, confidence) -> dict:
+    def _record_escalation(self, step, observation, situation, reason, confidence,
+                           slice_id=None, vendor_id=None, cost_total=None,
+                           config=None, **_) -> dict:
+        # 실제 ④(audit/server.py:76) 와 같은 인자를 받는다. 고정 시그니처였을 때는
+        # 조달 3필드나 config 가 넘어오면 TypeError 로 죽었다.
         self.escalations += 1
         did = f"{self.run_id}-{step:04d}"
         fb = self._propose_allocation("rule_based", observation, "normal")
         self.decisions[did] = {
             "step": step, "kind": "decision", "chosen_policy": "rule_based",
-            "situation": "normal", "allocation": fb["allocation"],
+            # 에이전트의 판단을 보존한다 (audit/book.py:185). 폴백 라벨로 덮으면
+            # 상황 인지 측정의 입력이 사라진다 — 실제 ④가 그렇게 한다.
+            "situation": situation, "fallback_situation": "normal",
+            "allocation": fb["allocation"], "escalated": True,
+            "slice_id": slice_id, "vendor_id": vendor_id, "cost_total": cost_total,
         }
         return {
             "escalation_id": f"{self.run_id}-esc-{step:04d}",

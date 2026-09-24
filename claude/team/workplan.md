@@ -157,11 +157,15 @@
 
 ### C (lee · 에이전트 · eval · tools)
 
-**C-1 · `run.py` · `agent/loop.py` · `agent/orchestrator/host.py`** — 의존: 없음
-→ `--intent` 값을 ④ `record_decision`/`record_escalation` 의 `config` 에 넣어 장부에 남긴다.
-  `record_escalation` 에 `chosen_policy=decision.policy` 를 넘긴다(A-1 이 받으면 기록됨,
-  안 받으면 무시됨 — `Tools._call` 이 None 만 거르므로 호환).
-→ 검증: `decisions.json["config"]` 에 `intent` 키.
+**C-1 · `run.py` · `agent/loop.py` · `agent/orchestrator/{host,gateway}.py`** — 의존: 없음 · **완료 2026-09-24**
+→ 실행 조건(`scenario · seed · arm · driver · intent · …`)을 ④ `record_decision`/`record_escalation`
+  의 `config` 로 넘긴다. 고정 루프는 `loop.py` 가, 오케스트레이터는 게이트웨이 미들웨어가
+  LLM 의 기록 호출에 끼워 넣는다(호스트 값이 LLM 값을 이긴다).
+→ 발견: 그 전까지 **모든 장부에서 `scenario`·`seed`·`arm` 이 `None`** 이었다. ④ `default_config()`
+  는 `SLICE_SCENARIO` 등 환경변수만 읽는데 아무도 넣지 않았다.
+→ 검증: `decisions.json["config"]` 에 `scenario`·`seed`·`arm`·`intent` 키가 값으로 있다.
+→ ⚠ `chosen_policy` 중계는 **A-1 이후에** 넣는다. FastMCP 는 모르는 인자를
+  `unexpected_keyword_argument` 로 **거부한다**(실측). 미리 보내면 모든 개입 스텝이 죽는다.
 
 **C-2 · `eval/score.py`** — 의존: 없음
 → (a) `demand_pressure > 1.0` 인 스텝을 `structural` 로 따로 센다. 제외가 아니라 분리.

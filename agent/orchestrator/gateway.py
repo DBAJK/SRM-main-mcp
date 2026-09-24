@@ -48,6 +48,9 @@ HIDDEN = {("observe", "reset")}
 
 DEFAULT_MAX_CALLS = 20
 
+# 실행 조건(config)을 끼워 넣을 ④ 기록 도구.
+RECORD_TOOLS = frozenset({"record_decision", "record_escalation"})
+
 # 콘솔 추적의 경로 표기. 같은 서버 도구라도 누가 불렀는지 한눈에 갈리게.
 VIA_MCP = "[MCP→LLM]"    # CLI 안의 LLM 이 MCP(HTTP) 로 게이트웨이를 거쳐 부른 것
 VIA_HOST = "[host    ]"  # 호스트가 직통으로 부른 것 (reset · get_metrics). LLM 은 모른다
@@ -126,6 +129,15 @@ class GatewayMiddleware(Middleware):
         mark = MARK.get(server, "⌂")
         step = gw.log.step
 
+        # 실행 조건을 ④ 장부에 남긴다. 고정 루프는 loop.py 가 넘기는데, 여기서는 LLM 이
+        # 기록 도구를 직접 부르므로 게이트웨이가 끼워 넣는다. 판단이 아니라 메타데이터라
+        # LLM 의 몫이 아니고, LLM 이 config 를 넣었더라도 호스트 값이 이긴다 — arm 이나
+        # scenario 를 LLM 이 바꿔 적으면 산출물이 다른 실행으로 오인된다.
+        if name in RECORD_TOOLS and gw.run_config:
+            args["config"] = {**(args.get("config") or {}), **gw.run_config}
+            context = context.copy(
+                message=context.message.model_copy(update={"arguments": args}))
+
         if step is not None and gw.log.count(step) >= gw.max_calls:
             out = {
                 "error": "call_budget_exceeded",
@@ -199,6 +211,8 @@ class Gateway:
         self.leak: Optional[ForbiddenLeak] = None
         self.budget_hits = 0
         self.server_of: dict[str, str] = {}
+        # 호스트가 에피소드 시작 전에 채운다. ④ 기록 도구 호출에 끼워 넣는다.
+        self.run_config: dict[str, Any] = {}
 
         self.backend = McpBackend(
             desc_mode=desc_mode, memory_mode=memory_mode,

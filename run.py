@@ -51,6 +51,24 @@ def build_backend(args):
     )
 
 
+def _ensure_vendors() -> None:
+    """③의 data/vendors.json 이 없으면 원본에서 만든다 (평판은 건드리지 않는다).
+
+    vendors.json 은 .gitignore 대상이고 git 에서 추적하지 않는다. 새로 받은 저장소나
+    추적 해제 커밋을 pull 한 작업 트리에는 이 파일이 없어, 그대로 두면 ③이
+    "vendors.json 이 없다" 로 멈춘다. --force 없이 부르면 있을 때는 덮어쓰지 않는다
+    (tools/bootstrap_vendors.py) — warm 누적 평판을 지키면서 빈자리만 채운다.
+    """
+    if (ROOT / "data" / "vendors.json").is_file():
+        return
+    script = ROOT / "tools" / "bootstrap_vendors.py"
+    r = subprocess.run([sys.executable, str(script)], capture_output=True, text=True,
+                       encoding="utf-8", errors="replace", cwd=str(ROOT))
+    if r.returncode != 0:
+        raise SystemExit(f"벤더 부트스트랩 실패:\n{r.stdout}\n{r.stderr}")
+    print("[init] ③ data/vendors.json 생성 (원본에서)")
+
+
 def _reset_vendors() -> None:
     """③의 평판을 초기 상태로 되돌린다.
 
@@ -148,6 +166,8 @@ def main() -> int:
 
     if args.fresh or args.memory_mode == "cold":
         _reset_vendors()
+    else:
+        _ensure_vendors()
 
     # 추적은 항상 파일에 남는다. --trace 는 콘솔에도 쏟을지만 정한다.
     # orchestrator 는 기본으로 콘솔에 쏟는다 — LLM 이 어느 도구를 어떤 값으로 부르고
@@ -174,7 +194,7 @@ def main() -> int:
         results = run_episode(
             tools, decide, run_id,
             scenario=args.scenario, seed=args.seed, max_steps=args.steps,
-            intent=args.intent,
+            intent=args.intent, config=run_config(args),
         )
         _summarize(tools, results, run_id, decide)  # get_metrics 가 서버를 쓴다. 닫기 전에
     except ForbiddenLeak as e:
@@ -190,6 +210,35 @@ def main() -> int:
         if hasattr(backend, "close"):
             backend.close()
     return 0
+
+
+def run_config(args) -> dict:
+    """④ 장부의 config 에 남길 실행 조건.
+
+    ④는 scenario · seed · arm 을 환경변수(SLICE_SCENARIO …)에서만 읽는데 아무도 그걸
+    넣지 않아 모든 장부에서 None 이었다 (audit/book.py:43 default_config). 에이전트가
+    직접 넘긴다 — book.py 주석도 "나머지는 C가 config 인자로 넘긴다" 이다.
+
+    intent 는 주 실험·오라클·블라인드 비교군을 가르는 조건이라 반드시 남긴다.
+    """
+    cfg = {
+        "scenario": args.scenario,
+        "seed": args.seed,
+        "arm": args.arm,
+        "driver": args.driver,
+        "intent": args.intent,
+        "steps_limit": args.steps,
+        "desc_mode": args.desc_mode,
+        "memory_mode": args.memory_mode,
+    }
+    if args.driver == "orchestrator":
+        cfg.update(llm_model=args.llm_model, max_calls=args.max_calls,
+                   step_budget_usd=args.step_budget_usd)
+    else:
+        cfg.update(backend=args.backend, decider=args.decider)
+        if args.decider == "llm":
+            cfg["llm_model"] = args.llm_model
+    return cfg
 
 
 def _run_orchestrator(args, run_id: str) -> int:
@@ -219,7 +268,7 @@ def _run_orchestrator(args, run_id: str) -> int:
     try:
         result = host.run_episode(
             scenario=args.scenario, seed=args.seed,
-            max_steps=args.steps, intent=args.intent,
+            max_steps=args.steps, intent=args.intent, config=run_config(args),
         )
         print_summary(result, host)
     except ForbiddenLeak as e:

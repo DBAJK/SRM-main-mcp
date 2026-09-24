@@ -162,8 +162,11 @@ class OrchestratorHost:
         seed: int,
         max_steps: Optional[int] = None,
         intent: Optional[str] = None,
+        config: Optional[dict] = None,
     ) -> EpisodeResult:
         self.cli.require_login()
+        # ④ 장부에 남길 실행 조건. LLM 이 기록 도구를 부를 때 게이트웨이가 끼워 넣는다.
+        self.gateway.run_config = dict(config or {})
         url = self.gateway.start()
         self._mcp_config = self.gateway.write_mcp_config()
         logger.info("게이트웨이 %s · 도구 %d개 (%s)", url, len(self.gateway.exposed),

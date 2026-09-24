@@ -66,7 +66,8 @@ class BoundProposer:
 
 
 def run_step(
-    tools: Tools, decide: Decider, run_id: str, intent: Optional[str] = None
+    tools: Tools, decide: Decider, run_id: str, intent: Optional[str] = None,
+    config: Optional[dict] = None,
 ) -> StepResult:
     """한 스텝. 부작용 있는 도구의 호출 횟수는 명세가 정한 대로만 일어난다."""
     tools.reset_counts()
@@ -114,6 +115,10 @@ def run_step(
         "slice_id": procurement.get("slice_id") if procurement else None,
         "vendor_id": procurement.get("vendor_id") if procurement else None,
         "cost_total": procurement.get("cost_total") if procurement else None,
+        # 실행 조건. ④가 decisions.json 의 config 에 병합한다 (audit/book.py:139).
+        # 안 넘기면 scenario·seed·arm 이 None 으로 남아 산출물만 보고는 어느
+        # 실행인지 알 수 없다 — ④는 환경변수만 읽는데 아무도 그걸 넣지 않는다.
+        "config": config,
     }
 
     if decision.escalate:
@@ -195,11 +200,14 @@ def run_episode(
     seed: int = 0,
     max_steps: Optional[int] = None,
     intent: Optional[str] = None,
+    config: Optional[dict] = None,
 ) -> list[StepResult]:
     """한 에피소드 전체. reset 으로 시작한다.
 
     intent 는 사람이 처음 한 번 주는 자연어 상황이고, 모든 스텝에 같은 값이
     전달된다. 스텝마다 사람에게 다시 묻지 않는 것이 이 구조의 요점이다.
+
+    config 는 실행 조건(시나리오·시드·비교군·의도 등)이고 ④ 장부에 그대로 남는다.
     """
     info = tools.reset(run_id=run_id, scenario=scenario, seed=seed)
     total = int(info.get("total_steps", 60))
@@ -208,7 +216,7 @@ def run_episode(
     results: list[StepResult] = []
     for i in range(limit):
         logger.debug("─── 스텝 %d %s", i, "─" * 56)
-        r = run_step(tools, decide, run_id, intent=intent)
+        r = run_step(tools, decide, run_id, intent=intent, config=config)
         results.append(r)
         if r.episode_done:
             break
