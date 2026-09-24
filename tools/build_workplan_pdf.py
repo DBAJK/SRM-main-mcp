@@ -119,11 +119,11 @@ def chain_svg():
         if i < 2:
             o.append(_arrow(W / 2, y + 66, W / 2, y + 86))
         y += 90
-    # 2층 자기강화 고리
-    o.append(f'<path d="M{W - 20},{104 + 32} C {W + 40},{104 + 32} {W + 40},{104 + 64} {W - 20},{104 + 64}" '
+    # 2층 자기강화 고리 — viewBox 안에 머물도록 제어점을 W 안쪽으로 둔다
+    o.append(f'<path d="M{W - 40},{104 + 30} C {W - 6},{104 + 30} {W - 6},{104 + 66} {W - 40},{104 + 66}" '
              f'fill="none" stroke="{CRITICAL}" stroke-width="1.6" stroke-dasharray="4 3" '
              f'marker-end="url(#ahr)"/>')
-    o.append(f'<text x="{W - 8}" y="{104 + 84}" text-anchor="end" font-size="11" fill="{CRITICAL}" '
+    o.append(f'<text x="{W - 12}" y="{104 + 88}" text-anchor="end" font-size="11" fill="{CRITICAL}" '
              f'font-family={FONT!r}>개입 → 폴백 실패 → r↓ → 더 개입</text>')
     o.append("</svg>")
     return "".join(o)
@@ -133,7 +133,7 @@ def timeline_svg():
     W, H = 700, 200
     o = [f'<svg viewBox="0 0 {W} {H}" width="100%" role="img" aria-label="순서">', _defs()]
     phases = [
-        ("지금 바로", "B-3 A-1 A-2\nC-1 C-2 C-3 C-4 C-6", S3),
+        ("지금 바로", "B-3 A-1 A-2\nC-1 C-2 C-3\nC-4 C-6", S3),
         ("팀 회의", "D1 위반 보정\nD3 조달 시점", WARNING),
         ("수정", "B-1 B-2\nC-5", S1),
         ("M-1 재측정", "AUC 다시 계산\n→ D2 확정", S2),
