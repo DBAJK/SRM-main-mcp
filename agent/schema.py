@@ -91,7 +91,10 @@ class Proposer(Protocol):
 class Decision:
     """에이전트가 만들어내는 값. 어느 서버도 이걸 생산하지 않는다.
 
-    combined 와 escalate 는 저장하지 않고 파생시킨다 — 공식이 명세와 어긋날 수 없게.
+    combined 는 저장하지 않고 파생시킨다 — 공식이 명세와 어긋날 수 없게.
+    escalate 도 기본은 공식에서 파생되지만, 비교군(agent/arms/)이 `escalation` 으로
+    덮어쓸 수 있다. baseline · arm1 · arm2 는 "개입 호출 없음"(roles.md C-2 표)이라
+    공식이 뭐라 하든 False 여야 한다 — 파생 속성만으로는 강제할 수 없었다.
     """
 
     situation: Situation
@@ -107,6 +110,9 @@ class Decision:
     considered: list = field(default_factory=list)
     demand_class: Optional[dict] = None
 
+    # 비교군이 개입 여부를 강제할 때만 채운다. None 이면 공식을 따른다 (proposed).
+    escalation: Optional[bool] = None
+
     @property
     def combined(self) -> float:
         """√(intrinsic × empirical). spec/feedback.md:93"""
@@ -114,8 +120,16 @@ class Decision:
 
     @property
     def escalate(self) -> bool:
-        """배분이 없거나 신뢰도가 임계 미달이면 사람을 부른다."""
-        return self.allocation is None or self.combined < ESCALATION_THRESHOLD
+        """사람을 부르는가.
+
+        배분이 없으면 비교군과 무관하게 부른다 — 적용할 것이 없어 폴백 외에 길이 없다.
+        그 외에는 비교군이 정한 값, 없으면 신뢰도 공식.
+        """
+        if self.allocation is None:
+            return True
+        if self.escalation is not None:
+            return self.escalation
+        return self.combined < ESCALATION_THRESHOLD
 
     def confidence(self) -> dict:
         """④.record_decision 의 confidence 객체.

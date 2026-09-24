@@ -21,6 +21,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from agent import arms
+from agent.arms.baseline import TruthUnavailable
 from agent.backends.mock import MockBackend
 from agent.deciders.rule import rule_decider
 from agent.guard import ForbiddenLeak, Guard
@@ -155,6 +157,22 @@ def main() -> int:
 
     run_id = f"{args.arm}-{args.scenario}-s{args.seed}"
 
+    # 비교군. 서버를 띄우거나 이전 기록을 지우기 전에 조합부터 거른다.
+    kind = arms.kind_of(args.arm)
+    if args.driver == "orchestrator" and kind != "proposed":
+        print(f"[오류] --arm {args.arm} 은 고정 루프 비교군이다. 오케스트레이터는 LLM 이 "
+              "개입까지 스스로 정하는 구조라 proposed 에 해당한다 — --driver fixed 로 돌린다.",
+              file=sys.stderr)
+        return 1
+    if kind == "baseline" and args.backend != "mcp":
+        print("[오류] baseline 은 정답 파일(truth.jsonl)을 읽는데, 그건 실서버 ① 이 쓴다. "
+              "--backend mcp 로 돌린다.", file=sys.stderr)
+        return 1
+    label = "" if args.arm == kind else f"  (라벨 '{args.arm}' → {kind} 동작)"
+    print(f"비교군: {kind} — {arms.DESCRIBE[kind]}{label}")
+    if kind == "baseline" and args.decider != "rule":
+        print("[주의] baseline 은 판단자를 쓰지 않는다 (사람이 상황을 준다). --decider 는 무시한다.")
+
     # ④의 장부는 runs/<run_id>/ 에 누적된다. 같은 run_id 로 다시 돌리면 그 스텝이
     # 이미 있어 duplicate_decision 으로 거부당한다.
     book = ROOT / "runs" / run_id
@@ -182,7 +200,9 @@ def main() -> int:
     # arms/baseline.py 가 별도 경로로 실행하므로 여기서는 항상 검사한다.
     # 판단자를 먼저 만든다. 실행파일·인증 문제로 죽을 거면 서버 5개를 띄우기
     # 전에 죽어야 한다 — 뒤에 두면 stdio 프로세스가 고아로 남는다.
-    decide = build_decider(args)
+    # 비교군은 판단자를 감싸는 것으로만 갈린다. loop.py 에는 arm 분기가 없다.
+    base = build_decider(args) if arms.needs_base_decider(kind) else None
+    decide = arms.make(kind, base, ROOT)
     backend = build_backend(args)
     tools = Tools(backend, Guard(enabled=True))
 
@@ -206,6 +226,9 @@ def main() -> int:
     except ToolRefused as e:
         print(f"\n[도구 거부] {e}", file=sys.stderr)
         return 4
+    except TruthUnavailable as e:
+        print(f"\n[baseline 정답 없음] {e}", file=sys.stderr)
+        return 5
     finally:
         if hasattr(backend, "close"):
             backend.close()
@@ -225,6 +248,7 @@ def run_config(args) -> dict:
         "scenario": args.scenario,
         "seed": args.seed,
         "arm": args.arm,
+        "arm_kind": arms.kind_of(args.arm),   # 라벨이 자유라 동작을 따로 남긴다
         "driver": args.driver,
         "intent": args.intent,
         "steps_limit": args.steps,
@@ -297,6 +321,7 @@ def _summarize(tools: Tools, results: list, run_id: str, decide=None) -> None:
         policies[r.decision.policy] = policies.get(r.decision.policy, 0) + 1
 
     print(f"\n── {run_id} ──")
+    print(f"  비교군      {getattr(decide, 'arm', 'proposed')}")
     print(f"  스텝        {len(results)}")
     print(f"  개입        {esc}   (자율 처리율 {1 - esc / len(results):.3f})")
     print(f"  SLA 위반    {viol}")

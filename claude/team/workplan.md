@@ -79,6 +79,7 @@
 | 무엇 | 원본 `:446~457` — 임계 넘은 슬라이스에 +min(0.1, 초과분×0.2), 가장 여유 있는 슬라이스에서 뺌 |
 | 왜 빠졌나 | `policy/rule.py` 모듈 독스트링 — 평활이 ①로 가서 걸 자리가 사라짐. *"Day 0 에 3인이 정할 사항"* |
 | 켜면 | 배분이 관측에 반응. SLA 위반 63~92% 가 내려갈 것 |
+| **안 켜면** | **상황 인지의 가치를 측정할 수 없다.** 정답을 아는 baseline 과 55% 맞히는 arm1 의 SLA 가 22/30 으로 같다 (C-4 실측). 사다리 첫 칸이 죽는다 |
 | 끄면 | 상황 라벨 오판이 보정으로 가려지지 않아 상황인지 신호가 깨끗함 |
 | **권고** | **환경변수 스위치 `SLICE_RULE_CORRECTION=on/off`.** 기존 기준은 `on`(원본 동작). `off` 는 상황인지 순도 논증용 대조 |
 | 여는 작업 | B-1 |
@@ -189,13 +190,35 @@
 → 소급: 지난 LLM 실행 3개(22스텝)에서 위반 0. 판정 true 3회 → 개입 3회. 표본이 작다.
 → 근거: `todo` 7번.
 
-**C-4 · `agent/schema.py:97~105` · `agent/arms/` 신규** — 의존: 없음
-→ `Decision.escalate` 를 파생 속성에서 **필드**로 바꾼다(기본값은 지금 공식). `arms/` 에
-  `baseline.py`(사람이 `--emergency` 로 상황 지정, `truth.jsonl` 읽는 유일한 경로, 물리 분리)
-  · `arm1.py`(상황=에이전트, 정책 고정, escalate 항상 True) · `arm2.py`(정책도 에이전트,
-  escalate 항상 True) 를 둔다. `run.py --arm` 이 이걸 고른다.
-→ 검증: 세 arm 이 같은 시드에서 같은 스텝 수를 소화하고, baseline 만 `Guard(enabled=False)`.
-→ 근거: `origin/decomposition.md` §6 비교군 표 · `flow/forbidden.md:17`.
+**C-4 · `agent/schema.py` · `agent/arms/` 신규** — 의존: 없음 · **완료 2026-09-24**
+→ `Decision.escalation: Optional[bool]` 필드를 두고 `escalate` 는 그걸 우선한다(없으면 공식).
+  `arms/` — `baseline.py`(truth.jsonl 을 읽는 **유일한** 파일) · `supervised.py`(arm1·arm2) ·
+  `__init__.py`(선택). `run.py --arm {baseline|arm1|arm2|proposed}`. 그 외 라벨은 proposed 동작.
+→ 해석: 비교군 1·2 의 에스컬레이션을 decomposition.md 는 "항상 사람 감시", roles.md 는 "없음"
+  으로 적는다. 뜻은 같다(L2 — 에이전트가 개입을 요청할 일이 없다). 코드상 `escalation=False`.
+  모든 스텝이 자기 판단으로 채점되어 V2 표본 편향이 없다.
+→ 사다리: 각 비교군이 앞의 것에 능력 하나를 더한다(corrections.md:82 "정확히 한 변수만").
+  그래서 **arm1 은 조달도 규칙으로 묶었다** — 판단자가 LLM 이면 조달도 LLM 이 하는데, 풀어두면
+  baseline 대비 두 변수가 바뀐다. ⚠ 팀 확인 필요 (설계서 비교군 표는 조달 도입 전에 쓰였다).
+→ 정정: 처음 계획한 "escalate 항상 True" · "baseline 만 Guard 끔" 은 틀렸다. 개입은 False 이고,
+  baseline 의 정답은 파일에서 오지 도구 반환값으로 오지 않으므로 Guard 는 켜둔다.
+→ 막는 조합: 오케스트레이터 + arm1/arm2/baseline (오케스트레이터는 정의상 proposed) ·
+  baseline + mock (정답 파일은 실서버 ① 이 쓴다). 서버를 띄우기 전에 거절한다.
+→ 검증: 목 emergency 20스텝 — arm1·arm2 개입 0, proposed 12. 실서버 mixed 30스텝 —
+  baseline 상황 인지 1.00 (29/29), arm1 0.55. `agent/` 에서 truth 를 여는 코드는 baseline.py 뿐.
+
+→ **발견 — 지금은 상황 인지의 가치가 0 이다.** 같은 시드 mixed 30스텝:
+
+  ```
+                   상황 인지   SLA 위반   배분 탓   구조적   조달
+  baseline (정답)     1.00      22/30       16        5       5
+  arm1 (에이전트)     0.55      22/30       16        5       5
+  ```
+
+  상황이 다른 13스텝에서 요청 배분이 달랐는데 SLA 는 26/30 스텝이 같고 나머지는 상쇄됐다.
+  목표표가 트래픽과 안 맞아 **정답을 알아도 배분이 틀리기** 때문이다(1층). 평활 0.7 이 차이를
+  더 깎는다. 사다리의 첫 칸(baseline→arm1)이 신호를 내지 못하므로 **B-1 전에 비교군을 돌리는
+  것은 의미가 없다.** D1 의 가장 직접적인 근거다.
 
 **C-5 · `tools/run_matrix.py` 신규** — 의존: C-4
 → 비교군 4 × 시나리오 5 × 시드 3 을 순서대로 돌리고 `runs/matrix-<날짜>/summary.json` 과
