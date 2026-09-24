@@ -24,7 +24,9 @@
 - lstm_forecast 는 `history` 인자가 있어야 돈다. `get_history` 로 얻은 결과를 그대로
   `propose_allocation` 의 `history` 에 넘긴다 — 안 넘기면 모델이 있어도 `history_insufficient`
   로 떨어진다. 이력이 10스텝 미만이면 그 정책은 이번 스텝에 쓸 수 없다.
-- 조달: demand_pressure 가 1.0 이상이면 배분을 어떻게 나눠도 모자란다. 조달에는 비용이 들고,
+- 조달: **demand_pressure 가 1.0 이상일 때만 조달한다.** 1.0 미만이면 배분을 다시 나누는
+  것만으로 세 슬라이스를 임계 아래로 둘 수 있으므로, 사는 것은 비용만 쓰는 일이다.
+  1.0 이상이면 어떤 배분으로도 모자라니 조달이 유일한 해법이다.
   조달한 용량은 add_capacity 로 환경에 넣어야 효과가 난다. 벤더는 점수와 설명을 보고 네가 고른다.
 - 신뢰도: intrinsic 은 propose_allocation 의 confidence, empirical 은 get_reliability_table 의
   그 정책 effective 다. compute_confidence 로 결합한다. 임계 미달이면 record_decision 대신
