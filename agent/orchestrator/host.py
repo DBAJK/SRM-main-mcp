@@ -45,6 +45,9 @@ SITUATIONS = ("normal", "emergency", "special_event", "iot_surge")
 RECENT_N = 5              # 프롬프트에 넣는 직전 스텝 요약 수 (flow/loop.md §3.4)
 DEFAULT_STEP_TIMEOUT = 300.0
 DEFAULT_STEP_BUDGET_USD = 0.50
+# 환경을 전진시키지 못한 시도가 연달아 이만큼이면 에피소드를 멈춘다. 같은 스텝을
+# 되풀이하는 것은 허용하되(시간 초과 한 번으로 스텝을 잃지 않게) 무한히는 아니다.
+MAX_STALLS = 3
 
 # LLM 이 스텝 끝에 내는 요약. CLI 의 --json-schema 로 강제한다.
 SUMMARY_SCHEMA = {
@@ -73,8 +76,9 @@ SUMMARY_SCHEMA = {
 class StepReport:
     """스텝 하나의 결과. LLM 의 자기 보고(answer)와 심판의 사실(verdict)을 나란히 둔다."""
 
-    step: int
+    step: int                           # 환경 스텝 — 프롬프트·장부·심판이 같은 번호를 쓴다
     verdict: Verdict
+    attempt: int = 0                    # 호스트의 시도 번호. 스텝을 되풀이하면 step 과 갈린다
     answer: Optional[dict] = None       # LLM 요약 JSON. 형식 위반이면 None
     malformed: bool = False
     llm_error: Optional[str] = None
@@ -178,10 +182,19 @@ class OrchestratorHost:
         limit = total if max_steps is None else min(total, max_steps)
 
         result = EpisodeResult(run_id=self.run_id)
+        # 스텝 번호는 호스트가 세지 않고 **환경을 따른다.** 2026-09-25 실측: LLM 호출이
+        # 3번 실패하는 동안 환경은 멈춰 있었는데 호스트 번호만 올라 3칸 어긋났고, LLM 이
+        # 프롬프트의 번호로 기록해 premature_scoring → duplicate_decision → 한 스텝에
+        # step 두 번으로 번졌다. 이제 전진하지 못한 시도는 같은 스텝을 다시 시도한다.
+        t = int((info.get("observation") or {}).get("step", 0) or 0)
+        attempt = 0
+        stalls = 0
         try:
-            for t in range(limit):
-                logger.debug("─── 스텝 %d %s", t, "─" * 56)
-                rep = self._run_step(t, total, intent, result.reports)
+            while t < limit:
+                logger.debug("─── 스텝 %d %s%s", t, "─" * 56,
+                             f" (재시도 {stalls})" if stalls else "")
+                rep = self._run_step(t, attempt, total, intent, result.reports)
+                attempt += 1
                 result.reports.append(rep)
                 self._steps_fh.write(json.dumps(rep.as_row(), ensure_ascii=False,
                                                 default=str) + "\n")
@@ -191,6 +204,17 @@ class OrchestratorHost:
                     raise self.gateway.leak
                 if rep.verdict.episode_done:
                     break
+
+                after = rep.verdict.obs_step_after
+                if after is None or after <= t:
+                    stalls += 1
+                    if stalls >= MAX_STALLS:
+                        logger.warning("스텝 %d 에서 %d번 연달아 환경이 전진하지 않았다 — "
+                                       "에피소드를 멈춘다", t, stalls)
+                        break
+                    continue
+                stalls = 0
+                t = after
 
             result.metrics = self.gateway.call("audit", "get_metrics")
         finally:
@@ -212,9 +236,9 @@ class OrchestratorHost:
         self.gateway.stop()
 
     # ── 스텝 ─────────────────────────────────────────────────────────
-    def _run_step(self, t: int, total: int, intent: Optional[str],
+    def _run_step(self, t: int, attempt: int, total: int, intent: Optional[str],
                   history: list[StepReport]) -> StepReport:
-        self.gateway.begin_step(t)
+        self.gateway.begin_step(t, attempt)
         user = self._prompt(t, total, intent, history)
         self.guard.check_text(user, f"prompt[{t}]")
         logger.debug("  ▶ LLM 프롬프트 %s", brief(user),
@@ -244,16 +268,19 @@ class OrchestratorHost:
             llm_error = str(e)
 
         elapsed = time.monotonic() - t0
-        budget_hit = any(c.get("refused") for c in self.gateway.log.for_step(t))
-        verdict = self.referee.add(judge(t, self.gateway.log.for_step(t), budget_hit))
+        calls = self.gateway.log.current()
+        budget_hit = any(c.get("refused") for c in calls)
+        verdict = self.referee.add(judge(t, calls, budget_hit, attempt=attempt))
 
-        rep = StepReport(step=t, verdict=verdict, answer=answer, malformed=malformed,
+        rep = StepReport(step=t, verdict=verdict, attempt=attempt,
+                         answer=answer, malformed=malformed,
                          llm_error=llm_error, turns=turns,
                          cost_usd=self.cli.cost_usd - cost_before, elapsed=elapsed)
 
         logger.info(
-            "스텝 %d · %s/%s · %s · 호출 %d · 위반 %d · %.0f초 · $%.3f%s",
-            t, rep.situation or "?", rep.policy or "?",
+            "스텝 %d%s · %s/%s · %s · 호출 %d · 위반 %d · %.0f초 · $%.3f%s",
+            t, f" (시도 {attempt})" if attempt != t else "",
+            rep.situation or "?", rep.policy or "?",
             "개입" if verdict.escalated else "자율",
             verdict.calls, len(verdict.violations), elapsed, rep.cost_usd,
             f" · LLM 실패: {brief(llm_error, 60)}" if llm_error else "",
@@ -344,7 +371,8 @@ class OrchestratorHost:
             "intent": intent,
             "model": self.cli.model,
             "prompt_file": str(self.prompt_file.relative_to(self.root)),
-            "steps": n,
+            "steps": len({x.step for x in reps}),   # 환경 스텝
+            "attempts": n,                           # LLM 을 부른 횟수. 되풀이하면 steps 보다 크다
             "escalations": sum(1 for x in reps if x.verdict.escalated),
             "sla_violations": sum(1 for x in reps if x.verdict.sla_met is False),
             "procurements": sum(1 for x in reps if x.verdict.procured),
@@ -360,6 +388,7 @@ class OrchestratorHost:
                 "tokens_in": r.tokens_in,
                 "tokens_out": r.tokens_out,
                 "cost_usd": round(r.cost_usd, 4),
+                "auth_retries": self.cli.auth_retries,
                 "mean_turns_per_step": round(sum(x.turns for x in reps) / n, 1) if n else None,
             },
             "gateway": {
@@ -395,9 +424,11 @@ def print_summary(r: EpisodeResult, host: OrchestratorHost) -> None:
         situations[x.situation] = situations.get(x.situation, 0) + 1
         policies[x.policy] = policies.get(x.policy, 0) + 1
 
+    steps = len({x.step for x in reps})
     print(f"\n── {r.run_id} (orchestrator) ──")
-    print(f"  스텝        {n}")
-    print(f"  개입        {esc}   (자율 처리율 {1 - esc / n:.3f})")
+    print(f"  스텝        {steps}" + (f"   (시도 {n} — 전진 못 한 시도는 같은 스텝을 되풀이)"
+                                     if n != steps else ""))
+    print(f"  개입        {esc}   (자율 처리율 {1 - esc / steps:.3f})")
     print(f"  SLA 위반    {viol}")
     print(f"  조달        {proc}")
     print(f"  상황 판단   {situations}")
@@ -412,7 +443,8 @@ def print_summary(r: EpisodeResult, host: OrchestratorHost) -> None:
     if p.get("violations_by_code"):
         print(f"  위반 유형   {p['violations_by_code']}")
     print(f"  LLM         {r.llm_calls}회 · {r.llm_elapsed:.1f}초 (스텝당 {r.llm_elapsed / n:.1f}초) · "
-          f"형식위반 {sum(1 for x in reps if x.malformed)} · 실패 {sum(1 for x in reps if x.llm_error)}")
+          f"형식위반 {sum(1 for x in reps if x.malformed)} · 실패 {sum(1 for x in reps if x.llm_error)}"
+          + (f" · 토큰 충돌 재시도 {host.cli.auth_retries}" if host.cli.auth_retries else ""))
     print(f"  토큰        입력 {r.tokens_in:,} · 출력 {r.tokens_out:,} · 비용 ${r.cost_usd:.4f} "
           f"(스텝당 ${r.cost_usd / n:.4f})")
     print(f"  기록        {host.out_dir}")

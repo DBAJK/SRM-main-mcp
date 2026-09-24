@@ -10,6 +10,7 @@
 """
 
 import json
+import logging
 import os
 import subprocess
 import sys
@@ -20,6 +21,8 @@ from typing import Any, Optional
 
 from . import LLMError, extract_json
 
+logger = logging.getLogger(__name__)
+
 # 데스크톱 앱이 번들하는 위치. 버전 폴더가 여러 개면 가장 높은 것을 쓴다.
 _BUNDLE = Path(os.environ.get("APPDATA", "")) / "Claude" / "claude-code"
 
@@ -28,6 +31,13 @@ _NEUTRAL_CWD = Path(tempfile.gettempdir()) / "srm-agent-llm-cwd"
 
 # 경로를 직접 지정하고 싶을 때. --llm-exe 와 같은 일을 한다.
 EXE_ENV = "SLICE_CLAUDE_EXE"
+
+# 같은 계정을 쓰는 다른 Claude Code 프로세스(데스크톱 앱 등)와 OAuth 토큰 갱신이 겹치면
+# 모델에 닿기 전에 실패한다. 2026-09-25 실측: "Failed to refresh OAuth token: another
+# Claude Code …" · 20초 뒤 종료 · 도구 호출 0 · 비용 0 이 3스텝 이어지다 저절로 풀렸다.
+# 아무 일도 일어나기 전이라 다시 불러도 안전하다 — 그래서 비용이 0 일 때만 되풀이한다.
+AUTH_RACE = "Failed to refresh OAuth token"
+AUTH_RACE_WAITS = (5.0, 15.0, 30.0)
 
 # 번들 경로가 안 열리는 셸을 위한 사본 위치. 저장소 옆에 둔다.
 _ROOT = Path(__file__).resolve().parents[2]
@@ -39,10 +49,9 @@ _SIBLINGS = (
 LOGIN_HINT = (
     "Claude CLI 에 로그인돼 있지 않다. 자격증명 입력은 사람이 해야 한다.\n"
     "  구독 계정   <claude.exe> auth login\n"
-    "  API 과금    <claude.exe> auth login --console\n"
     "  SSO         <claude.exe> auth login --sso\n"
-    "  또는 환경변수 ANTHROPIC_API_KEY 설정\n"
     "확인          <claude.exe> auth status   → loggedIn: true\n"
+    "구독 계정으로만 돈다. API 과금 로그인은 쓰지 않는다.\n"
     "맨몸 `claude` 는 대화형 TUI 라 터미널 환경을 탄다. auth login 을 쓴다."
 )
 
@@ -118,6 +127,7 @@ class ClaudeCLI:
         self.tokens_in = 0
         self.tokens_out = 0
         self.cost_usd = 0.0
+        self.auth_retries = 0   # 토큰 갱신 충돌로 되풀이한 횟수. calls 에도 들어간다
 
         _NEUTRAL_CWD.mkdir(parents=True, exist_ok=True)
 
@@ -146,25 +156,33 @@ class ClaudeCLI:
             *extra,
         ]
 
-        t0 = time.monotonic()
-        try:
-            proc = subprocess.run(
-                cmd,
-                input=user,
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                timeout=timeout or self.timeout,
-                cwd=str(_NEUTRAL_CWD),
-            )
-        except subprocess.TimeoutExpired as e:
-            raise LLMError(f"{timeout or self.timeout}초 안에 응답이 없었다") from e
-        finally:
-            self.calls += 1
-            self.elapsed += time.monotonic() - t0
+        for wait in (*AUTH_RACE_WAITS, None):
+            t0 = time.monotonic()
+            try:
+                proc = subprocess.run(
+                    cmd,
+                    input=user,
+                    capture_output=True,
+                    text=True,
+                    encoding="utf-8",
+                    errors="replace",
+                    timeout=timeout or self.timeout,
+                    cwd=str(_NEUTRAL_CWD),
+                )
+            except subprocess.TimeoutExpired as e:
+                raise LLMError(f"{timeout or self.timeout}초 안에 응답이 없었다") from e
+            finally:
+                self.calls += 1
+                self.elapsed += time.monotonic() - t0
 
-        return self._envelope(proc)
+            env = self._envelope(proc)
+            if wait is None or not self.is_auth_race(env):
+                return env
+            self.auth_retries += 1
+            logger.warning("CLI 토큰 갱신 충돌 — %.0f초 뒤 다시 부른다 (%d/%d)",
+                           wait, self.auth_retries, len(AUTH_RACE_WAITS))
+            time.sleep(wait)
+        raise AssertionError("unreachable")
 
     # ── 내부 ──────────────────────────────────────────────────────────
     def _envelope(self, proc: subprocess.CompletedProcess) -> dict:
@@ -207,6 +225,13 @@ class ClaudeCLI:
     def is_auth_error(text: Any) -> bool:
         s = str(text)
         return "Not logged in" in s or "/login" in s
+
+    @staticmethod
+    def is_auth_race(env: dict) -> bool:
+        """토큰 갱신 충돌이고 **아무것도 쓰지 않았을 때만** 참. 되풀이해도 되는 실패."""
+        return (bool(env.get("is_error") or env.get("returncode", 0) != 0)
+                and AUTH_RACE in str(env.get("result", ""))
+                and not float(env.get("total_cost_usd", 0.0) or 0.0))
 
     def auth_status(self) -> dict:
         """`claude auth status` 를 그대로 돌려준다."""

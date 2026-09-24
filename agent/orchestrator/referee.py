@@ -34,6 +34,10 @@ class Verdict:
     decision_id: Optional[str] = None
     episode_done: bool = False
     tools_in_order: list[str] = field(default_factory=list)
+    # 이 시도가 끝난 뒤의 환경 스텝 (마지막 step 호출의 관측). 전진하지 않았으면 None.
+    # 호스트가 다음 시도의 스텝 번호를 여기서 정한다 — 자기 카운터를 올리지 않는다.
+    obs_step_after: Optional[int] = None
+    attempt: Optional[int] = None
 
     # 완료되지 않은 호출 — 서버가 값으로 거부(flow/errors.md) 했거나 예외를 냈거나
     # 상한에 걸린 것. 순서·횟수 판정에서 빼고, 그 수 자체를 "되풀이 비용"으로 센다.
@@ -50,6 +54,7 @@ class Verdict:
     def as_row(self) -> dict:
         return {
             "step": self.step,
+            "attempt": self.attempt,
             "calls": self.calls,
             "failed_calls": self.failed_calls,
             "escalated": self.escalated,
@@ -61,15 +66,16 @@ class Verdict:
         }
 
 
-def judge(step: int, calls: list[dict], budget_hit: bool = False) -> Verdict:
-    """한 스텝의 호출 기록(게이트웨이 `CallLog.for_step`)을 판정한다."""
+def judge(step: int, calls: list[dict], budget_hit: bool = False,
+          attempt: Optional[int] = None) -> Verdict:
+    """한 시도의 호출 기록(게이트웨이 `CallLog.current`)을 판정한다."""
     # 완료된 호출만 본다. ④가 missing_confidence 로 거부한 record_decision 을 세면
     # 재시도가 duplicate_decision_record 로 잡힌다 (2026-09-23 실측).
     ok_calls = [c for c in calls
                 if c.get("ok") and not c.get("refused") and not c.get("value_error")]
     order = [c["tool"] for c in ok_calls]
     v = Verdict(step=step, calls=len(calls), tools_in_order=order,
-                failed_calls=len(calls) - len(ok_calls))
+                failed_calls=len(calls) - len(ok_calls), attempt=attempt)
 
     idx = {name: [i for i, t in enumerate(order) if t == name] for name in set(order)}
     first = lambda name: idx.get(name, [None])[0]          # noqa: E731
@@ -90,6 +96,8 @@ def judge(step: int, calls: list[dict], budget_hit: bool = False) -> Verdict:
             v.sla_met = bool(c["sla_met"])
         if c["tool"] == "step" and c.get("episode_done"):
             v.episode_done = True
+        if c["tool"] == "step" and c.get("obs_step") is not None:
+            v.obs_step_after = int(c["obs_step"])
 
     # ── 관측 ─────────────────────────────────────────────────────────
     if count("get_observation") == 0:

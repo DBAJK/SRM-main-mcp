@@ -206,6 +206,47 @@ def main() -> int:
                        {"tool": "record_decision", "ok": True}] + tail)
         check("판정 없이 기록 → no_confidence_check (warn)",
               codes(v) == [("no_confidence_check", "warn")], codes(v))
+
+        print("\n5. 스텝 되풀이 · 토큰 충돌 재시도")
+        # 같은 환경 스텝을 다시 시도하면 앞선 시도의 호출이 섞이지 않아야 한다
+        gw.begin_step(20, 100)
+        gw.log.record(server="observe", tool="get_observation", ok=True)
+        gw.begin_step(20, 101)
+        gw.log.record(server="observe", tool="get_observation", ok=True)
+        check("재시도는 앞선 시도와 분리 (current 1건 · for_step 2건)",
+              len(gw.log.current()) == 1 and len(gw.log.for_step(20)) == 2,
+              (len(gw.log.current()), len(gw.log.for_step(20))))
+        check("호출 기록에 attempt", gw.log.current()[0].get("attempt") == 101)
+
+        v = judge(3, calls("get_observation") + [{"tool": "step", "ok": True, "obs_step": 4}])
+        check("step 호출의 관측 → obs_step_after", v.obs_step_after == 4, v.obs_step_after)
+        v = judge(3, calls("get_observation"))
+        check("step 없음 → obs_step_after None (호스트가 같은 스텝을 되풀이)",
+              v.obs_step_after is None, v.obs_step_after)
+
+        import subprocess
+        import agent.llm.claude_cli as cc
+        race = {"is_error": True, "result": "Failed to refresh OAuth token: another Claude Code",
+                "total_cost_usd": 0}
+        check("토큰 충돌 · 비용 0 → 되풀이 대상", cc.ClaudeCLI.is_auth_race(race))
+        check("비용이 났으면 되풀이 안 함 (이미 무언가 했다)",
+              not cc.ClaudeCLI.is_auth_race({**race, "total_cost_usd": 0.01}))
+        check("다른 오류는 되풀이 안 함",
+              not cc.ClaudeCLI.is_auth_race({"is_error": True, "result": "Not logged in"}))
+
+        outs = [race, race, {"is_error": False, "result": "ok", "total_cost_usd": 0.02}]
+        real_run, real_sleep = cc.subprocess.run, cc.time.sleep
+        cc.subprocess.run = lambda *a, **k: subprocess.CompletedProcess(
+            a[0], 0, json.dumps(outs.pop(0)), "")
+        cc.time.sleep = lambda s: None
+        try:
+            cli = cc.ClaudeCLI(exe="claude-stub")
+            env = cli.invoke("x", [])
+        finally:
+            cc.subprocess.run, cc.time.sleep = real_run, real_sleep
+        check("충돌 2번 뒤 성공 → 결과 · 재시도 2 · 호출 3",
+              env.get("result") == "ok" and cli.auth_retries == 2 and cli.calls == 3,
+              (env.get("result"), cli.auth_retries, cli.calls))
     finally:
         gw.stop()
         if vendors_backup is not None:

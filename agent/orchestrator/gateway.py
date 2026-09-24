@@ -71,20 +71,28 @@ class CallLog:
 
     def __init__(self, path: Path):
         self.step: Optional[int] = None
+        self.attempt: Optional[int] = None
         self.entries: list[dict] = []
         self._seq = 0
         self._fh = open(path, "a", encoding="utf-8")
         self._lock = threading.Lock()
 
-    def begin_step(self, step: int) -> None:
+    def begin_step(self, step: int, attempt: Optional[int] = None) -> None:
+        """step 은 환경 스텝, attempt 는 호스트의 시도 번호.
+
+        LLM 이 스텝을 끝내지 못하면(환경이 전진하지 않으면) 호스트가 같은 step 을 다시
+        시도한다. 그때 step 은 같고 attempt 가 다르다 — 심판·호출 상한은 시도 단위다.
+        """
         with self._lock:
             self.step = step
+            self.attempt = step if attempt is None else attempt
             self._seq = 0
 
     def record(self, **entry: Any) -> dict:
         with self._lock:
             self._seq += 1
-            row = {"step": self.step, "seq": self._seq, "ts": time.time(), **entry}
+            row = {"step": self.step, "attempt": self.attempt, "seq": self._seq,
+                   "ts": time.time(), **entry}
             self.entries.append(row)
             self._fh.write(json.dumps(row, ensure_ascii=False, default=str) + "\n")
             self._fh.flush()
@@ -93,8 +101,9 @@ class CallLog:
     def for_step(self, step: int) -> list[dict]:
         return [e for e in self.entries if e["step"] == step]
 
-    def count(self, step: int) -> int:
-        return sum(1 for e in self.entries if e["step"] == step)
+    def current(self) -> list[dict]:
+        """지금 시도의 호출만. 같은 스텝의 앞선 시도는 섞지 않는다."""
+        return [e for e in self.entries if e["attempt"] == self.attempt]
 
     def close(self) -> None:
         try:
@@ -138,7 +147,7 @@ class GatewayMiddleware(Middleware):
             context = context.copy(
                 message=context.message.model_copy(update={"arguments": args}))
 
-        if step is not None and gw.log.count(step) >= gw.max_calls:
+        if step is not None and len(gw.log.current()) >= gw.max_calls:
             out = {
                 "error": "call_budget_exceeded",
                 "detail": f"이 스텝의 도구 호출이 {gw.max_calls}회를 넘었다. "
@@ -248,8 +257,8 @@ class Gateway:
         )
         return out
 
-    def begin_step(self, step: int) -> None:
-        self.log.begin_step(step)
+    def begin_step(self, step: int, attempt: Optional[int] = None) -> None:
+        self.log.begin_step(step, attempt)
 
     def start(self) -> str:
         import uvicorn
@@ -355,6 +364,7 @@ def _extract(tool: str, payload: Any) -> dict:
         keep["decision_id"] = payload.get("decision_id")
     if tool == "step":
         keep["episode_done"] = bool(payload.get("episode_done", False))
+        keep["obs_step"] = (payload.get("observation") or {}).get("step")
     if tool == "report_outcome":
         keep["sla_met"] = payload.get("sla_met")
         keep["vendor_id"] = payload.get("vendor_id")
