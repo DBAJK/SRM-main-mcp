@@ -8,15 +8,15 @@
 평활·클립·정규화(:458~462)는 여기 두지 않는다 — ①의 `apply_allocation()` 소관이다
 (설계서 §3.2). 양쪽에 다 있으면 0.7이 두 번 걸려 배분이 거의 안 움직인다.
 
-⚠️ 원본 :446~457 의 **위반 보정**은 옮기지 않았다. `spec/policy.md` 의 응답 예시가
-   util {1.300, 1.525, 0.950} · emergency 에 대해 보정 없는 목표 {0.20, 0.70, 0.10} 이기
-   때문이다(보정을 넣으면 {0.224, 0.686, 0.090} 이 나온다). 원본에서 그 보정은 *평활된*
-   배분에 걸리는데 평활이 ①로 빠졌으므로 걸 자리도 사라졌다. 측정 관점에서도 이쪽이 낫다 —
-   위반 보정은 상황 라벨이 틀렸을 때 그 영향을 되돌려 상황 인지 정확도의 신호를 흐린다.
-   **원본 동작을 유지할지는 Day 0에서 3인이 정할 사항이다.**
+원본 :446~457 의 **위반 보정**은 되살렸다 (workplan B-1 · D1). 환경변수
+`SLICE_RULE_CORRECTION` 으로 켜고 끈다 — 기본 `on` 이 원본 동작이고, `off` 는 상황인지
+순도를 논증하기 위한 대조군이다. 보정이 있으면 상황 라벨이 틀려도 관측이 배분을 되돌려
+주므로 오판의 대가가 가려진다. 끄면 그 신호가 깨끗해지는 대신 SLA 위반이 는다.
+D1 이 뒤집히면 `CORRECTION_DEFAULT` 한 줄만 바꾸면 된다.
 """
 from __future__ import annotations
 
+import os
 from typing import Any
 
 from ..common.const import SLICE_KEYS, THRESHOLDS
@@ -32,10 +32,54 @@ TARGET_BY_SITUATION: dict[str, dict[str, float]] = {
 CONFIDENCE_FLOOR = 0.50
 CONFIDENCE_SPAN = 0.30
 
+# 원본 :449~450 — 초과분의 20%, 한 슬라이스당 최대 0.1.
+CORRECTION_CAP = 0.1
+CORRECTION_GAIN = 0.2
+CORRECTION_DEFAULT = "on"   # D1 권고. 원본 동작
+
+
+def correction_enabled() -> bool:
+    """`SLICE_RULE_CORRECTION=off` 면 끈다. 호출마다 읽는다.
+
+    기동 시 한 번 읽으면 같은 프로세스에서 두 조건을 비교할 수 없고, 무엇보다
+    **어느 설정으로 돈 실행인지 장부에서 확인할 길이 없어진다.** `rationale` 에
+    매번 적어 `decisions.json` 에 남긴다.
+    """
+    return os.environ.get("SLICE_RULE_CORRECTION", CORRECTION_DEFAULT).lower() != "off"
+
+
+def _violation_correction(target: dict[str, float],
+                          observation: dict[str, Any]) -> dict[str, float]:
+    """원본 :446~457. 임계를 넘은 슬라이스에 주고, 가장 한가한 슬라이스에서 뺀다.
+
+    ⚠️ 원본은 *평활된* 배분(`:444` 의 `new_allocation`)에 걸었다. 여기는 목표표에 건다 —
+       ②는 현재 배분을 모르기 때문이다(무상태). 결과가 둘 다르다: ①이 그 뒤에
+       `0.7×현재 + 0.3×요청` 을 걸므로 **적용값에 남는 보정은 원본의 30% 뿐이다**
+       (최대 0.1 → 0.03). 크기를 1/0.3 으로 되돌리는 것은 상수 조작이라 하지 않는다.
+       민감도로 보고한다 (workplan §0 "결과가 좋아질 때까지 상수를 돌리지 않는다").
+
+    합은 보존된다(제로섬). 음수나 0.8 초과가 나올 수 있지만 클립은 ①의 몫이다.
+    """
+    utilization = observation["utilization"]
+    adjusted = dict(target)
+    for key in SLICE_KEYS:
+        excess = float(utilization[key]) - THRESHOLDS[key]
+        if excess <= 0:
+            continue
+        increase = min(CORRECTION_CAP, excess * CORRECTION_GAIN)
+        donor = min((k for k in SLICE_KEYS if k != key),
+                    key=lambda k: float(utilization[k]))
+        adjusted[key] += increase
+        adjusted[donor] -= increase
+    return adjusted
+
 
 def propose(observation: dict[str, Any], situation: str) -> dict[str, float]:
-    """목표 배분. 평활·클립 없음."""
-    return dict(TARGET_BY_SITUATION[situation])
+    """목표 배분. 평활·클립 없음. 위반 보정은 `SLICE_RULE_CORRECTION` 에 따른다."""
+    target = dict(TARGET_BY_SITUATION[situation])
+    if not correction_enabled():
+        return target
+    return _violation_correction(target, observation)
 
 
 def margin(observation: dict[str, Any]) -> float:
@@ -78,4 +122,5 @@ def rationale(observation: dict[str, Any], situation: str,
     else:
         detail = "임계 초과 슬라이스 없음."
 
-    return f"situation={situation} → 목표 [{triple}]. {detail}"
+    mode = "보정 on" if correction_enabled() else "보정 off"
+    return f"situation={situation} → 목표 [{triple}] ({mode}). {detail}"

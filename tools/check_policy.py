@@ -13,6 +13,7 @@ TensorFlow 없이 돌아간다 — `lstm_forecast` 는 적재 실패 경로(stat
 """
 from __future__ import annotations
 
+import os
 import sys
 import types
 from pathlib import Path
@@ -59,7 +60,9 @@ def check(label: str, got, want, tol: float = 0.0005) -> None:
 
 
 def main() -> int:
-    print("1. rule_based — spec/policy.md 예시 1 (emergency)")
+    print("1. rule_based — spec/policy.md 예시 1 (emergency · 보정 off)")
+    # 예시는 목표표 그대로다. 보정(B-1)은 아래 1b 에서 따로 건다.
+    os.environ["SLICE_RULE_CORRECTION"] = "off"
     p = s.propose_allocation("rule_based", OBS, "emergency")
     check("policy", p["policy"], "rule_based")
     check("allocation", p["allocation"], {"embb": 0.2, "urllc": 0.7, "mmtc": 0.1})
@@ -67,6 +70,27 @@ def main() -> int:
     check("status", p["status"], "ok")
     check("in_distribution", p["in_distribution"], True)
     print(f"        rationale: {p['rationale']}")
+
+    print("\n1b. 위반 보정 — 원본 :446~457 (workplan B-1)")
+    os.environ["SLICE_RULE_CORRECTION"] = "on"
+    c = s.propose_allocation("rule_based", OBS, "emergency")["allocation"]
+    # util {1.300, 1.525, 0.950} vs θ {0.9, 1.2, 0.8} — 셋 다 초과다.
+    #   embb  +min(0.1, 0.400×0.2)=0.080  ← 가장 한가한 mmtc 에서
+    #   urllc +min(0.1, 0.325×0.2)=0.065  ← mmtc 에서
+    #   mmtc  +min(0.1, 0.150×0.2)=0.030  ← embb 에서
+    check("초과 슬라이스에 더한다", (round(c["embb"], 4), round(c["urllc"], 4)),
+          (0.25, 0.765))
+    check("한가한 슬라이스가 내놓는다", round(c["mmtc"], 4), -0.015)
+    check("합 보존 (제로섬)", round(sum(c.values()), 6), 1.0)
+    # 음수는 ②가 고치지 않는다 — 클립[0.1, 0.8]·재정규화는 ①의 몫이다 (설계서 §3.2).
+    check("클립하지 않는다", c["mmtc"] < 0, True)
+    check("rationale 에 설정이 남는다",
+          "보정 on" in s.propose_allocation("rule_based", OBS, "emergency")["rationale"], True)
+    calm = {**OBS, "utilization": {"embb": 0.5, "urllc": 0.6, "mmtc": 0.4}}
+    check("임계 초과가 없으면 보정 0",
+          s.propose_allocation("rule_based", calm, "normal")["allocation"],
+          {"embb": 0.4, "urllc": 0.4, "mmtc": 0.2})
+    os.environ["SLICE_RULE_CORRECTION"] = "off"   # 이하 검사는 목표표 기준
 
     print("\n2. 완료 판정 — situation 만 바꾸면 배분이 달라진다")
     seen = {}

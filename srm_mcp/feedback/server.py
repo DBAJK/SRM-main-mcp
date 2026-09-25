@@ -40,6 +40,11 @@ TOOL_DESC = {
     ),
 }
 
+# 개입 스텝의 성적을 담는 자리 (B-2). `POLICIES` 가 아니므로 정책으로 선택될 수 없고,
+# `get_reliability_table()` 출력에서도 뺀다 — 에이전트에게 고를 수 있는 정책처럼 보이면
+# 안 된다. 사람이 `reliability.json` 을 열어 폴백 성능을 따로 읽는 용도다.
+FALLBACK_BUCKET = "fallback"
+
 # decision_id = "{run_id}-{step:04d}" (§5.0). ⑤는 run_id 인자를 받지 않으므로 여기서 되돌린다.
 DECISION_ID_RE = re.compile(r"^(?P<run_id>.+)-(?P<step>\d{4})$")
 
@@ -106,7 +111,15 @@ def report_outcome(decision_id: str, observed: dict) -> dict:
         기준이 다르면 "정책이 나빴나, 액추에이터가 막았나" 를 구분할 수 없다
         (spec 예시에서 0.086 vs 0.316, 4배 차이). 요청값은 `decisions.json` 에서 조회한다.
 
-    부작용: ④의 해당 레코드에 `outcome` 을 덧붙이고, `reliability.json` 을 갱신한다.
+    B-2 — `escalated` 레코드는 정책 신뢰도를 갱신하지 않는다. 개입한 스텝에 실제로
+        적용된 것은 ④의 폴백 상수 {0.4, 0.4, 0.2} 이지 에이전트가 고른 정책의 제안이
+        아니다. 그 결과를 `rule_based` 의 r 에 적으면 "개입 → 폴백 실패 → r↓ → 더 개입"
+        이 스스로를 먹인다 (실측 120스텝에서 r 0.500 → 0.200). 채점 자체는 그대로 한다 —
+        ④의 `outcome` 도, `sla_met` 도, 반환값도 남는다. 사라지는 것은 귀속뿐이고,
+        그 성적은 `reliability.json` 의 `fallback` 항목에 따로 쌓인다.
+
+    부작용: ④의 해당 레코드에 `outcome` 을 덧붙이고, `reliability.json` 을 갱신한다
+        (개입 스텝이면 `fallback` 항목만).
     """
     global _run_id
 
@@ -155,12 +168,24 @@ def report_outcome(decision_id: str, observed: dict) -> dict:
     error = scoring.distance(applied, ideal)
     actuator_delta = scoring.distance(applied, requested) if requested else 0.0
 
+    # 개입한 스텝의 성적은 정책이 아니라 폴백이 받는다 (workplan B-2).
+    escalated = bool(record.get("escalated"))
+
     table = _load_table()
     entry = table[policy]
     before = float(entry["r"])
-    after, n = reliability.update(before, int(entry["n"]), met)
-    entry["r"], entry["n"] = after, n
-    entry["errors"] = reliability.push_error(entry.get("errors", []), error)
+    if escalated:
+        # 갱신하지 않는다. 적용된 배분은 에이전트가 고른 정책이 낸 것이 아니라
+        # ④의 폴백 상수이므로, 그 결과를 정책의 r 에 적으면 귀속이 틀린다.
+        after, n = before, int(entry["n"])
+        fallback = table.setdefault(FALLBACK_BUCKET, reliability.initial_entry())
+        fb_after, fb_n = reliability.update(float(fallback["r"]), int(fallback["n"]), met)
+        fallback["r"], fallback["n"] = fb_after, fb_n
+        fallback["errors"] = reliability.push_error(fallback.get("errors", []), error)
+    else:
+        after, n = reliability.update(before, int(entry["n"]), met)
+        entry["r"], entry["n"] = after, n
+        entry["errors"] = reliability.push_error(entry.get("errors", []), error)
     _save_table(table)
 
     outcome = {
@@ -177,6 +202,8 @@ def report_outcome(decision_id: str, observed: dict) -> dict:
         "vendor_id": record.get("vendor_id"),
         "reliability_before": round(before, 4),
         "reliability_after": round(after, 4),
+        # 개입한 스텝이면 두 값이 같다. "왜 n 이 안 늘었나" 를 장부만 보고 알 수 있어야 한다.
+        "counted_in_reliability": not escalated,
     }
 
     # ④의 레코드에 덧붙인다 (분리 설계서 §2.1 — ④가 만들고 ⑤가 같은 레코드에 기입).
@@ -188,6 +215,8 @@ def report_outcome(decision_id: str, observed: dict) -> dict:
         "requested_allocation": requested,
         "actuator_delta": round(actuator_delta, 4),
         "observed_violations": outcome["observed_violations"],
+        # 채점은 했지만 신뢰도에는 안 들어갔다는 사실이 장부에도 남아야 한다 (B-2).
+        "counted_in_reliability": not escalated,
     }
     write_json(paths.decisions_json(run_id), book)
 
@@ -205,7 +234,8 @@ def get_reliability_table() -> dict:
     대한 확신이고, 여기 `effective` 는 그 정책이 **평소** 얼마나 맞았나다.
     """
     return to_builtin({name: reliability.view(name, entry)
-                       for name, entry in _load_table().items()})
+                       for name, entry in _load_table().items()
+                       if name in reliability.POLICIES})
 
 
 if __name__ == "__main__":

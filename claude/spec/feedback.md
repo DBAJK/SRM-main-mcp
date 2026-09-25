@@ -35,6 +35,8 @@ error = L1(applied_allocation, a*) / 2                 # [0, 1]
 
 **신뢰도 갱신**: `r ← (1−0.2)·r + 0.2·(sla_met ? 1 : 0)`
 
+- **개입(`escalated`) 레코드는 정책의 `r`·`n`·`errors` 를 갱신하지 않는다** (B-2). 적용된 배분이 정책의 제안이 아니라 ④의 폴백 상수이기 때문이다. 채점은 그대로 하고, 그 성적은 `reliability.json` 의 `fallback` 항목에 쌓인다 — `get_reliability_table()` 출력에는 넣지 않는다(정책이 아니다). 반환값의 `counted_in_reliability` 가 반영 여부를 알린다.
+
 **부작용**: ④의 해당 레코드에 `outcome`을 덧붙인다 (`sla_met`, `error`, `scored_at_step`, `applied_allocation`, `requested_allocation`, `actuator_delta`, `observed_violations`).
 
 ```json
