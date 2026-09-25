@@ -41,6 +41,8 @@ TOOL_DESC = {
         "record_decision 을 또 부르면 안 된다. "
         "이번 스텝에 조달했다면 slice_id · vendor_id · cost_total 을 여기에 같이 넘긴다 — "
         "record_decision 과 같은 자리이며, 여기 넘기지 않으면 그 조달은 기록되지 않는다. "
+        "chosen_policy 에 원래 고르려던 정책을 넘기면(선택) 기록에 agent_policy 로 남는다 — "
+        "실제로 실행되는 건 항상 rule_based 폴백이다. "
         "fallback_allocation 과 decision_id 를 돌려주며, instruction 에 다음 행동이 적혀 있다."
     ),
     "get_decisions": (
@@ -77,15 +79,19 @@ def record_escalation(step: int, observation: dict, situation: str, reason: str,
                       confidence: dict,
                       slice_id: Optional[str] = None, vendor_id: Optional[str] = None,
                       cost_total: Optional[float] = None,
+                      chosen_policy: Optional[str] = None,
                       run_id: Optional[str] = None,
                       config: Optional[dict] = None) -> dict:
     """한 호출이 개입 레코드와 폴백 결정 레코드를 같은 step 으로 남긴다.
 
     조달 3필드는 `record_decision` 과 같은 중계선이다 — 여기 없으면 에스컬레이션한 스텝의
     조달이 아무 데도 안 남고, 뒤이어 `record_decision` 을 부르는 길은 막혀 있다.
+    `chosen_policy` 는 선택이다 — 안 주면 `agent_policy` 가 `null` 로 남을 뿐, 다른 동작은
+    그대로다(구버전 호출자와 호환).
     """
     return book.record_escalation(step, observation, situation, reason, confidence,
-                                  slice_id, vendor_id, cost_total, run_id, config)
+                                  slice_id, vendor_id, cost_total, chosen_policy,
+                                  run_id, config)
 
 
 @mcp.tool(description=TOOL_DESC["get_decisions"])
