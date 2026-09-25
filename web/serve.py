@@ -27,7 +27,11 @@ from urllib.parse import parse_qs, urlparse
 
 ROOT = Path(__file__).resolve().parents[1]
 WEB = Path(__file__).resolve().parent
-PYTHON = ROOT / ".venv310" / "Scripts" / "python.exe"
+# 윈도우는 .venv310\Scripts\python.exe, 맥·리눅스는 .venv310/bin/python 이다.
+# 둘 다 없으면 이 UI 를 띄운 인터프리터로 돈다.
+_VENV = [ROOT / ".venv310" / "Scripts" / "python.exe",
+         ROOT / ".venv310" / "bin" / "python"]
+PYTHON = next((p for p in _VENV if p.is_file()), Path(sys.executable))
 PORT = 8765
 
 # run.py 의 argparse 와 맞춘다. 여기 없는 값은 아예 실행되지 않는다.
