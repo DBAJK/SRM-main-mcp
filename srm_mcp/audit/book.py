@@ -97,7 +97,24 @@ def bad_confidence(confidence: Any) -> Optional[dict]:
         # 일어나지 않는다. 조용히 채우지 않고 되돌린다.
         return {"error": "missing_confidence", "missing": missing,
                 "expected": {k: "float" for k in CONFIDENCE_KEYS}}
+    # 값이 있어도 float 로 안 바뀌면(예: LLM이 문자열을 넣음) 조용히 통과시키지 않는다.
+    # 실측: haiku 가 confidence 값에 문자열을 넣은 사례 (todo-after-orchestrator.md 8번).
+    bad_types = [k for k in CONFIDENCE_KEYS if not _is_floatable(confidence[k])]
+    if bad_types:
+        return {"error": "malformed_confidence", "bad_types": bad_types,
+                "got": {k: confidence[k] for k in bad_types},
+                "expected": {k: "float" for k in CONFIDENCE_KEYS}}
     return None
+
+
+def _is_floatable(value: Any) -> bool:
+    if isinstance(value, bool):  # bool 은 int 의 서브클래스라 float() 이 조용히 통과한다
+        return False
+    try:
+        float(value)
+        return True
+    except (TypeError, ValueError):
+        return False
 
 
 def _existing_decision(book: dict, step: int) -> Optional[dict]:
@@ -173,6 +190,7 @@ def record_escalation(step: int, observation: dict, situation: str, reason: str,
                       confidence: dict,
                       slice_id: Optional[str] = None, vendor_id: Optional[str] = None,
                       cost_total: Optional[float] = None,
+                      chosen_policy: Optional[str] = None,
                       run_id: Optional[str] = None,
                       config: Optional[dict] = None) -> dict:
     """한 호출이 `kind: "escalation"` 과 `kind: "decision"` 레코드를 같은 step 으로 남긴다.
@@ -185,6 +203,12 @@ def record_escalation(step: int, observation: dict, situation: str, reason: str,
     폴백 결정 레코드의 `situation` 에는 **에이전트의 판단**을 그대로 남긴다. 폴백이 정책에
     먹인 라벨("normal")로 덮으면 상황 인지 측정의 입력이 사라진다. 먹인 라벨은
     `fallback_situation` 으로 따로 남긴다.
+
+    `chosen_policy` 도 같은 원리다 — 실제로 실행된 것은 항상 `FALLBACK_POLICY`
+    (rule_based)이고 그건 그대로 `chosen_policy` 에 남는다(⑤가 실행된 정책의 성적을
+    기록해야 하므로). 에이전트가 원래 고르려던 정책은 `agent_policy` 에 따로 남긴다 —
+    없으면 "에스컬레이션이 없었다면 무엇을 골랐을까"를 사후에 알 수 없다
+    (workplan.md A-1).
 
     `slice_id` · `vendor_id` · `cost_total` 은 `record_decision` 과 같은 중계선이다.
     같은 이유로 여기에도 있어야 한다 — 에스컬레이션한 스텝에 조달했는데 이 셋을 받지
@@ -232,6 +256,7 @@ def record_escalation(step: int, observation: dict, situation: str, reason: str,
         "kind": "decision",
         "situation": situation,
         "chosen_policy": FALLBACK_POLICY,
+        "agent_policy": chosen_policy,
         "allocation": fallback,
         "confidence": confidence,
         "rationale": f"escalated: {reason}",
