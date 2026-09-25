@@ -204,7 +204,7 @@ def get_reliability_table() -> dict:
     두 종류의 신뢰도를 종합하는 것은 에이전트만 한다 — ②의 `confidence` 는 **이번 입력**에
     대한 확신이고, 여기 `effective` 는 그 정책이 **평소** 얼마나 맞았나다.
     """
-    return to_builtin({name: reliability.view(entry)
+    return to_builtin({name: reliability.view(name, entry)
                        for name, entry in _load_table().items()})
 
 

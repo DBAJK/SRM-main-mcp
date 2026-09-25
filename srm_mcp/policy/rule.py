@@ -50,9 +50,15 @@ def confidence(observation: dict[str, Any]) -> float:
     이용률이 임계값에 바짝 붙어 있으면 규칙의 이산 분기가 자의적이므로 확신이 낮다.
     여유가 크면 어느 쪽 분기인지 명확하다.
 
-    하한 0.50은 의도적이다. 항상 가용한 안전 기본값이므로 다른 정책이 전부 실패해도
-    이것 하나는 에스컬레이션 문턱 τ(0.45) 위에 있다. 이 상수가 곧 "언제 사람을 부를
-    것인가"의 하한을 정의한다.
+    하한 0.50은 의도적이지만, **이 값이 에스컬레이션을 막아주지는 않는다** (workplan B-4).
+    개입 판정은 여기 나오는 intrinsic 단독이 아니라 에이전트가 종합한
+    `combined = √(intrinsic × empirical)` 로 내려지고, `empirical` 은 ⑤의 `effective` 다.
+    즉 intrinsic 이 하한 0.50 이어도 `effective` 가 0.405 아래면 combined 가 τ(0.45) 밑으로
+    내려간다 (√(0.5 × 0.405) = 0.450). 실측에서 `rule_based` 의 r 이 0.500 → 0.200 까지
+    내려간 적이 있으므로 가정이 아니라 관측된 구간이다.
+
+    이 상수가 정의하는 것은 "규칙이 자기 입력에 대해 갖는 확신의 하한"까지이고,
+    "언제 사람을 부를 것인가"는 ⑤의 성적과 함께 정해진다.
     """
     return CONFIDENCE_FLOOR + CONFIDENCE_SPAN * min(1.0, margin(observation))
 

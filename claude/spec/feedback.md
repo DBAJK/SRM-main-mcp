@@ -78,7 +78,7 @@ error = L1(applied_allocation, a*) / 2                 # [0, 1]
 | `{policy}.reliability` | float | EMA 원값 |
 | `{policy}.n` | int | 누적 표본 수 |
 | `{policy}.effective` | float | **축소 보정값. 에이전트는 이걸 쓴다** → ④ `confidence.empirical` |
-| `{policy}.recent_error` | float | 최근 5회 `error`의 EMA. **② `propose_allocation.recent_error`에 중계** |
+| `{policy}.recent_error` | float | 최근 5회 `error`의 EMA. **② `propose_allocation.recent_error`에 중계**. 표본이 없으면(n=0) `1 − POLICY_PRIOR[policy]`로 유도한 **사전값**을 낸다 (B-3) |
 
 **축소 보정**: `effective = (r·n + 0.5·5) / (n + 5)`
 

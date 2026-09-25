@@ -19,8 +19,8 @@ from __future__ import annotations
 
 from typing import Any, Optional, Sequence
 
-from ..common.const import (EMA_ALPHA, RECENT_ERROR_ALPHA, RECENT_ERROR_N,
-                            SHRINK_M, SHRINK_R0)
+from ..common.const import (EMA_ALPHA, POLICY_PRIOR, RECENT_ERROR_ALPHA,
+                            RECENT_ERROR_N, SHRINK_M, SHRINK_R0)
 
 POLICIES = ("rule_based", "lstm_forecast", "dqn")
 
@@ -50,28 +50,39 @@ def push_error(errors: Sequence[float], error: float) -> list[float]:
     return [*errors, float(error)][-RECENT_ERROR_N:]
 
 
-def recent_error(errors: Sequence[float]) -> Optional[float]:
+def recent_error(errors: Sequence[float], policy: Optional[str] = None) -> Optional[float]:
     """최근 N회 `error` 의 EMA. ②의 `propose_allocation(recent_error=...)` 공급선(V4).
 
-    표본이 없으면 `null` 을 돌려준다 — ②가 보수적 기본값 0.5 를 쓰고 그 사실을
-    `rationale` 에 적는다. 첫 5스텝은 `lstm_forecast` 가 어차피
-    `history_insufficient` 로 빠지므로 별도 처리가 필요 없다.
+    표본이 없으면 정책 사전값에서 유도한다 — `1 − POLICY_PRIOR[policy]` (workplan B-3).
+    이전에는 `null` 을 돌려주고 ②가 보수적 기본값 0.5 를 쓰게 했는데, 그 유예 가정에
+    구멍이 있었다. `errors` 는 **정책별**로 쌓이므로 한 번도 선택되지 않은 정책은
+    영영 비고, 비면 ②의 `exp(−3×0.5)=0.2231` 이 τ(0.45) 아래라 또 선택되지 않는다.
+    `lstm_forecast` 가 30스텝 내내 n=0 으로 남은 원인이 이것이다.
+
+    ⚠️ 여기서 나온 값은 **사전값이지 실측이 아니다.** 같은 행의 `n` 으로 구분한다
+       (n=0 이면 사전값). `policy` 를 주지 않으면 종전대로 `None` 을 돌려준다 —
+       ⑤ 밖에서 EMA 만 쓰는 호출부(검증 스크립트)의 계약을 바꾸지 않기 위해서다.
     """
     if not errors:
-        return None
+        prior = POLICY_PRIOR.get(policy) if policy is not None else None
+        return None if prior is None else 1.0 - float(prior)
     ema = float(errors[0])
     for value in errors[1:]:
         ema = (1 - RECENT_ERROR_ALPHA) * ema + RECENT_ERROR_ALPHA * float(value)
     return ema
 
 
-def view(entry: dict[str, Any]) -> dict[str, Any]:
-    """저장 형식 → `get_reliability_table()` 이 내보내는 형식."""
+def view(policy: str, entry: dict[str, Any]) -> dict[str, Any]:
+    """저장 형식 → `get_reliability_table()` 이 내보내는 형식.
+
+    `policy` 는 `recent_error` 의 사전값 유도에 쓴다 (B-3). 정책명을 모르면
+    어느 사전값을 쓸지 정할 수 없으므로 인자로 받는다.
+    """
     r, n = float(entry["r"]), int(entry["n"])
     return {
         "reliability": round(r, 4),
         "n": n,
         "effective": round(effective(r, n), 4),
-        "recent_error": (None if (value := recent_error(entry.get("errors", []))) is None
+        "recent_error": (None if (value := recent_error(entry.get("errors", []), policy)) is None
                          else round(value, 4)),
     }

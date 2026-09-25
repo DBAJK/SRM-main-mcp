@@ -49,6 +49,15 @@ SHRINK_M = 5
 RECENT_ERROR_N = 5
 RECENT_ERROR_ALPHA = 2 / (RECENT_ERROR_N + 1)
 
+# 정책별 사전 신뢰도. `errors` 가 빈 동안 ⑤가 `recent_error = 1 − prior` 로 유도한다
+# (workplan B-3). 유예 가정에 구멍이 있었다 — `errors` 는 정책별로 쌓이는데 lstm 은
+# 한 번도 선택되지 않으면 영영 비고, 비면 ②가 보수적 기본값 0.5 를 써서
+# exp(−3×0.5)=0.2231 < τ 가 되어 또 선택되지 않는다. 닫힌 고리라 스스로 못 빠져나온다.
+# lstm 0.8 → ē=0.2 → exp(−0.6)=0.549 > τ(0.45) 로 한 번은 시험대에 오른다.
+# ⚠️ 사전값이지 실측이 아니다. n=0 인 동안의 `recent_error` 는 성적이 아니다
+#    (`get_reliability_table` 의 같은 행 `n` 으로 구분한다).
+POLICY_PRIOR = {"rule_based": 0.9, "lstm_forecast": 0.8, "dqn": 0.4}
+
 # ── ③ 마켓 ─────────────────────────────────────────────────────
 RATING_DELTA = (+0.05, -0.20)                                  # (sla_met, 위반)
 REFERENCE_BANDWIDTH = {"eMBB": 1100.0, "URLLC": 500.0, "mMTC": 120.0}
