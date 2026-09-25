@@ -133,14 +133,19 @@ def main() -> int:
     check("두 값이 다르다", none_conf != conf_03, True)
     check("분포 밖이면 0", lstm.confidence(0.1, False), 0.0)
 
-    print("\n6. rule_based confidence 범위 [0.50, 0.80] — 하한이 τ(0.45) 위")
+    # 하한 0.50 은 intrinsic 단독의 하한이다. 개입 판정은 combined = √(intrinsic ×
+    # empirical) 로 내려지므로 이 값이 τ 를 보장하지 않는다 (workplan B-4).
+    print("\n6. rule_based confidence 범위 [0.50, 0.80] — intrinsic 단독의 하한")
     tight = {"utilization": {"embb": 0.9, "urllc": 1.2, "mmtc": 0.8}}       # 여유 0
     loose = {"utilization": {"embb": 1.8, "urllc": 2.4, "mmtc": 1.6}}       # 여유 임계의 100%
     mid = {"utilization": {"embb": 0.1, "urllc": 0.1, "mmtc": 0.1}}         # 최소 여유 87.5%
     check("임계에 딱 붙으면 0.50", round(rule.confidence(tight), 4), 0.50)
     check("여유가 임계 이상이면 상한 0.80", round(rule.confidence(loose), 4), 0.80)
     check("여유 87.5% → 0.7625", round(rule.confidence(mid), 4), 0.7625)
-    check("하한 > τ(0.45)", rule.confidence(tight) > 0.45, True)
+    check("intrinsic 하한 > τ(0.45)", rule.confidence(tight) > 0.45, True)
+    # 그러나 empirical 이 0.405 아래면 combined 는 τ 밑이다 — 실측된 구간이다.
+    check("combined 는 하한이 보장되지 않는다",
+          (rule.confidence(tight) * 0.24) ** 0.5 < 0.45, True)
 
     print("\n7. list_policies")
     for info in s.list_policies():
