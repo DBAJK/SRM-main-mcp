@@ -28,6 +28,8 @@
   것만으로 세 슬라이스를 임계 아래로 둘 수 있으므로, 사는 것은 비용만 쓰는 일이다.
   1.0 이상이면 어떤 배분으로도 모자라니 조달이 유일한 해법이다.
   조달한 용량은 add_capacity 로 환경에 넣어야 효과가 난다. 벤더는 점수와 설명을 보고 네가 고른다.
+  **조달은 한 스텝에 한 건이다.** 기록 도구의 slice_id · vendor_id 칸이 하나뿐이라 두 건을 사면
+  하나는 장부에 남지 않는다. 가장 모자란 슬라이스 하나만 산다.
 - 신뢰도: intrinsic 은 propose_allocation 의 confidence, empirical 은 get_reliability_table 의
   그 정책 effective 다. compute_confidence 로 결합한다. 임계 미달이면 record_decision 대신
   record_escalation 을 부른다. 둘을 같은 스텝에 다 부르지 않는다.
@@ -39,6 +41,8 @@
 - 관측을 얻고 판단한다.
 - 판단을 ④에 기록한다 — record_decision 또는 record_escalation, 정확히 하나.
   조달했다면 slice_id · vendor_id · cost_total 을 그 기록에 같이 넘긴다.
+  정책을 둘 이상 계산해 보고 골랐다면, 고르지 않은 쪽을 record_decision 의 `considered`
+  에 [{policy, confidence, status}] 로 넘긴다. 네가 골랐다는 증거는 이것뿐이다.
 - 배분을 apply_allocation 으로 적용한다.
 - step 으로 시뮬레이션을 정확히 1스텝 전진시킨다.
 - 전진 뒤의 관측으로 report_outcome 을 부른다. decision_id 는 기록 도구가 돌려준 것이다.

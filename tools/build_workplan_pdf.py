@@ -133,7 +133,7 @@ def timeline_svg():
     W, H = 700, 200
     o = [f'<svg viewBox="0 0 {W} {H}" width="100%" role="img" aria-label="순서">', _defs()]
     phases = [
-        ("지금 바로", "B-3 A-1 A-2\nC-1 C-2 C-3\nC-4 C-6", S3),
+        ("지금 바로", "B-3 A-1 A-2 A-3\nC-1 C-2 C-3\nC-4 C-6 C-9", S3),
         ("팀 회의", "D1 위반 보정\nD3 조달 시점", WARNING),
         ("수정", "B-1 B-2\nC-5", S1),
         ("M-1 재측정", "AUC 다시 계산\n→ D2 확정", S2),
@@ -243,6 +243,7 @@ def digest():
       <ul>
         <li><b>A-1</b> <code>audit/book.py:234</code> <code>agent_policy</code> 필드</li>
         <li><b>A-2</b> <code>audit/book.py</code> confidence 타입 검사</li>
+        <li><b>A-3</b> <code>observe/</code> Observation 에 <code>features</code> 블록 — classify_demand 가 매 스텝 죽는다</li>
       </ul></div>
     <div class="own"><div class="oh" style="background:{S3}">C · lee · 에이전트</div>
       <ul>
@@ -254,6 +255,7 @@ def digest():
         <li><b>C-6</b> <code>vendors.json</code> 추적 해제</li>
         <li><b>C-7</b> 개입 공식 <span class="dep">← D2 · M-1</span></li>
         <li><b>C-8</b> 선제 조달 프롬프트 <span class="dep">← D3 · B-1</span></li>
+        <li><b>C-9</b> <code>run_matrix</code> orch·llm 칸 시드당 반복 — 같은 시드에서 실행마다 다르다</li>
       </ul></div>
   </div>
   <h3>순서</h3>

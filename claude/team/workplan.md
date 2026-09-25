@@ -167,6 +167,19 @@
 → 네 키의 값이 `float` 로 변환되는지 확인한다. 아니면 `malformed_confidence` 로 거부.
 → 근거: `todo-after-orchestrator.md` 8번 (haiku 가 문자열을 넣은 실측).
 
+**A-3 · `srm_mcp/observe/` `Observation` 에 `features` 블록** — 의존: 없음 · **신규 2026-09-25**
+→ `classify_demand` 가 **매 스텝** `feature_mismatch` 로 죽는다 — `Observation` 만으로는 11차원
+  (`traffic_load` · `time_of_day` · `*_alloc` · `*_util` · `client_count` · `bs_count`)을 못 만든다.
+  ①이 `observation["features"]` 를 실어 주면 ②의 `features.py:59` 가 그대로 읽는다.
+  형태는 `handover.md` §(2) 의 JSON 그대로.
+→ 왜 지금: 오케스트레이터 12스텝(`orchcheck2-special_event-s0`)에서 LLM 이 실패한
+  `classify_demand` 를 **11개 피처를 스스로 조립해서** 다시 불렀고(eMBB 99.9%), 그 결과로
+  상황을 special_event 로 잡았다. 피처 정의를 하나라도 틀리면 분류가 엉터리인데 지금은 확인할
+  길이 없다. 같은 시드의 직전 실행은 재시도를 안 해 normal 12/12 였다 — **DQN 입력을 LLM 이
+  만드느냐 ①이 만드느냐가 상황 판단을 가른다.** 판단의 입력은 서버가 낸 값이어야 한다.
+→ 검증: 오케스트레이터 12스텝에서 `classify_demand` 첫 호출이 `available: true`, 그리고
+  `calls.jsonl` 의 `classify_demand` 인자에 LLM 이 만든 평탄 키(`embb_alloc` …)가 없다.
+
 ### C (lee · 에이전트 · eval · tools)
 
 **C-1 · `run.py` · `agent/loop.py` · `agent/orchestrator/{host,gateway}.py`** — 의존: 없음 · **완료 2026-09-24**
@@ -257,6 +270,21 @@
   보이면 선제 조달할 수 있다"* 를 넣는다. 고정 루프는 건드리지 않는다.
 → 검증: 압력 상승 구간에서 조달 스텝이 1.0 도달 전에 나타난다.
 
+**C-9 · `tools/run_matrix.py` 오케스트레이터 칸 반복** — 의존: C-5 · **신규 2026-09-25**
+→ `proposed_orch` 는 **같은 시드에서 실행마다 결과가 다르다.** special_event s0 12스텝 두 번:
+  상황 판단 normal 12 → special_event 9, 개입 3 → 7, SLA 위반 9 → 11. 프롬프트 차이는 조달·
+  `considered` 두 줄뿐이고, 갈린 지점은 1번째 스텝의 `classify_demand` 재시도 여부(A-3)였다.
+  한 번 정한 상황은 "직전 5스텝 요약"을 타고 이어져 1스텝의 우연이 에피소드를 정한다.
+→ 규칙 판단자 칸은 같은 시드 2회가 완전히 일치한다(2026-09-23 검증). LLM 칸만 반복이 필요.
+  `run_matrix` 에 `--repeats N`(orch·llm 변형에만 적용, run_id 에 `-rK` 접미)을 넣고 칸별 행에
+  평균·표준편차를 같이 낸다. N 은 사용량을 보고 정한다 — orch 1칸 ≈ $8, 15칸 × 3회 ≈ $360.
+→ 검증: `summary.json` 의 orch 행에 `n_repeats ≥ 2` 와 `sla_violation_sd` 가 있다.
+
+**C-α · `agent/orchestrator/prompt.md` 두 줄** — **완료 2026-09-25**
+→ 조달은 한 스텝에 한 건(기록의 `slice_id` 칸이 하나) · 정책을 둘 이상 봤으면 `considered` 에
+  넘긴다. 실측: 1스텝 조달 2건 → 0, 정책 비교 후 `considered` 누락 → 0. 개입 기록엔 명세상
+  `considered` 칸이 없어 안 넘기는 게 맞다.
+
 ---
 
 ## 4. 순서
@@ -264,8 +292,9 @@
 ```
 ┌ 지금 바로 (결정 무관, 병렬) ─────────────────────────────────────┐
 │  B-3 lstm 부트스트랩      B-4 독스트링                            │
-│  A-1 agent_policy         A-2 confidence 타입                     │
+│  A-1 agent_policy         A-2 confidence 타입   A-3 features 블록  │
 │  C-1 intent 기록  C-2 채점 분리  C-3 심판 규칙  C-4 arms  C-6 git  │
+│  C-9 orch 반복                                                    │
 └──────────────────────────────────────────────────────────────────┘
                               ↓
 ┌ 팀 회의 ─────────────────────────────────────────────────────────┐
@@ -284,6 +313,7 @@
 ┌ M-2 본실험 ──────────────────────────────────────────────────────┐
 │  run_matrix: 비교군 4 × 시나리오 5 × 시드 3 × 드라이버 2            │
 │  의도 3조건(없음 · 사실 · 오라클)은 proposed 에만                   │
+│  orch·llm 칸은 시드당 반복 N회 (C-9) — 규칙 칸은 결정적이라 1회      │
 └──────────────────────────────────────────────────────────────────┘
 ```
 
@@ -369,6 +399,8 @@ SLA 가 arm2 보다 7.3%p 나빠졌다. 특히 special_event(개입 89%) — 실
 | B-2 | 개입 19회 실행 후 `rule_based.n == 30 − 19` |
 | B-3 | 30스텝 후 `lstm_forecast.n > 0` |
 | A-1 | 개입 레코드에 `agent_policy` 존재, 루프 집계와 일치 |
+| A-3 | 오케스트레이터 12스텝에서 `classify_demand` 첫 호출이 `available: true` |
+| C-9 | `summary.json` orch 행에 `n_repeats ≥ 2` · `sla_violation_sd` |
 | C-2 | 채점 결과에 `structural` 과 `excluded_by_referee` 키 |
 | C-4 | `arms/baseline.py` 만 `truth.jsonl` 을 연다 (`grep -l truth agent/` 가 그 파일 하나) |
 | M-1 | `combined` AUC 가 두 시나리오에서 기록됨. 값이 무엇이든 |
