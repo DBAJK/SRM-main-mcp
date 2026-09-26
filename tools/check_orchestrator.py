@@ -207,6 +207,28 @@ def main() -> int:
         check("판정 없이 기록 → no_confidence_check (warn)",
               codes(v) == [("no_confidence_check", "warn")], codes(v))
 
+        # C-19 — 정책을 둘 계산하고 하나로 기록한다. 판정은 기록에 실린 값과 같은 것으로 맞춘다.
+        # 값은 orchcheck4 13번째 스텝 그대로 (lstm 통과 0.4734 · rule_based 미달 0.4236).
+        cc = lambda i, e: {"tool": "compute_confidence", "ok": True,               # noqa: E731
+                           "escalate": (i * e) ** 0.5 < 0.45, "combined": round((i * e) ** 0.5, 4),
+                           "args": {"intrinsic": i, "empirical": e}}
+        rec = lambda tool, i, e: {"tool": tool, "ok": True, "args": {"confidence": {  # noqa: E731
+            "situation": 0.7, "intrinsic": i, "empirical": e, "combined": round((i * e) ** 0.5, 4)}}}
+        head = [{"tool": "get_observation", "ok": True}]
+        LSTM, RULE = (0.6076, 0.3688), (0.5154, 0.3482)
+        v = judge(20, head + [cc(*LSTM), cc(*RULE), rec("record_decision", *LSTM)] + tail)
+        check("통과 → 미달 순으로 계산, 통과 정책으로 자율 기록 → 위반 0 (C-19 오탐 해소)",
+              codes(v) == [], codes(v))
+        v = judge(21, head + [cc(*LSTM), cc(*RULE), rec("record_decision", *RULE)] + tail)
+        check("미달 정책의 값으로 자율 기록 → ignored_escalation",
+              codes(v) == [("ignored_escalation", "warn")], codes(v))
+        v = judge(22, head + [cc(*RULE), cc(*LSTM), rec("record_escalation", *RULE)] + tail)
+        check("미달 → 통과 순으로 계산, 미달 정책으로 개입 기록 → 위반 0",
+              codes(v) == [], codes(v))
+        v = judge(23, head + [cc(*LSTM), rec("record_decision", 0.9, 0.9)] + tail)
+        check("기록 값이 어느 판정과도 다름 → confidence_unmatched (warn)",
+              codes(v) == [("confidence_unmatched", "warn")], codes(v))
+
         print("\n5. 스텝 되풀이 · 토큰 충돌 재시도")
         # 같은 환경 스텝을 다시 시도하면 앞선 시도의 호출이 섞이지 않아야 한다
         gw.begin_step(20, 100)

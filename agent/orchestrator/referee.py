@@ -18,7 +18,12 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
+
+
+# 기록 도구에 실린 confidence 와 compute_confidence 판정을 맞출 때의 허용 오차. LLM 이 결과를
+# 옮겨 적으며 넷째 자리에서 반올림하는 정도는 같은 판정으로 본다.
+CONF_MATCH_TOL = 5e-4
 
 
 @dataclass
@@ -64,6 +69,39 @@ class Verdict:
             "violations": self.violations,
             "order": self.tools_in_order,
         }
+
+
+def _as_float(value: Any) -> Optional[float]:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _check_for_record(checks: list[dict], record: dict) -> tuple[dict, bool]:
+    """기록에 실린 confidence 와 **값이 같은** 판정을 고른다. 돌려주는 것은 (판정, 맞췄나).
+
+    LLM 은 정책을 둘 이상 계산해 비교한 뒤 하나로 기록한다. 기록 직전의 마지막 판정이 고른
+    정책의 판정이라는 보장은 없다 — 미달 정책을 나중에 계산하고 통과 정책으로 기록하면, 마지막
+    판정만 보는 규칙은 "개입 판정 무시"로 잘못 센다(2026-09-26 `orchcheck4` 13 · 17번째,
+    workplan-2 C-19). compute_confidence 는 정책명을 받지 않으므로 intrinsic · empirical 값으로 맞춘다.
+
+    기록에 confidence 가 없으면(검사용 합성 호출) 마지막 판정을 쓰고 맞춘 것으로 본다. 실제 기록은
+    ④가 confidence 없이 받지 않는다(missing_confidence).
+    """
+    conf = (record.get("args") or {}).get("confidence")
+    if not isinstance(conf, dict):
+        return checks[-1], True
+    want_i, want_e = _as_float(conf.get("intrinsic")), _as_float(conf.get("empirical"))
+    if want_i is not None and want_e is not None:
+        for c in reversed(checks):
+            args = c.get("args") or {}
+            got_i, got_e = _as_float(args.get("intrinsic")), _as_float(args.get("empirical"))
+            if (got_i is not None and got_e is not None
+                    and abs(got_i - want_i) <= CONF_MATCH_TOL
+                    and abs(got_e - want_e) <= CONF_MATCH_TOL):
+                return c, True
+    return checks[-1], False
 
 
 def judge(step: int, calls: list[dict], budget_hit: bool = False,
@@ -150,10 +188,14 @@ def judge(step: int, calls: list[dict], budget_hit: bool = False,
             flag("procure_after_record", "warn",
                  "조달이 기록 뒤다 — 레코드에 vendor_id 가 없어 ⑤→③ 되먹임이 끊긴다")
 
-    # ── 개입 판정 준수 (workplan C-3) ────────────────────────────────
-    # 프롬프트: "compute_confidence 의 escalate 가 true 면 부른다". 기록 직전의 마지막
+    # ── 개입 판정 준수 (workplan C-3 · C-19) ─────────────────────────
+    # 프롬프트: "compute_confidence 의 escalate 가 true 면 부른다". **기록에 실린 정책의**
     # 판정과 실제로 부른 기록 도구를 대조한다. 논문의 핵심 지표(개입 횟수)가 LLM 의
     # 이 선택으로 정해지므로, 어긋난 스텝을 반드시 센다.
+    #
+    # 어느 판정이 그 정책의 것인지는 기록 도구의 confidence 값으로 맞춘다(_check_for_record).
+    # 처음에는 기록 직전의 마지막 판정을 썼는데, 정책을 둘 이상 계산하면 미달 정책의 판정이
+    # 마지막에 올 수 있어 오탐이 났다(C-19).
     #
     # severity 를 error 가 아니라 warn 으로 둔다. error 는 "채점이 불가능하거나 왜곡된
     # 스텝"이고 eval/breakdown.py 가 채점에서 뺀다. 이 경우는 기록·적용·보고가 멀쩡한
@@ -166,14 +208,19 @@ def judge(step: int, calls: list[dict], budget_hit: bool = False,
             flag("no_confidence_check", "warn",
                  f"compute_confidence 없이 {rec_tool} 을 불렀다 — 개입 여부를 공식 없이 정했다")
         else:
-            said = bool(checks[-1].get("escalate"))
+            check, matched = _check_for_record(checks, ok_calls[i_rec])
+            if not matched:
+                flag("confidence_unmatched", "warn",
+                     f"{rec_tool} 의 confidence 가 어느 compute_confidence 판정과도 값이 다르다 — "
+                     "기록된 신뢰도를 공식으로 확인할 수 없어 마지막 판정으로 대신 본다")
+            said = bool(check.get("escalate"))
             if said and rec_tool == "record_decision":
                 flag("ignored_escalation", "warn",
-                     f"compute_confidence 가 escalate=true (combined {checks[-1].get('combined')})"
+                     f"기록한 정책의 compute_confidence 가 escalate=true (combined {check.get('combined')})"
                      " 였는데 record_decision 을 불렀다 — 사람을 불러야 할 스텝을 자율 처리했다")
             elif not said and rec_tool == "record_escalation":
                 flag("escalation_without_trigger", "warn",
-                     f"compute_confidence 가 escalate=false (combined {checks[-1].get('combined')})"
+                     f"기록한 정책의 compute_confidence 가 escalate=false (combined {check.get('combined')})"
                      " 였는데 record_escalation 을 불렀다 — 개입 횟수가 공식보다 많게 센다")
 
     # ── 상한 ─────────────────────────────────────────────────────────
