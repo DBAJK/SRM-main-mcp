@@ -148,6 +148,14 @@ py -3.10 run.py --scenario mixed --seed 1
 
 실행은 `.venv310\Scripts\python.exe` 로 한다. 웹 UI는 `web\serve.py`, 본실험 배치는 `tools\run_matrix.py`.
 
+**새로 받은 폴더에서 검사부터 돌릴 때** — `data/vendors.json` 은 git 에 없다(C-6). `run.py` 는 없으면
+만들지만 `tools/check_market.py` 는 멈춘다. `tools/bootstrap_vendors.py` 를 먼저 돌린다.
+
+**B-2(2026-09-25) 이전에 warm 으로 돌린 적이 있으면** `data/reliability.json` 을 `data/reliability.pre-B2.json`
+으로 옮긴다(`.gitignore` 가 막는다). 그 파일에는 개입 스텝 성적이 정책에 잘못 붙어 있어, 이어 쓰면 처음부터
+개입으로 흐른다. 옮기면 ⑤가 다음 실행에서 초기값으로 새로 만든다. `run.py` 기본이 `--memory-mode warm`
+이므로, 실험은 `--fresh --memory-mode cold` 로 격리한다(웹 UI 기본은 cold).
+
 ---
 
 ## ⚠️ `backends/mock.py`는 가짜다
@@ -165,11 +173,16 @@ py -3.10 run.py --scenario mixed --seed 1
 
 **따라서 목으로 나온 숫자는 논문에 쓸 수 없다.** 다만 21개 도구의 시그니처와 반환 형태가 명세대로 박혀 있으므로, **A·B가 이걸 계약서로 쓸 수 있다.** 실제 서버가 나오면 `backends/mcp.py`만 추가하면 되고 나머지는 바뀌지 않는다.
 
+**계약이 바뀌는 식은 서버 모듈을 그대로 부른다** (2026-09-26) — ② rule_based(위반 보정 B-1 포함) ·
+⑤ 신뢰도(개입 귀속 분리 B-2 · 사전값 B-3) · ④ confidence 검사(A-2) · ④ 폴백 상수. 전부 표준 라이브러리만
+쓰는 순수 함수라 서버를 띄우지 않는다. 베껴 두었을 때는 B-1~B-3 이 들어온 뒤 목만 옛 계약으로 남았다.
+시뮬레이션(용량 1.0 · sin 트래픽)은 여전히 가짜다 — **목은 배선 검증용이고 수치 비교에 쓰지 않는다.**
+
 ---
 
 ## 남은 작업
 
-**정본은 `claude/team/workplan.md`** 다. 여기는 에이전트 쪽 현황만 적는다 (2026-09-24).
+**정본은 `claude/team/workplan-2.md`** 다(1차는 `workplan.md`). 여기는 에이전트 쪽 현황만 적는다 (2026-09-26).
 
 | | 상태 |
 |---|---|
@@ -178,8 +191,11 @@ py -3.10 run.py --scenario mixed --seed 1
 | `arms/` 4종 | 완료 — baseline 만 truth.jsonl 을 연다 |
 | `backends/mcp.py` | 완료 |
 | 실행 조건을 장부에 | 완료 — `config` (scenario·seed·arm·intent …) |
-| 개입 공식(C-7) · 선제 조달(C-8) | **팀 결정 D2 · D3 대기** |
-| `chosen_policy` 중계 | **A-1 대기** — ④가 받기 전에 보내면 FastMCP 가 거부한다 |
+| 개입 공식(C-7) · 선제 조달(C-8) | **팀 결정 D2 · D5 · D3 대기** |
+| `chosen_policy` 중계 | 완료 (C-11) — 고정 루프는 `loop.py` 가, 오케스트레이터는 프롬프트로 LLM 이 넘긴다 |
+| `recent_error` 중계 | 고정 루프는 `StepContext` 가 · 오케스트레이터는 프롬프트로 (C-12) |
+| 목을 실서버 계약에 | 완료 (C-14) — B-1 · B-2 · B-3 · A-1 · A-2 |
+| 보정 위치 · 개입 복귀 경로 | **팀 결정 D1-b · D5 대기** — 결정되면 C-16 · C-17 |
 
 ### 유효성 검사가 없다
 
