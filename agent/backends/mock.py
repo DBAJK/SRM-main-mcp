@@ -7,11 +7,25 @@ A·B가 실제 서버를 내놓기 전까지 루프를 돌리기 위한 임시�
 실제 서버가 나오면 backends/mcp.py 로 갈아끼운다. 루프 코드는 바뀌지 않는다.
 
 주의: 여기서 나가는 값에 FORBIDDEN 키가 없어야 한다. Guard 가 잡는다.
+
+**계약이 바뀌는 식은 베끼지 않고 서버 모듈을 그대로 쓴다** (workplan-2 C-14). ② rule_based ·
+⑤ 신뢰도 · ④ confidence 검사가 그렇다 — 셋 다 순수 함수라 서버를 띄우지 않고 부를 수 있다.
+베껴 두었다가 B-1 · B-2 · B-3 · A-2 가 들어온 뒤 목만 옛 계약으로 남았던 것이 이유다.
+시뮬레이션 수치(용량 · 트래픽)는 여전히 실제와 다르다 — 목은 배선 검증용이고 수치 비교에 쓰지 않는다.
 """
 
 import math
 import random
 from typing import Any
+
+from srm_mcp.audit.book import bad_confidence        # ④ A-2 — 키 누락 · 숫자 아님 거부
+from srm_mcp.common.const import INIT_ALLOCATION     # ④ 폴백 배분 (book.py 와 같은 상수)
+from srm_mcp.feedback import reliability as rel      # ⑤ EMA · 축소 · recent_error 사전값(B-3)
+from srm_mcp.policy import rule                      # ② rule_based — 위반 보정(B-1) 포함
+
+# ⑤가 개입 스텝의 성적을 담는 자리 (B-2). feedback/server.py 의 FALLBACK_BUCKET 과 같은 이름.
+# 정책이 아니므로 get_reliability_table 에는 안 나간다.
+FALLBACK_BUCKET = "fallback"
 
 SLICES = ("embb", "urllc", "mmtc")
 THRESHOLDS = {"embb": 0.9, "urllc": 1.2, "mmtc": 0.8}
@@ -62,11 +76,10 @@ class MockBackend:
         self.escalations = 0
         self.procurements = 0
         self.cost_total = 0.0
-        self.reliability = {
-            "rule_based": {"r": 0.9, "n": 0, "err": 0.1},
-            "lstm_forecast": {"r": 0.8, "n": 0, "err": 0.15},
-            "dqn": {"r": 0.4, "n": 0, "err": 0.4},
-        }
+        # ⑤ initial_entry 그대로 — r₀ 0.5 · n 0 · errors []. n=0 의 recent_error 는
+        # view() 가 1 − POLICY_PRIOR 로 유도한다 (B-3). 예전 값(r 0.9/0.8/0.4 · err 0.1/0.15/0.4)은
+        # 실서버와 달라서, 목으로 잡은 회귀가 실서버에서 재현되지 않았다.
+        self.reliability = rel.initial_table()
         self._traffic = self._gen_traffic()
 
     # ── 라우팅 ────────────────────────────────────────────────────────
@@ -228,22 +241,17 @@ class MockBackend:
                 "rationale": f"최근 예측 오차 {err:.3f} 기준 시계열 추정.",
             }
 
-        target = {
-            "emergency": {"embb": 0.2, "urllc": 0.7, "mmtc": 0.1},
-            "special_event": {"embb": 0.6, "urllc": 0.3, "mmtc": 0.1},
-            "iot_surge": {"embb": 0.3, "urllc": 0.3, "mmtc": 0.4},
-            "normal": {"embb": 0.4, "urllc": 0.4, "mmtc": 0.2},
-        }[situation]
-        util, thr = observation["utilization"], observation["thresholds"]
-        slack = min(abs(util[k] - thr[k]) / thr[k] for k in SLICES)
+        # ② rule_based 를 그대로 부른다 — 목표표 · 위반 보정(SLICE_RULE_CORRECTION) · 확신 ·
+        # 근거 문장까지 실서버와 같다. 반올림은 ②의 _tidy 와 같게 (배분 6자리 · 신뢰도 4자리).
+        allocation = rule.propose(observation, situation)
         return {
             "policy": policy,
-            "allocation": target,
-            "confidence": round(0.50 + 0.30 * min(1.0, slack), 3),
+            "allocation": {k: round(float(v), 6) for k, v in allocation.items()},
+            "confidence": round(float(rule.confidence(observation)), 4),
             "in_distribution": True,
             "status": "ok",
             "reason": None,
-            "rationale": f"situation={situation} → 목표 {list(target.values())}.",
+            "rationale": rule.rationale(observation, situation, allocation),
         }
 
     def _compare_policies(self, observation, situation, history=None,
@@ -335,24 +343,35 @@ class MockBackend:
 
     # ── ④ audit ──────────────────────────────────────────────────────
     def _record_decision(self, **kw) -> dict:
+        # ④와 같은 검사 — confidence 네 키가 있고 숫자여야 한다 (A-2). 값으로 돌려준다.
+        bad = bad_confidence(kw.get("confidence"))
+        if bad:
+            return bad
         did = f"{self.run_id}-{kw['step']:04d}"
         self.decisions[did] = {**kw, "kind": "decision"}
         return {"decision_id": did, "recorded_at_step": kw["step"]}
 
     def _record_escalation(self, step, observation, situation, reason, confidence,
                            slice_id=None, vendor_id=None, cost_total=None,
-                           config=None, **_) -> dict:
-        # 실제 ④(audit/server.py:76) 와 같은 인자를 받는다. 고정 시그니처였을 때는
+                           chosen_policy=None, config=None, **_) -> dict:
+        # 실제 ④(audit/server.py:78) 와 같은 인자를 받는다. 고정 시그니처였을 때는
         # 조달 3필드나 config 가 넘어오면 TypeError 로 죽었다.
+        bad = bad_confidence(confidence)
+        if bad:
+            return bad
         self.escalations += 1
         did = f"{self.run_id}-{step:04d}"
-        fb = self._propose_allocation("rule_based", observation, "normal")
+        # 폴백은 ④처럼 INIT_ALLOCATION 상수다 (book.py). rule_based 제안을 쓰면 B-1 이후
+        # 위반 보정이 섞여 실서버와 달라진다.
+        fallback = dict(INIT_ALLOCATION)
         self.decisions[did] = {
             "step": step, "kind": "decision", "chosen_policy": "rule_based",
+            # 에이전트가 고르려던 정책 (A-1). 실행된 것은 폴백이라 chosen_policy 와 따로 둔다.
+            "agent_policy": chosen_policy,
             # 에이전트의 판단을 보존한다 (audit/book.py:185). 폴백 라벨로 덮으면
             # 상황 인지 측정의 입력이 사라진다 — 실제 ④가 그렇게 한다.
             "situation": situation, "fallback_situation": "normal",
-            "allocation": fb["allocation"], "escalated": True,
+            "allocation": fallback, "escalated": True,
             "slice_id": slice_id, "vendor_id": vendor_id, "cost_total": cost_total,
         }
         return {
@@ -360,7 +379,7 @@ class MockBackend:
             "decision_id": did,
             "fallback_policy": "rule_based",
             "fallback_situation": "normal",
-            "fallback_allocation": fb["allocation"],
+            "fallback_allocation": dict(fallback),
             "instruction": "사람 호출을 기록했다. 대기하지 말고 fallback_allocation 을 "
                            "apply_allocation 에 넣어 진행한 뒤 report_outcome 을 호출하라.",
         }
@@ -409,14 +428,24 @@ class MockBackend:
         applied = observed["allocation"]
         error = sum(abs(applied[k] - ideal[k]) for k in SLICES) / 2
 
+        # B-2 — 개입 레코드는 정책 성적을 갱신하지 않는다. 적용된 것은 폴백 상수이지 정책의
+        # 제안이 아니기 때문이다. 채점은 그대로 하고 성적은 fallback 칸에 (feedback/server.py 와 같다).
+        escalated = bool(rec.get("escalated"))
         st = self.reliability[policy]
-        before = st["r"]
-        st["r"] = 0.8 * st["r"] + 0.2 * (1.0 if sla else 0.0)
-        st["n"] += 1
-        st["err"] = 0.8 * st["err"] + 0.2 * error
+        before = float(st["r"])
+        if escalated:
+            after = before
+            fb = self.reliability.setdefault(FALLBACK_BUCKET, rel.initial_entry())
+            fb["r"], fb["n"] = rel.update(float(fb["r"]), int(fb["n"]), sla)
+            fb["errors"] = rel.push_error(fb.get("errors", []), error)
+        else:
+            after, n = rel.update(before, int(st["n"]), sla)
+            st["r"], st["n"] = after, n
+            st["errors"] = rel.push_error(st.get("errors", []), error)
 
         rec["outcome"] = {"sla_met": sla, "error": round(error, 3),
-                          "scored_at_step": observed["step"]}
+                          "scored_at_step": observed["step"],
+                          "counted_in_reliability": not escalated}
         return {
             "sla_met": sla,
             "policy": policy,
@@ -427,21 +456,16 @@ class MockBackend:
             "actuator_delta": 0.0,
             "observed_violations": dict(observed["violations"]),
             "vendor_id": rec.get("vendor_id"),
-            "reliability_before": round(before, 3),
-            "reliability_after": round(st["r"], 3),
+            "reliability_before": round(before, 4),
+            "reliability_after": round(after, 4),
+            "counted_in_reliability": not escalated,
         }
 
     def _get_reliability_table(self) -> dict:
-        out = {}
-        for p, st in self.reliability.items():
-            n = st["n"]
-            out[p] = {
-                "reliability": round(st["r"], 3),
-                "n": n,
-                "effective": round((st["r"] * n + 0.5 * 5) / (n + 5), 3),
-                "recent_error": round(st["err"], 3),
-            }
-        return out
+        # ⑤ view() 그대로 — n=0 이면 recent_error 가 정책 사전값에서 나온다 (B-3).
+        # fallback 칸은 정책이 아니므로 내보내지 않는다 (B-2).
+        return {p: rel.view(p, st) for p, st in self.reliability.items()
+                if p in rel.POLICIES}
 
     # ── 내부 ─────────────────────────────────────────────────────────
     def _gen_traffic(self) -> dict:
