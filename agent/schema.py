@@ -57,11 +57,12 @@ class StepContext:
         return int(self.reliability.get(policy, {}).get("n", 0) or 0)
 
     def recent_error(self, policy: str) -> Optional[float]:
-        """None 을 그대로 중계한다.
+        """⑤의 값을 그대로 중계한다. 에이전트가 채우거나 고치지 않는다.
 
-        ⑤는 표본이 없으면(n=0) null 을 낸다. 명세상 기본값 대입은 ②의 몫이고
-        (spec/policy.md:44 — 보수적 기본값 0.5 + rationale 에 명시), 에이전트가
-        미리 채우면 ②가 "이력 없음"을 구분하지 못한다.
+        B-3 이후 ⑤는 표본이 없어도(n=0) null 을 내지 않는다 — `1 − POLICY_PRIOR[policy]` 로
+        유도한 **사전값**을 낸다(spec/feedback.md · const.py). 실측이 아닌 것은 같은 행의 n 으로
+        구분한다. None 은 ⑤가 모르는 정책명일 때만 나오고, 그때는 ②가 보수적 기본값 0.5 를
+        쓴다(spec/policy.md:44~45).
         """
         v = self.reliability.get(policy, {}).get("recent_error")
         return None if v is None else float(v)

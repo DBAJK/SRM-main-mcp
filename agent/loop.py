@@ -122,12 +122,16 @@ def run_step(
     }
 
     if decision.escalate:
+        # 고르려던 정책도 넘긴다 (workplan A-1). 실행되는 것은 폴백이라 ④의 chosen_policy 는
+        # rule_based 로 남고, 이 값은 agent_policy 에 따로 남는다. 안 넘기면 "개입이 없었다면
+        # 무엇을 골랐을까"가 장부에서 사라져 정책 선택을 장부로 입증할 수 없다.
         esc = tools.record_escalation(
             step=step_no,
             observation=obs,
             situation=decision.situation,
             reason=_escalation_reason(decision),
             confidence=decision.confidence(),
+            chosen_policy=decision.policy,
             **relay,
         )
         _require(esc, "record_escalation", step_no)

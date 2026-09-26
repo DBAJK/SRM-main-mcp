@@ -24,6 +24,10 @@
 - lstm_forecast 는 `history` 인자가 있어야 돈다. `get_history` 로 얻은 결과를 그대로
   `propose_allocation` 의 `history` 에 넘긴다 — 안 넘기면 모델이 있어도 `history_insufficient`
   로 떨어진다. 이력이 10스텝 미만이면 그 정책은 이번 스텝에 쓸 수 없다.
+- recent_error 는 네가 ⑤에서 ②로 옮긴다. propose_allocation 에는 get_reliability_table 의 그 정책
+  recent_error 를, compare_policies 에는 recent_errors 에 {정책: recent_error} 를 넘긴다. 안 넘기면
+  ②가 보수적 기본값 0.5 를 써서 그 정책의 confidence 가 실제보다 낮게 나온다. n=0 인 정책의
+  recent_error 는 실측이 아니라 사전값이다 — 성적을 쌓은 정책의 값과 같은 자로 읽지 않는다.
 - 조달: **demand_pressure 가 1.0 이상일 때만 조달한다.** 1.0 미만이면 배분을 다시 나누는
   것만으로 세 슬라이스를 임계 아래로 둘 수 있으므로, 사는 것은 비용만 쓰는 일이다.
   1.0 이상이면 어떤 배분으로도 모자라니 조달이 유일한 해법이다.
@@ -43,6 +47,8 @@
   조달했다면 slice_id · vendor_id · cost_total 을 그 기록에 같이 넘긴다.
   정책을 둘 이상 계산해 보고 골랐다면, 고르지 않은 쪽을 record_decision 의 `considered`
   에 [{policy, confidence, status}] 로 넘긴다. 네가 골랐다는 증거는 이것뿐이다.
+  사람을 부를 때도 고르려던 정책을 record_escalation 의 chosen_policy 로 넘긴다. 실행되는 것은
+  폴백이고, 네가 고른 것은 이 칸에만 남는다.
 - 배분을 apply_allocation 으로 적용한다.
 - step 으로 시뮬레이션을 정확히 1스텝 전진시킨다.
 - 전진 뒤의 관측으로 report_outcome 을 부른다. decision_id 는 기록 도구가 돌려준 것이다.

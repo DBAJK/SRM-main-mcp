@@ -214,10 +214,13 @@ class Tools:
         slice_id: Optional[str] = None,
         vendor_id: Optional[str] = None,
         cost_total: Optional[float] = None,
+        chosen_policy: Optional[str] = None,
         config: Optional[dict] = None,
     ) -> dict:
         # 이 호출 자체가 개입 1회다 (spec/audit.md:53)
         # 조달 3필드는 record_decision 과 같은 중계선이다 (audit/server.py:84)
+        # chosen_policy 는 에이전트가 고르려던 정책이다 (workplan A-1). ④는 실행된 폴백을
+        # chosen_policy 에 그대로 두고 이 값을 agent_policy 로 따로 남긴다.
         return self._call(
             "audit",
             "record_escalation",
@@ -229,6 +232,7 @@ class Tools:
             slice_id=slice_id,
             vendor_id=vendor_id,
             cost_total=cost_total,
+            chosen_policy=chosen_policy,
             config=config,
         )
 
