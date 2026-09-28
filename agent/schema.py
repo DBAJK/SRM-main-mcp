@@ -114,6 +114,10 @@ class Decision:
     # 비교군이 개입 여부를 강제할 때만 채운다. None 이면 공식을 따른다 (proposed).
     escalation: Optional[bool] = None
 
+    # ② rule_based 가 따로 낸 위반 보정량(합 0). ①이 평활 뒤에 더한다 (workplan-2 D1-b).
+    # 다른 정책이거나 보정이 꺼져 있으면 None.
+    correction: Optional[dict] = None
+
     @property
     def combined(self) -> float:
         """√(intrinsic × empirical). spec/feedback.md:93"""

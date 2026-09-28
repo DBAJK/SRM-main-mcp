@@ -226,6 +226,7 @@ def record_escalation(step: int, observation: dict, situation: str, reason: str,
                       cost_total: Optional[float] = None,
                       chosen_policy: Optional[str] = None,
                       agent_allocation: Optional[dict] = None,
+                      agent_correction: Optional[dict] = None,
                       run_id: Optional[str] = None,
                       config: Optional[dict] = None) -> dict:
     """한 호출이 `kind: "escalation"` 과 `kind: "decision"` 레코드를 같은 step 으로 남긴다.
@@ -307,6 +308,9 @@ def record_escalation(step: int, observation: dict, situation: str, reason: str,
         "fallback_mode": fb_mode,
         "agent_allocation": ({k: float(v) for k, v in agent_allocation.items()}
                              if isinstance(agent_allocation, dict) else None),
+        # rule_based 제안의 보정량(D1-b) — ⑤ 가상 채점이 ①과 같이 평활 뒤에 더한다.
+        "agent_correction": ({k: float(v) for k, v in agent_correction.items()}
+                             if isinstance(agent_correction, dict) else None),
         # record_decision 과 같은 자리·같은 이름이다. ⑤와 metrics 가 kind 를 구분하지 않고
         # 이 세 필드만 보므로, 여기 담기면 에스컬레이션한 스텝의 조달도 그대로 집계된다.
         "slice_id": slice_id,

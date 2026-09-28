@@ -20,6 +20,7 @@ from typing import Any
 
 from srm_mcp.audit.book import bad_confidence, clean_confidence, fallback_allocation  # ④ A-2 · A-2b · D4
 from srm_mcp.feedback import reliability as rel      # ⑤ EMA · 축소 · recent_error 사전값(B-3)
+from srm_mcp.common.actuator import actuate          # ① 액추에이터 식 (D1-b · D5 와 공용)
 from srm_mcp.feedback import scoring as fb_scoring   # ⑤ 가상 채점(D5)
 from srm_mcp.policy import rule                      # ② rule_based — 위반 보정(B-1) 포함
 
@@ -131,7 +132,7 @@ class MockBackend:
             "observation": self._get_observation(),
         }
 
-    def _apply_allocation(self, embb: float, urllc: float, mmtc: float) -> dict:
+    def _apply_allocation(self, embb: float, urllc: float, mmtc: float, correction=None) -> dict:
         req = {"embb": embb, "urllc": urllc, "mmtc": mmtc}
         if any(v is None or v < 0 or math.isnan(v) for v in req.values()) or sum(req.values()) <= 0:
             return {
@@ -141,12 +142,8 @@ class MockBackend:
                 "delta": 0.0,
                 "reason": "rejected: invalid input; allocation unchanged",
             }
-        s = sum(req.values())
-        norm = {k: v / s for k, v in req.items()}
-        sm = {k: STABILITY * self.allocation[k] + (1 - STABILITY) * norm[k] for k in SLICES}
-        cl = {k: min(max(v, 0.1), 0.8) for k, v in sm.items()}
-        t = sum(cl.values())
-        final = {k: v / t for k, v in cl.items()}
+        # ①과 같은 액추에이터 식 (common/actuator.py) — 보정량은 평활 뒤에 더한다 (D1-b)
+        final, norm, _ = actuate(self.allocation, req, correction)
         delta = sum(abs(norm[k] - final[k]) for k in SLICES) / 2
         self.allocation = final
         return {
@@ -252,6 +249,7 @@ class MockBackend:
             "status": "ok",
             "reason": None,
             "rationale": rule.rationale(observation, situation, allocation),
+            "correction": rule.correction(observation, situation),   # D1-b — ②와 같다
         }
 
     def _compare_policies(self, observation, situation, history=None,
@@ -354,7 +352,8 @@ class MockBackend:
 
     def _record_escalation(self, step, observation, situation, reason, confidence,
                            slice_id=None, vendor_id=None, cost_total=None,
-                           chosen_policy=None, agent_allocation=None, config=None, **_) -> dict:
+                           chosen_policy=None, agent_allocation=None, agent_correction=None,
+                           config=None, **_) -> dict:
         # 실제 ④(audit/server.py:78) 와 같은 인자를 받는다. 고정 시그니처였을 때는
         # 조달 3필드나 config 가 넘어오면 TypeError 로 죽었다.
         bad = bad_confidence(confidence)
@@ -374,6 +373,7 @@ class MockBackend:
             "situation": situation, "fallback_situation": "normal",
             "allocation": fallback, "escalated": True, "fallback_mode": fb_mode,
             "agent_allocation": dict(agent_allocation) if isinstance(agent_allocation, dict) else None,
+            "agent_correction": dict(agent_correction) if isinstance(agent_correction, dict) else None,
             "observation": observation,
             "slice_id": slice_id, "vendor_id": vendor_id, "cost_total": cost_total,
         }

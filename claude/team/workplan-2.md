@@ -165,7 +165,7 @@
 | 순환 아님 | θ 표와 `a*` 은 같은 식에서 나오지만, **위반 판정은 그 식을 안 쓴다** — ①이 `utilization > θ` 로 직접 센다(`env.py:199`). 그래서 "a* 에 가까우면 위반이 적다"는 가정이 아니라 측정 결과다 |
 | 여는 작업 | B-7 → C-21 |
 
-### D1-b. 위반 보정을 어디에 거는가 (B-1 후속 · kim 제기 · **D7 뒤에 읽는다**)
+### D1-b. 위반 보정을 어디에 거는가 (B-1 후속 · kim 제기 · **D7 뒤에 읽는다**) — **결정 2026-09-28: (iii) + 게이트웨이 자동 부착** · 구현 A-5 · B-5 · C-16
 
 | | |
 |---|---|
@@ -262,7 +262,7 @@
   `ideal_allocation` 과 같은 식이다 — 같은 식을 두 곳에 두지 않도록 어디서 가져올지 A · B 가 정한다.
 → 검증: 개입 레코드의 `fallback_allocation` 이 스텝마다 다르고 ⑤ `ideal(obs_t)` 와 같다.
 
-**A-5 · `srm_mcp/observe/env.py:231` `apply_allocation(correction=)`** — 의존 **D1-b (iii)**
+**A-5 · `srm_mcp/observe/env.py:231` `apply_allocation(correction=)`** — 의존 **D1-b (iii)** · **완료 2026-09-28** (식은 `common/actuator.py`, 원본 대조 200입력 최대 오차 9.5e-7)
 → 선택 인자 `correction: dict | None` 을 평활(`:247`) 뒤 · 클립(`:250`) 앞에 더한다. 없으면 지금과 같다.
 → 검증: 원본 `update_allocation_rule_based` 와 같은 입력에 같은 출력(소수 6자리) — 단위 검사 1개.
 
@@ -287,7 +287,7 @@
   `recent_error([], "lstm_forecast") == 0.2` 를 확인하는 항목으로 바꾼다.
 → 결과: 항목 1개를 5개로 (`check_feedback` 34 → 37).
 
-**B-5 · `srm_mcp/policy/rule.py` 보정량 분리** — 의존 **D1-b (iii)**
+**B-5 · `srm_mcp/policy/rule.py` 보정량 분리** — 의존 **D1-b (iii)** · **완료 2026-09-28** (`SLICE_CORRECTION_STAGE=post`(기본)|`target`, `correction_delta` · `correction`)
 → `propose` 가 목표(보정 없음)와 `correction`(합 0 인 dict)을 따로 낸다. `PolicyProposal` 에 필드 추가 —
   반환 필드라 에이전트는 안 깨진다. `SLICE_RULE_CORRECTION=off` 면 correction 은 0.
 → 검증: `check_policy` 1b 를 "목표 + correction = 지금의 on 값" 으로.
@@ -366,7 +366,14 @@
 **C-15 · `agent/README.md`** — 의존 없음 · **완료 2026-09-26**
 → 새로 받은 뒤 검사 전에 `tools/bootstrap_vendors.py`(C-6 의 부작용) · B-2 이후 warm 파일 초기화(Z-1).
 
-**C-16 · `correction` 중계** — 의존 **B-5 · A-5** (서버 둘이 먼저)
+**C-16 · `correction` 중계** — 의존 **B-5 · A-5** (서버 둘이 먼저) · **완료 2026-09-28**
+→ 결과: 고정 루프는 `Decision.correction` 을 ① 에 넘기고, 개입 기록에는 `agent_correction`(⑤ 가상 채점이 같이 더함).
+  오케스트레이터는 **게이트웨이가 붙인다** — 이번 시도에 ②가 낸 rule_based 배분과 같은 배분이 `apply_allocation` ·
+  `record_escalation(agent_allocation)` 에 오면 그 보정량을 끼운다(LLM 이 넣었으면 건드리지 않음, 호출 기록에
+  `correction_injected`). 프롬프트 · 도구 설명에도 한 줄. 검사 `check_orchestrator` 3항목.
+→ 실측(규칙 판단자 30스텝, 수정 전 → D4·D5 → +D1-b): emergency 개입 18 → 16 → **11** · 최장 연속 17 → 15 → **7** ·
+  탈출 1 → 2 → **3** · SLA 위반 19 → 19 → **16** / normal 개입 14 → 14 → **11** · SLA 위반 18 → 14 → 15.
+  시드 하나 — M-0c 에서 60칸으로 확인한다.
 → 고정 루프: ②의 `correction` 을 ① `apply_allocation` 에. 오케스트레이터: 프롬프트 한 줄.
 → 검증: 같은 관측에서 적용값이 원본 `update_allocation_rule_based` 출력과 같다.
 

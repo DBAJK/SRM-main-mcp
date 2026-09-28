@@ -14,6 +14,8 @@
 """
 from __future__ import annotations
 
+from typing import Optional
+
 import os
 import sys
 
@@ -42,7 +44,9 @@ TOOL_DESC = {
         "배분을 적용한다. 합이 1일 필요는 없다 — 서버가 정규화한다. "
         "정규화 → 평활(0.7 × 현재 + 0.3 × 요청) → 클립[0.1, 0.8] → 재정규화 순으로 변형되며, "
         "normalized 가 실제 적용값이고 delta 는 요청과 적용의 거리다. "
-        "accepted: false 는 음수·NaN·전부 0 일 때뿐이고 그때는 기존 배분이 유지된다."
+        "correction(선택)은 rule_based 제안이 따로 낸 위반 보정량으로, 평활 뒤 · 클립 앞에 더해진다 — "
+        "rule_based 배분을 적용할 때는 그 제안의 correction 을 같이 넘긴다. "
+        "accepted: false 는 음수·NaN·전부 0 · 잘못된 correction 일 때뿐이고 그때는 기존 배분이 유지된다."
     ),
     "get_history": (
         "최근 n 스텝(1~100, 기본 10)의 11차원 피처. 오래된 것부터 최신 순이고 "
@@ -84,12 +88,14 @@ def step(n: int = 1) -> dict:
 
 
 @mcp.tool(description=TOOL_DESC["apply_allocation"])
-def apply_allocation(embb: float, urllc: float, mmtc: float) -> dict:
+def apply_allocation(embb: float, urllc: float, mmtc: float,
+                     correction: Optional[dict] = None) -> dict:
     """액추에이터. 평활·클립·정규화가 전부 여기서 일어난다 (설계서 §3.2).
 
     ②의 정책에는 평활이 없다 — 양쪽에 다 있으면 0.7이 두 번 걸려 배분이 거의 안 움직인다.
+    `correction` 은 ② rule_based 가 따로 낸 위반 보정량이다 — 평활 뒤 · 클립 앞에 더한다(D1-b).
     """
-    return to_builtin(_env.apply_allocation(embb, urllc, mmtc))
+    return to_builtin(_env.apply_allocation(embb, urllc, mmtc, correction))
 
 
 @mcp.tool(description=TOOL_DESC["get_history"])

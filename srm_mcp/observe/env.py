@@ -229,7 +229,8 @@ class SliceEnv:
                 "episode_done": self.t >= self.total_steps,
                 "observation": self.get_observation()}
 
-    def apply_allocation(self, embb: float, urllc: float, mmtc: float) -> dict:
+    def apply_allocation(self, embb: float, urllc: float, mmtc: float,
+                         correction: Optional[dict] = None) -> dict:
         """정규화 → 평활(0.7) → 클립[0.1, 0.8] → 재정규화 (`:458~462`).
 
         거부는 **입력이 비정상일 때만**이고, 거부되어도 기존 배분은 유지된다 —
@@ -242,8 +243,19 @@ class SliceEnv:
                     "normalized": {k: round(self.allocation[k], 6) for k in SLICE_KEYS},
                     "delta": 0.0, "reason": f"rejected: {bad}; allocation unchanged"}
 
+        # 보정량(② rule_based · D1-b)은 값이 유한한 수여야 한다. 슬라이스 밖 키는 무시한다.
+        if correction is not None:
+            try:
+                correction = {k: float(correction.get(k, 0.0) or 0.0) for k in SLICE_KEYS}
+                if not all(math.isfinite(v) for v in correction.values()):
+                    raise ValueError("non-finite")
+            except (AttributeError, TypeError, ValueError) as e:
+                return {"accepted": False, "requested": None,
+                        "normalized": {k: round(self.allocation[k], 6) for k in SLICE_KEYS},
+                        "delta": 0.0, "reason": f"rejected: bad correction ({e}); allocation unchanged"}
+
         # 식은 common/actuator.py 한 곳에 있다 — ⑤의 가상 채점(D5)이 같은 식을 쓴다.
-        self.allocation, requested, was_clipped = actuate(self.allocation, requested)
+        self.allocation, requested, was_clipped = actuate(self.allocation, requested, correction)
         low, high = ALLOC_CLIP
 
         delta = sum(abs(requested[k] - self.allocation[k]) for k in SLICE_KEYS) / 2
@@ -252,7 +264,9 @@ class SliceEnv:
             "requested": {k: round(requested[k], 6) for k in SLICE_KEYS},
             "normalized": {k: round(self.allocation[k], 6) for k in SLICE_KEYS},
             "delta": round(delta, 6),
+            "correction_applied": bool(correction and any(abs(v) > 0 for v in correction.values())),
             "reason": (f"smoothed({STABILITY_FACTOR}); "
+                       + ("correction after smoothing; " if correction else "")
                        + (f"clipped to [{low}, {high}]" if was_clipped
                           else f"within clip [{low}, {high}]")),
         }

@@ -17,7 +17,7 @@ D1 이 뒤집히면 `CORRECTION_DEFAULT` 한 줄만 바꾸면 된다.
 from __future__ import annotations
 
 import os
-from typing import Any
+from typing import Any, Optional
 
 from ..common.const import SLICE_KEYS, THRESHOLDS
 
@@ -95,6 +95,18 @@ def correction_enabled() -> bool:
     return os.environ.get("SLICE_RULE_CORRECTION", CORRECTION_DEFAULT).lower() != "off"
 
 
+# 보정을 **어디에** 거나 (workplan-2 D1-b, 결정 2026-09-28 (iii)).
+#   post    ②는 목표표와 보정량(correction)을 따로 내고, ①이 평활 **뒤에** 보정량을 더한다 — 원본
+#           update_allocation_rule_based(:443~462) 와 같은 식. 보정이 100% 적용된다.
+#   target  예전 동작(B-1 · B-1b). 목표표에 보정을 섞어 ①이 평활하므로 적용값엔 30% 만 남는다.
+CORRECTION_STAGE_DEFAULT = "post"
+
+
+def correction_stage() -> str:
+    stage = os.environ.get("SLICE_CORRECTION_STAGE", CORRECTION_STAGE_DEFAULT).lower()
+    return stage if stage in ("post", "target") else CORRECTION_STAGE_DEFAULT
+
+
 def _violation_correction(target: dict[str, float],
                           observation: dict[str, Any]) -> dict[str, float]:
     """원본 :446~457. 임계를 넘은 슬라이스에 주고, 가장 한가한 슬라이스에서 뺀다.
@@ -112,8 +124,19 @@ def _violation_correction(target: dict[str, float],
     클립 · 재정규화를 하므로(`:461~462`) 같은 순서를 따르되, ②가 낼 수 있는 하한은 0 이다 —
     [0.1, 0.8] 클립은 평활 뒤라야 뜻이 있어 여전히 ①의 몫이다. 보정량 자체는 줄이지 않는다.
     """
+    clipped = {k: max(0.0, target[k] + d) for k, d in correction_delta(target, observation).items()}
+    total = sum(clipped.values())
+    return {k: v / total for k, v in clipped.items()}
+
+
+def correction_delta(target: dict[str, float], observation: dict[str, Any]) -> dict[str, float]:
+    """원본 :446~458 의 보정량만. 임계를 넘은 슬라이스 +min(0.1, 초과×0.2), 가장 한가한 슬라이스 −같은 양.
+
+    합은 0 이다. 자르지 않는다 — post 방식에서는 ①이 평활 뒤에 더하고 [0.1, 0.8] 로 클립 · 재정규화한다
+    (원본 :461~462 와 같은 순서). target 방식에서는 `_violation_correction` 이 목표표 위에서 0 으로 자른다.
+    """
     utilization = observation["utilization"]
-    adjusted = dict(target)
+    delta = {k: 0.0 for k in SLICE_KEYS}
     for key in SLICE_KEYS:
         excess = float(utilization[key]) - THRESHOLDS[key]
         if excess <= 0:
@@ -121,11 +144,9 @@ def _violation_correction(target: dict[str, float],
         increase = min(CORRECTION_CAP, excess * CORRECTION_GAIN)
         donor = min((k for k in SLICE_KEYS if k != key),
                     key=lambda k: float(utilization[k]))
-        adjusted[key] += increase
-        adjusted[donor] -= increase
-    clipped = {k: max(0.0, v) for k, v in adjusted.items()}
-    total = sum(clipped.values())
-    return {k: v / total for k, v in clipped.items()}
+        delta[key] += increase
+        delta[donor] -= increase
+    return delta
 
 
 def propose(observation: dict[str, Any], situation: str) -> dict[str, float]:
@@ -135,9 +156,16 @@ def propose(observation: dict[str, Any], situation: str) -> dict[str, float]:
     둘 다 기본값이 원본 동작이다.
     """
     target = targets(situation)
-    if not correction_enabled():
-        return target
+    if not correction_enabled() or correction_stage() == "post":
+        return target                       # post: 보정량은 correction() 이 따로 낸다
     return _violation_correction(target, observation)
+
+
+def correction(observation: dict[str, Any], situation: str) -> Optional[dict[str, float]]:
+    """①이 평활 뒤에 더할 보정량 (post 방식에서만). 끄거나 target 방식이면 None."""
+    if not correction_enabled() or correction_stage() != "post":
+        return None
+    return {k: round(v, 6) for k, v in correction_delta(targets(situation), observation).items()}
 
 
 def margin(observation: dict[str, Any]) -> float:
@@ -180,6 +208,7 @@ def rationale(observation: dict[str, Any], situation: str,
     else:
         detail = "임계 초과 슬라이스 없음."
 
-    mode = "보정 on" if correction_enabled() else "보정 off"
+    mode = (("보정 on · 평활 뒤" if correction_stage() == "post" else "보정 on · 목표표")
+            if correction_enabled() else "보정 off")
     table = target_table_name()
     return f"situation={situation} → 목표 [{triple}] ({mode} · 목표표 {table}). {detail}"

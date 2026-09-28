@@ -124,6 +124,15 @@ def main() -> int:
               [e["server"] for e in log])
         check("Guard 통과 횟수 ≥ 6", gw.guard.checked >= 6, gw.guard.checked)
         check("누출 없음", gw.leak is None)
+        # D1-b — LLM 자리가 correction 없이 rule_based 배분을 적용했다 → 게이트웨이가 그 제안의 보정량을 붙인다
+        ap = next(e for e in log if e["tool"] == "apply_allocation")
+        check("② rule_based 가 보정량을 따로 낸다", isinstance(got["prop"].get("correction"), dict),
+              got["prop"].get("correction"))
+        check("게이트웨이가 apply_allocation 에 그 보정량을 붙였다",
+              ap["args"].get("correction") == got["prop"].get("correction") and ap.get("correction_injected"),
+              (ap["args"].get("correction"), ap.get("correction_injected")))
+        check("다른 배분이면 붙이지 않는다",
+              gw.correction_for({"embb": 0.5, "urllc": 0.3, "mmtc": 0.2}) is None)
 
         print("\n4. 심판")
         good = judge(0, calls("get_observation", "get_reliability_table", "propose_allocation",

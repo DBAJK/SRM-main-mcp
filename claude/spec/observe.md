@@ -82,7 +82,9 @@ demand_pressure ≥ 1.0  →  용량을 늘리지 않으면 어딘가는 반드�
 
 ---
 
-## `apply_allocation(embb, urllc, mmtc)`
+## `apply_allocation(embb, urllc, mmtc, correction=None)`
+
+> **2026-09-28 (D1-b):** 선택 인자 `correction` — ② `rule_based` 가 따로 낸 위반 보정량(합 0). 평활 뒤 · 클립 앞에 더한다(원본 :443~462 순서). 값이 유한한 수가 아니면 `accepted: false`. 식은 `srm_mcp/common/actuator.py` 한 곳에 있고 ⑤ 가상 채점(D5)도 같은 식을 쓴다.
 
 배분을 실제로 적용하는 **액추에이터**. 평활·클립·정규화가 전부 여기서 일어난다.
 

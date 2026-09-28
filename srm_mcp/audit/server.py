@@ -83,6 +83,7 @@ def record_escalation(step: int, observation: dict, situation: str, reason: str,
                       cost_total: Optional[float] = None,
                       chosen_policy: Optional[str] = None,
                       agent_allocation: Optional[dict] = None,
+                      agent_correction: Optional[dict] = None,
                       run_id: Optional[str] = None,
                       config: Optional[dict] = None) -> dict:
     """한 호출이 개입 레코드와 폴백 결정 레코드를 같은 step 으로 남긴다.
@@ -94,7 +95,7 @@ def record_escalation(step: int, observation: dict, situation: str, reason: str,
     """
     return book.record_escalation(step, observation, situation, reason, confidence,
                                   slice_id, vendor_id, cost_total, chosen_policy,
-                                  agent_allocation, run_id, config)
+                                  agent_allocation, agent_correction, run_id, config)
 
 
 @mcp.tool(description=TOOL_DESC["get_decisions"])

@@ -32,7 +32,9 @@ TOOL_DESC = {
     "propose_allocation": (
         "한 정책으로 목표 배분을 제안한다. situation 은 필수이며 "
         "normal · emergency · special_event · iot_surge 중 하나다. "
-        "정책이 쓸 수 없는 상태면 allocation 이 null 이고 status 에 사유가 담긴다."
+        "정책이 쓸 수 없는 상태면 allocation 이 null 이고 status 에 사유가 담긴다. "
+        "rule_based 는 correction(위반 보정량, 합 0)을 따로 낸다 — 적용할 때 apply_allocation 의 "
+        "correction 에 그대로 넘긴다(평활 뒤에 더해진다)."
     ),
     "compare_policies": (
         "전 정책을 같은 관측으로 한 번에 평가한다. 반환량이 propose_allocation 의 3배다."
@@ -95,6 +97,8 @@ def _propose(policy: str, observation: dict, situation: str,
             "status": "ok",
             "reason": None,
             "rationale": rule.rationale(observation, situation, allocation),
+            # 평활 뒤에 더할 보정량 (D1-b post). apply_allocation 의 correction 에 그대로 넘긴다.
+            "correction": rule.correction(observation, situation),
         }
 
     if policy == "lstm_forecast":

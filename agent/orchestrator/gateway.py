@@ -147,6 +147,24 @@ class GatewayMiddleware(Middleware):
             context = context.copy(
                 message=context.message.model_copy(update={"arguments": args}))
 
+        # 위반 보정량(D1-b)을 게이트웨이가 붙인다. ② rule_based 는 목표 배분과 보정량을 따로 내고, ①이
+        # 평활 뒤에 보정량을 더한다(원본 순서). 그런데 LLM 이 보정량을 옮기는 걸 잊으면 보정이 통째로 사라진다
+        # (관측의 features · recent_error 를 빠뜨린 실측이 있다). 그래서 이번 시도에 ②가 낸 rule_based 배분과
+        # **같은 배분**을 적용·기록하면 그 제안의 보정량을 끼워 넣는다. 판단을 바꾸지 않는다 — LLM 이 고른 배분에
+        # 그 배분의 짝을 붙일 뿐이고, LLM 이 직접 넣었으면 건드리지 않는다.
+        injected = None
+        if name == "apply_allocation" and args.get("correction") is None:
+            injected = gw.correction_for({k: args.get(k) for k in ("embb", "urllc", "mmtc")})
+            if injected is not None:
+                args["correction"] = injected
+        elif name == "record_escalation" and args.get("agent_correction") is None:
+            injected = gw.correction_for(args.get("agent_allocation"))
+            if injected is not None:
+                args["agent_correction"] = injected
+        if injected is not None:
+            context = context.copy(
+                message=context.message.model_copy(update={"arguments": args}))
+
         if step is not None and len(gw.log.current()) >= gw.max_calls:
             out = {
                 "error": "call_budget_exceeded",
@@ -186,7 +204,10 @@ class GatewayMiddleware(Middleware):
             server=server, tool=name, args=args, ok=True,
             result=payload, elapsed=time.monotonic() - t0,
             **_extract(name, payload),
+            **({"correction_injected": True} if injected is not None else {}),
         )
+        if name in ("propose_allocation", "compare_policies"):
+            gw.remember_corrections(payload)
         # 콘솔: 경로(MCP) · 서버 · 함수(인자 요약) → 반환 요약. 파일: 인자·반환 전문.
         logger.debug(
             "  %s %s %s(%s)\n        → %s",
@@ -219,6 +240,7 @@ class Gateway:
         self.guard = guard or Guard(enabled=True)
         self.leak: Optional[ForbiddenLeak] = None
         self.budget_hits = 0
+        self.corrections: list[tuple[dict, dict]] = []   # 이번 시도의 (rule_based 배분, 보정량) — D1-b
         self.server_of: dict[str, str] = {}
         # 호스트가 에피소드 시작 전에 채운다. ④ 기록 도구 호출에 끼워 넣는다.
         self.run_config: dict[str, Any] = {}
@@ -259,6 +281,31 @@ class Gateway:
 
     def begin_step(self, step: int, attempt: Optional[int] = None) -> None:
         self.log.begin_step(step, attempt)
+        self.corrections = []
+
+    def remember_corrections(self, payload: Any) -> None:
+        """② 결과에서 rule_based 제안의 (배분, 보정량) 을 모은다. compare_policies 는 목록이다."""
+        props = payload if isinstance(payload, list) else [payload]
+        for p in props:
+            if (isinstance(p, dict) and p.get("policy") == "rule_based"
+                    and isinstance(p.get("allocation"), dict) and isinstance(p.get("correction"), dict)):
+                self.corrections.append((p["allocation"], p["correction"]))
+
+    def correction_for(self, allocation: Any) -> Optional[dict]:
+        """이번 시도에 ②가 낸 rule_based 배분과 같은 배분이면 그 보정량. 아니면 None."""
+        if not isinstance(allocation, dict):
+            return None
+        try:
+            want = {k: float(allocation[k]) for k in ("embb", "urllc", "mmtc")}
+        except (KeyError, TypeError, ValueError):
+            return None
+        total = sum(want.values()) or 1.0
+        want = {k: v / total for k, v in want.items()}      # ①은 정규화하므로 비율로 비교
+        for alloc, corr in reversed(self.corrections):
+            t = sum(float(v) for v in alloc.values()) or 1.0
+            if all(abs(float(alloc[k]) / t - want[k]) <= 1e-4 for k in want):
+                return dict(corr)
+        return None
 
     def start(self) -> str:
         import uvicorn

@@ -16,6 +16,7 @@
 ## 값의 규칙
 
 - 배분 숫자를 스스로 만들지 않는다. propose_allocation 이 낸 allocation 을 그대로 적용한다.
+  rule_based 는 위반 보정량 correction 을 따로 낸다 — apply_allocation 에 correction 으로 같이 넘긴다.
   사람을 불렀다면 record_escalation 이 돌려준 fallback_allocation 을 적용한다.
 - situation 은 propose_allocation · compare_policies 의 필수 인자다. 기본값이 없다.
 - observation 인자에는 get_observation 이 준 객체를 **고치거나 줄이지 말고 그대로** 넘긴다.

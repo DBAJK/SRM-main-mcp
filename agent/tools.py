@@ -76,9 +76,12 @@ class Tools:
     def step(self, n: int = 1) -> dict:
         return self._call("observe", "step", n=n)
 
-    def apply_allocation(self, embb: float, urllc: float, mmtc: float) -> dict:
+    def apply_allocation(self, embb: float, urllc: float, mmtc: float,
+                         correction: Optional[dict] = None) -> dict:
+        # correction 은 ② rule_based 의 보정량 — ①이 평활 뒤에 더한다 (workplan-2 D1-b)
         return self._call(
-            "observe", "apply_allocation", embb=embb, urllc=urllc, mmtc=mmtc
+            "observe", "apply_allocation", embb=embb, urllc=urllc, mmtc=mmtc,
+            correction=correction,
         )
 
     def get_history(self, n: int = 10) -> dict:
@@ -216,6 +219,7 @@ class Tools:
         cost_total: Optional[float] = None,
         chosen_policy: Optional[str] = None,
         agent_allocation: Optional[dict] = None,
+        agent_correction: Optional[dict] = None,
         config: Optional[dict] = None,
     ) -> dict:
         # 이 호출 자체가 개입 1회다 (spec/audit.md:53)
@@ -236,6 +240,7 @@ class Tools:
             cost_total=cost_total,
             chosen_policy=chosen_policy,
             agent_allocation=agent_allocation,
+            agent_correction=agent_correction,
             config=config,
         )
 

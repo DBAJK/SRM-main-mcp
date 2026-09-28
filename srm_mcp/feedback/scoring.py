@@ -77,7 +77,7 @@ def shadow_outcome(record: dict[str, Any], observed: dict[str, Any]) -> Optional
         values = [float(agent[k]) for k in SLICE_KEYS]
         if any(not math.isfinite(v) or v < 0 for v in values) or sum(values) <= 0:
             return None
-        applied, _, _ = actuate(current, agent)
+        applied, _, _ = actuate(current, agent, record.get("agent_correction"))
         viol = violations(observed["traffic"], applied, observed["capacity"])
     except (KeyError, TypeError, ValueError, ZeroDivisionError):
         return None

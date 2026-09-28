@@ -74,19 +74,28 @@ def main() -> int:
 
     print("\n1b. 위반 보정 — 원본 :446~457 (workplan B-1)")
     os.environ["SLICE_RULE_CORRECTION"] = "on"
-    c = s.propose_allocation("rule_based", OBS, "emergency")["allocation"]
     # util {1.300, 1.525, 0.950} vs θ {0.9, 1.2, 0.8} — 셋 다 초과다.
     #   embb  +min(0.1, 0.400×0.2)=0.080  ← 가장 한가한 mmtc 에서
     #   urllc +min(0.1, 0.325×0.2)=0.065  ← mmtc 에서
     #   mmtc  +min(0.1, 0.150×0.2)=0.030  ← embb 에서
-    # 보정 직후는 {0.250, 0.765, −0.015}. ①이 음수 요청을 거부하므로(env.py _reject_reason)
-    # ②가 0 으로 자르고 다시 나눈다 → {0.250, 0.765, 0} / 1.015.
-    check("초과 슬라이스에 더한다 (재정규화 뒤)", (round(c["embb"], 4), round(c["urllc"], 4)),
+    #   → 보정량 {+0.050, +0.065, −0.115}, 합 0
+    # 기본(D1-b post): 배분은 목표표 그대로, 보정량은 correction 으로 따로 — ①이 평활 뒤에 더한다.
+    os.environ.pop("SLICE_CORRECTION_STAGE", None)
+    pp = s.propose_allocation("rule_based", OBS, "emergency")
+    check("[post] 배분은 목표표 그대로", pp["allocation"], {"embb": 0.2, "urllc": 0.7, "mmtc": 0.1})
+    check("[post] 보정량 따로", {k: round(v, 4) for k, v in (pp.get("correction") or {}).items()},
+          {"embb": 0.05, "urllc": 0.065, "mmtc": -0.115})
+    check("[post] 보정량 합 0", round(sum((pp.get("correction") or {}).values()), 6), 0.0)
+    # 옛 방식(B-1 · B-1b): 목표표에 섞고 음수는 0 으로 잘라 재정규화 → {0.250, 0.765, 0} / 1.015
+    os.environ["SLICE_CORRECTION_STAGE"] = "target"
+    tp = s.propose_allocation("rule_based", OBS, "emergency")
+    c = tp["allocation"]
+    os.environ.pop("SLICE_CORRECTION_STAGE")
+    check("[target] 초과 슬라이스에 더한다 (재정규화 뒤)", (round(c["embb"], 4), round(c["urllc"], 4)),
           (round(0.25 / 1.015, 4), round(0.765 / 1.015, 4)))
-    check("한가한 슬라이스는 0 아래로 안 간다", round(c["mmtc"], 6), 0.0)
-    check("합 1", round(sum(c.values()), 6), 1.0)
-    # [0.1, 0.8] 클립은 평활 뒤라야 뜻이 있어 ①의 몫이다 — ②는 음수만 막는다.
-    check("음수 없음 → ① 이 거부하지 않는다", all(v >= 0 for v in c.values()), True)
+    check("[target] 한가한 슬라이스는 0 아래로 안 간다", round(c["mmtc"], 6), 0.0)
+    check("[target] 합 1", round(sum(c.values()), 6), 1.0)
+    check("[target] 보정량은 따로 안 낸다", tp.get("correction"), None)
     check("rationale 에 설정이 남는다",
           "보정 on" in s.propose_allocation("rule_based", OBS, "emergency")["rationale"], True)
     calm = {**OBS, "utilization": {"embb": 0.5, "urllc": 0.6, "mmtc": 0.4}}

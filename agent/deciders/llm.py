@@ -112,6 +112,7 @@ class LlmDecider:
             situation=situation,
             policy=prop["policy"],
             allocation=prop.get("allocation"),
+            correction=prop.get("correction"),   # ② rule_based 의 보정량 (D1-b)
             conf_intrinsic=float(prop.get("confidence", 0.0)),   # ②가 낸 값
             conf_empirical=ctx.effective(prop["policy"]),        # ⑤가 낸 값
             conf_situation=ans["situation_confidence"],          # LLM 이 낸 값

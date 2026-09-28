@@ -178,6 +178,46 @@ def main() -> int:
     check_true("거부 사유에 슬라이스 이름", "urllc" in rejected["reason"],
                rejected["reason"])
     check("전부 0 → accepted false", env2.apply_allocation(0, 0, 0)["accepted"], False)
+
+    # D1-b post — ② 목표표 + ② 보정량 + ① 평활 뒤 보정 = 원본 update_allocation_rule_based(:429~462).
+    # 원본 식을 여기 그대로 옮겨 적고 여러 입력으로 대조한다. 다르면 "원본 기준" 이 깨진 것이다.
+    import random
+    from srm_mcp.policy import rule
+    from srm_mcp.common.const import THRESHOLDS as TH
+    rng = random.Random(7)
+    worst = 0.0
+    for _ in range(200):
+        cur = [rng.uniform(0.1, 0.8) for _ in range(3)]
+        cur = [v / sum(cur) for v in cur]
+        util = [rng.uniform(0.3, 1.8) for _ in range(3)]
+        situation = rng.choice(["normal", "emergency", "special_event", "iot_surge"])
+        keys = ("embb", "urllc", "mmtc")
+        # 원본 :429~462 (목표표는 원본표 — SLICE_TARGET_TABLE 기본)
+        tgt = rule.targets(situation)
+        new = [0.7 * cur[i] + 0.3 * tgt[keys[i]] for i in range(3)]
+        for i in range(3):
+            if util[i] > TH[keys[i]]:
+                inc = min(0.1, (util[i] - TH[keys[i]]) * 0.2)
+                others = [j for j in range(3) if j != i]
+                j = min(others, key=lambda j: util[j])
+                new[i] += inc
+                new[j] -= inc
+        new = [min(max(v, 0.1), 0.8) for v in new]
+        want = [v / sum(new) for v in new]
+        # 분해판: ②가 목표 · 보정량을 따로, ①이 평활 뒤에 더한다
+        obs = {"utilization": dict(zip(keys, util))}
+        e = SliceEnv(RUN)
+        e.reset(RUN, "normal", 0)
+        e.allocation = dict(zip(keys, cur))
+        out = e.apply_allocation(*[rule.propose(obs, situation)[k] for k in keys],
+                                 correction=rule.correction(obs, situation))
+        worst = max(worst, max(abs(out["normalized"][k] - want[i]) for i, k in enumerate(keys)))
+    check_true("원본 update_allocation_rule_based 와 같다 (200개 입력, 최대 오차 < 1e-5)",
+               worst < 1e-5, f"최대 오차 {worst:.2e}")
+    bad = SliceEnv(RUN)
+    bad.reset(RUN, "normal", 0)
+    check("잘못된 correction → accepted false",
+          bad.apply_allocation(0.4, 0.4, 0.2, correction={"embb": float("nan")})["accepted"], False)
     low, high = ALLOC_CLIP
     for _ in range(30):
         env2.apply_allocation(0.98, 0.01, 0.01)

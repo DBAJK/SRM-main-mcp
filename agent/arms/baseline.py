@@ -52,6 +52,7 @@ class BaselineDecider:
             situation=situation,
             policy=prop["policy"],
             allocation=prop.get("allocation"),
+            correction=prop.get("correction"),   # ② rule_based 의 보정량 (D1-b)
             conf_intrinsic=float(prop.get("confidence", 0.0)),
             conf_empirical=ctx.effective(prop["policy"]),
             conf_situation=1.0,          # 사람이 지정했다. 추론이 아니다
