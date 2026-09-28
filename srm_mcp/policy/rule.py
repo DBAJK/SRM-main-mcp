@@ -105,7 +105,12 @@ def _violation_correction(target: dict[str, float],
        (최대 0.1 → 0.03). 크기를 1/0.3 으로 되돌리는 것은 상수 조작이라 하지 않는다.
        민감도로 보고한다 (workplan §0 "결과가 좋아질 때까지 상수를 돌리지 않는다").
 
-    합은 보존된다(제로섬). 음수나 0.8 초과가 나올 수 있지만 클립은 ①의 몫이다.
+    **음수는 0 으로 자르고 합이 1 이 되게 다시 나눈다.** 처음에는 "음수 · 0.8 초과의 클립은
+    ①의 몫"으로 두었는데, ①의 `apply_allocation` 은 음수 요청을 클립하지 않고 **거부**한다
+    (`env.py _reject_reason` — 이전 배분이 그대로 남는다). 2026-09-26 실측 4412회 중 4회가
+    그렇게 버려졌다(`arm1_rule-emergency-s2` 등, mmtc −0.0025 · −1e-06). 원본도 보정 뒤에
+    클립 · 재정규화를 하므로(`:461~462`) 같은 순서를 따르되, ②가 낼 수 있는 하한은 0 이다 —
+    [0.1, 0.8] 클립은 평활 뒤라야 뜻이 있어 여전히 ①의 몫이다. 보정량 자체는 줄이지 않는다.
     """
     utilization = observation["utilization"]
     adjusted = dict(target)
@@ -118,7 +123,9 @@ def _violation_correction(target: dict[str, float],
                     key=lambda k: float(utilization[k]))
         adjusted[key] += increase
         adjusted[donor] -= increase
-    return adjusted
+    clipped = {k: max(0.0, v) for k, v in adjusted.items()}
+    total = sum(clipped.values())
+    return {k: v / total for k, v in clipped.items()}
 
 
 def propose(observation: dict[str, Any], situation: str) -> dict[str, float]:

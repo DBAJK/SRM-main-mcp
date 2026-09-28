@@ -265,6 +265,16 @@
 
 ### 3.2 B · kim (②③⑤)
 
+**B-1b · `srm_mcp/policy/rule.py` 보정이 음수 요청을 만들어 ①이 거부** — 의존 없음 · **완료 2026-09-28 (C 가 고침)**
+→ B-1 명세는 "음수는 ②가 안 고치고 ①이 클립"이었는데, ①의 `apply_allocation` 은 음수를 클립하지 않고
+  **거부**한다(`env.py _reject_reason` — 이전 배분 유지). after-B1 · M-1 · 오케스트레이터 실행 4412회 중 4회가
+  이렇게 버려졌다(`arm1_rule` · `arm2_rule` emergency s2, mmtc −0.0025 · −1e-06).
+→ ①이 음수를 받게 바꾸면 LLM 의 잘못된 값도 조용히 통과하므로 ②를 고쳤다: 보정량은 그대로, 음수는 0 으로 자르고
+  합 1 로 다시 나눈다(원본 `:461~462` 의 "보정 뒤 클립 · 재정규화" 순서). [0.1, 0.8] 클립은 여전히 ①.
+  `claude/spec/policy.md` 예시 `{0.2463, 0.7537, 0.0}` · `check_policy` 1b 갱신.
+→ 검증: check_policy 46 · check_mock 12 · check_orchestrator 42 통과. 거부가 났던 두 칸을 같은 조건으로 다시 —
+  음수 요청 2 → 0 · 거부 2 → 0 · SLA 위반 38 → 37/60. after-B1 요약의 이 두 칸은 수정 전 값이다(차이 1스텝).
+
 **B-3b · `tools/check_feedback.py:187`** — 의존 없음 · **완료 2026-09-28**
 → `handover-B.md` 3번 항목. 그 문서에는 C 파일로 적혀 있으나 **kim 이 작성한 파일**이다.
   `recent_error([], "lstm_forecast") == 0.2` 를 확인하는 항목으로 바꾼다.

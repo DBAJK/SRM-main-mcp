@@ -79,12 +79,14 @@ def main() -> int:
     #   embb  +min(0.1, 0.400×0.2)=0.080  ← 가장 한가한 mmtc 에서
     #   urllc +min(0.1, 0.325×0.2)=0.065  ← mmtc 에서
     #   mmtc  +min(0.1, 0.150×0.2)=0.030  ← embb 에서
-    check("초과 슬라이스에 더한다", (round(c["embb"], 4), round(c["urllc"], 4)),
-          (0.25, 0.765))
-    check("한가한 슬라이스가 내놓는다", round(c["mmtc"], 4), -0.015)
-    check("합 보존 (제로섬)", round(sum(c.values()), 6), 1.0)
-    # 음수는 ②가 고치지 않는다 — 클립[0.1, 0.8]·재정규화는 ①의 몫이다 (설계서 §3.2).
-    check("클립하지 않는다", c["mmtc"] < 0, True)
+    # 보정 직후는 {0.250, 0.765, −0.015}. ①이 음수 요청을 거부하므로(env.py _reject_reason)
+    # ②가 0 으로 자르고 다시 나눈다 → {0.250, 0.765, 0} / 1.015.
+    check("초과 슬라이스에 더한다 (재정규화 뒤)", (round(c["embb"], 4), round(c["urllc"], 4)),
+          (round(0.25 / 1.015, 4), round(0.765 / 1.015, 4)))
+    check("한가한 슬라이스는 0 아래로 안 간다", round(c["mmtc"], 6), 0.0)
+    check("합 1", round(sum(c.values()), 6), 1.0)
+    # [0.1, 0.8] 클립은 평활 뒤라야 뜻이 있어 ①의 몫이다 — ②는 음수만 막는다.
+    check("음수 없음 → ① 이 거부하지 않는다", all(v >= 0 for v in c.values()), True)
     check("rationale 에 설정이 남는다",
           "보정 on" in s.propose_allocation("rule_based", OBS, "emergency")["rationale"], True)
     calm = {**OBS, "utilization": {"embb": 0.5, "urllc": 0.6, "mmtc": 0.4}}
