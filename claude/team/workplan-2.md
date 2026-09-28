@@ -328,7 +328,18 @@
   고정 루프는 고른 정책 하나만 판정하므로 전환이 보이지 않는다.
 → 검증: `orchcheck3-special_event-s0` 의 `calls.jsonl` 을 `judge` 에 다시 넣으면 9 · 11번째 스텝이 잡힌다.
 
-**C-7 · C-8 · C-9** — 1차 그대로. C-7 은 D2 · D5 · D6 뒤, C-8 은 D3 뒤.
+**C-9 · `tools/run_matrix.py` 오케스트레이터 · LLM 칸 반복** — 의존 C-5 · **완료 2026-09-28**
+→ `--repeats N`: llm · orch 변형만 N 회 (run_id `-rK` 접미 · `run.py --repeat K` 신설 · 장부 config 에 `repeat`).
+  규칙 칸은 결정적이라 1회 — `--repeat-rule` 은 배선 검증용(sd 0). 요약은 칸당 한 행으로 접는다(`fold`):
+  숫자 지표는 반복 평균, `sla_violation_sd` · `intervention_rate_sd` · `perception_accuracy_sd` 는 표본
+  표준편차, `n_repeats` · `n_failed` · `repeat_run_ids`. 반복별 행은 `summary_repeats.json`. `compare_matrix` 가
+  읽는 (variant, scenario, seed) 키는 그대로다.
+→ 실측: 규칙 칸 2회(무료) — 두 반복 장부 동일, sd 0. 오케스트레이터 emergency s0 2스텝 × 2회(haiku, $0.31) —
+  `n_repeats 2` · `sla_violation_sd 0.0` · 상황 인지 0.5 vs 0.0 (`perception_accuracy_sd 0.354`) — 같은 시드
+  두 실행이 첫 스텝부터 갈렸다. 1차 C-9 의 관찰 그대로.
+→ 추정(`--repeats 3`, sonnet): 120칸 · 실행 240 · 약 87시간 · 사용량 환산 $758 (llm 135 · orch 45). N 은 회의에서.
+
+**C-7 · C-8** — 1차 그대로. C-7 은 D2 · D5 · D6 뒤, C-8 은 D3 뒤.
 
 ### 3.4 모두
 
@@ -368,7 +379,7 @@
                               ↓
    3. 구현 — 서버 먼저, 에이전트 나중
       A-4 (D4)   A-5 · B-5 → C-16 (D1-b)   A-6 → B-6 → C-17 (D5)
-      C-7 (D2)   C-8 (D3)   C-18 (D6)   C-9   C-20
+      C-7 (D2)   C-8 (D3)   C-18 (D6)   C-9 ✓  C-20 ✓
                               ↓
    4. M-0c  규칙 60칸 재측정 — 사다리 세 칸이 각각 움직이는가
                               ↓
@@ -411,6 +422,7 @@ M-1 · M-0b 는 R-2 가 정해지기 전까지 C 가 돌린다.
 | M-1 | 두 시나리오의 AUC 3종과 최장 연속 개입이 기록됐다 — 값이 무엇이든 · **완료 2026-09-26 (§1.5)** |
 | M-0b | `runs/_matrix/after-B1/summary.csv` 60행 + before-B1 과의 쌍 비교표 · **완료 2026-09-26 (§1.5)** |
 | C-20 | 이름이 다른 매트릭스 두 번 뒤 각자의 `raw/` 가 남아 있다 |
+| C-9 | `summary.json` 의 orch 행에 `n_repeats ≥ 2` 와 `sla_violation_sd` · **완료 2026-09-28** |
 | D1-b~D6 | 선택과 근거가 이 문서 §2 에 추가됐다 |
 
 ---

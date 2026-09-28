@@ -4,6 +4,7 @@
     .venv310\\Scripts\\python.exe tools\\run_matrix.py                 계획과 추정만 출력 (기본)
     .venv310\\Scripts\\python.exe tools\\run_matrix.py --go            실제로 돈다
     .venv310\\Scripts\\python.exe tools\\run_matrix.py --go --resume   끊긴 데서 이어서
+    .venv310\\Scripts\\python.exe tools\\run_matrix.py --go --repeats 3  LLM 칸을 3회씩 (C-9)
 
 **`--go` 없이는 아무것도 실행하지 않는다.** 전체 행렬은 LLM 호출이 수천 회라, 무엇을
 얼마나 돌릴지 먼저 보이는 게 기본이어야 한다.
@@ -21,11 +22,20 @@
 라벨의 첫 토큰이 비교군 동작을 정한다 (agent/arms kind_of). 판단자가 달라도 run_id 가
 겹치지 않는다.
 
+반복 (--repeats N · C-9)
+    LLM · 오케스트레이터 칸은 같은 시드여도 실행마다 다르다 (1번째 스텝의 우연이 "직전 5스텝
+    요약"을 타고 에피소드를 정한다). 그래서 llm · orch 변형만 N 회 돌리고 (run_id `-rK` 접미,
+    run.py --repeat K) 요약은 칸당 한 행으로 접는다 — 숫자 지표는 반복 평균, `sla_violation_rate`
+    · `intervention_rate` · `perception_accuracy` 는 `_sd` 도 같이. 반복별 원본 행은
+    summary_repeats.json 에 남긴다. 규칙 판단자 칸은 결정적이라(같은 시드 2회 완전 일치,
+    2026-09-23) 반복하지 않는다. --repeat-rule 은 그 배선을 무료로 검증할 때만 쓴다 (sd 0).
+
 산출
     runs/_matrix/<이름>/plan.json      칸 목록
     runs/_matrix/<이름>/state.json     칸별 종료 코드 · 소요 · 사용량 (재시작 지점)
     runs/_matrix/<이름>/logs/<run_id>.log
-    runs/_matrix/<이름>/summary.json · summary.csv   칸별 지표 한 줄씩
+    runs/_matrix/<이름>/summary.json · summary.csv   칸별 지표 한 줄씩 (반복은 접어서)
+    runs/_matrix/<이름>/summary_repeats.json         반복별 원본 행 (--repeats ≥ 2 일 때)
     runs/_matrix/<이름>/raw/<run_id>/  칸별 원본 보관본 (장부 · 정답 · 심판 · 추적) — C-20
 
 run_id 가 `{arm}-{scenario}-s{seed}` 라 다음 매트릭스가 같은 칸을 돌리면 `runs/<run_id>/` 를
@@ -43,6 +53,7 @@ import json
 import os
 import re
 import shutil
+import statistics as st
 import subprocess
 import sys
 import time
@@ -77,10 +88,19 @@ class Cell:
     variant: str
     scenario: str
     seed: int
+    repeat: Optional[int] = None             # 같은 조건의 K번째 (1부터). None 이면 단일
 
     @property
     def arm(self) -> str:                    # run.py --arm 라벨
         return self.variant
+
+    @property
+    def key(self) -> tuple:                  # 반복을 접는 단위
+        return (self.variant, self.scenario, self.seed)
+
+    @property
+    def base_id(self) -> str:                # 반복 접미 없는 칸 이름
+        return f"{self.arm}-{self.scenario}-s{self.seed}"
 
     @property
     def mode(self) -> str:                   # rule · llm · orch
@@ -90,7 +110,7 @@ class Cell:
 
     @property
     def run_id(self) -> str:
-        return f"{self.arm}-{self.scenario}-s{self.seed}"
+        return self.base_id + (f"-r{self.repeat}" if self.repeat is not None else "")
 
     def steps(self, limit: Optional[int]) -> int:
         n = STEPS.get(self.scenario, 60)
@@ -108,6 +128,8 @@ class Cell:
                 a += ["--llm-model", model]
         if limit:
             a += ["--steps", str(limit)]
+        if self.repeat is not None:
+            a += ["--repeat", str(self.repeat)]
         return a
 
     def estimate(self, limit: Optional[int]) -> tuple[float, float]:
@@ -116,12 +138,20 @@ class Cell:
         return STARTUP_SEC + n * sec, n * usd
 
 
-def build_plan(variants, scenarios, seeds) -> list[Cell]:
-    # 싼 것부터 — LLM 없는 칸의 결과가 먼저 나온다
+def build_plan(variants, scenarios, seeds, repeats: int = 1, repeat_rule: bool = False) -> list[Cell]:
+    # 싼 것부터 — LLM 없는 칸의 결과가 먼저 나온다. 반복은 칸 안에서 r1, r2 … 순.
     order = {"rule": 0, "llm": 1, "orch": 2}
-    cells = [Cell(v, s, sd) for v in variants for s in scenarios for sd in seeds]
+    cells = []
+    for v in variants:
+        for s in scenarios:
+            for sd in seeds:
+                c = Cell(v, s, sd)
+                if repeats > 1 and (c.mode != "rule" or repeat_rule):
+                    cells += [Cell(v, s, sd, k) for k in range(1, repeats + 1)]
+                else:
+                    cells.append(c)
     return sorted(cells, key=lambda c: (order[c.mode], VARIANTS.index(c.variant),
-                                        SCENARIOS.index(c.scenario), c.seed))
+                                        SCENARIOS.index(c.scenario), c.seed, c.repeat or 0))
 
 
 # ── 실행 ────────────────────────────────────────────────────────────
@@ -194,6 +224,7 @@ def collect(c: Cell, raw_dir: Path) -> dict:
         interventions=len(escs),
         intervention_rate=round(len(escs) / len(decs), 4) if decs else None,
         sla_scored=sp["scored"], sla_violations=sp["violations"],
+        sla_violation_rate=round(sp["violations"] / sp["scored"], 4) if sp["scored"] else None,
         sla_avoidable=sp["avoidable"], sla_structural=sp["structural"],
         procurements=sum(1 for r in decs if r.get("slice_id")),
         procurement_cost=round(sum(float(r.get("cost_total") or 0) for r in decs), 2),
@@ -204,6 +235,54 @@ def collect(c: Cell, raw_dir: Path) -> dict:
     return row
 
 
+_SD_OF = {                                   # 평균 옆에 표본 표준편차를 붙일 지표 → 그 열 이름
+    "sla_violation_rate": "sla_violation_sd",   # workplan C-9 판정 이름
+    "intervention_rate": "intervention_rate_sd",
+    "perception_accuracy": "perception_accuracy_sd",
+}
+
+
+def fold(rows: list[dict]) -> list[dict]:
+    """반복 행을 칸당 한 행으로 접는다 (C-9).
+
+    같은 (variant, scenario, seed) 의 행이 하나면 그대로(n_repeats 1). 둘 이상이면 숫자 지표는
+    평균, _SD_OF 는 표본 표준편차(`_sd`)를 붙이고 run_id 는 접미 없는 칸 이름, 반복별 run_id 는
+    `repeat_run_ids` 에. 수집 실패 행(collect_error)은 평균에서 빼고 `n_failed` 로 센다.
+    """
+    groups: dict[tuple, list[dict]] = {}
+    for r in rows:
+        groups.setdefault((r["variant"], r["scenario"], r["seed"]), []).append(r)
+
+    out = []
+    for key, rs in groups.items():
+        ok = [r for r in rs if "collect_error" not in r]
+        if len(rs) == 1:
+            out.append({**rs[0], "n_repeats": 1})
+            continue
+        base = {"variant": key[0], "scenario": key[1], "seed": key[2],
+                "run_id": re.sub(r"-r\d+$", "", rs[0]["run_id"]),
+                "n_repeats": len(ok), "n_failed": len(rs) - len(ok),
+                "repeat_run_ids": [r["run_id"] for r in rs]}
+        if not ok:
+            base["collect_error"] = "; ".join(r["collect_error"] for r in rs)
+            out.append(base)
+            continue
+        base["arm_kind"] = ok[0].get("arm_kind")
+        numeric = [k for k, v in ok[0].items()
+                   if isinstance(v, (int, float)) and not isinstance(v, bool)
+                   and k not in ("seed", "n_repeats")]
+        for k in numeric:
+            xs = [r[k] for r in ok if isinstance(r.get(k), (int, float))]
+            if not xs:
+                base[k] = None
+                continue
+            base[k] = round(st.mean(xs), 4)
+            if k in _SD_OF:
+                base[_SD_OF[k]] = round(st.stdev(xs), 4) if len(xs) > 1 else 0.0
+        out.append(base)
+    return out
+
+
 # ── 진입점 ──────────────────────────────────────────────────────────
 def main() -> int:
     ap = argparse.ArgumentParser(description="본실험 배치 (기본: 계획만 출력)")
@@ -212,6 +291,10 @@ def main() -> int:
     ap.add_argument("--variants", default=",".join(VARIANTS))
     ap.add_argument("--scenarios", default=",".join(SCENARIOS))
     ap.add_argument("--seeds", default="0,1,2")
+    ap.add_argument("--repeats", type=int, default=1,
+                    help="llm · orch 칸을 몇 번씩 돌리나 (run_id -rK). 규칙 칸은 결정적이라 1회")
+    ap.add_argument("--repeat-rule", action="store_true",
+                    help="규칙 칸도 --repeats 만큼 (배선 검증용 — 결과는 같아 sd 0)")
     ap.add_argument("--steps", type=int, default=None, help="칸마다 스텝 상한 (시험용)")
     ap.add_argument("--model", default="sonnet")
     ap.add_argument("--budget-usd", type=float, default=20.0,
@@ -227,7 +310,10 @@ def main() -> int:
         return 1
     scenarios = [s for s in args.scenarios.split(",") if s]
     seeds = [int(x) for x in args.seeds.split(",") if x != ""]
-    plan = build_plan(variants, scenarios, seeds)
+    if args.repeats < 1:
+        print("[오류] --repeats 는 1 이상", file=sys.stderr)
+        return 1
+    plan = build_plan(variants, scenarios, seeds, args.repeats, args.repeat_rule)
 
     out = ROOT / "runs" / "_matrix" / args.name
     state_path = out / "state.json"
@@ -240,7 +326,9 @@ def main() -> int:
     for c in todo:
         by_mode[c.mode] = by_mode.get(c.mode, 0) + 1
 
-    print(f"행렬 {args.name} · 칸 {len(plan)} (이번에 돌 칸 {len(todo)})")
+    n_cells = len({c.key for c in plan})
+    print(f"행렬 {args.name} · 칸 {n_cells} · 실행 {len(plan)} (이번에 돌 실행 {len(todo)})"
+          + (f" · 반복 {args.repeats}회" if args.repeats > 1 else ""))
     print(f"  변형   {', '.join(variants)}")
     print(f"  시나리오 {', '.join(scenarios)} · 시드 {seeds}"
           + (f" · 스텝 상한 {args.steps}" if args.steps else ""))
@@ -261,7 +349,8 @@ def main() -> int:
     (out / "logs").mkdir(parents=True, exist_ok=True)
     raw_dir = out / "raw"
     raw_dir.mkdir(exist_ok=True)
-    (out / "plan.json").write_text(json.dumps([asdict(c) for c in plan], indent=2), encoding="utf-8")
+    (out / "plan.json").write_text(
+        json.dumps([{**asdict(c), "run_id": c.run_id} for c in plan], indent=2), encoding="utf-8")
     spent = sum(v.get("usd_equiv", 0) for v in state.values())
 
     for i, c in enumerate(todo, 1):
@@ -274,13 +363,18 @@ def main() -> int:
         r["raw"] = archive_cell(c, raw_dir)            # 실패한 칸도 남긴다 — 원인이 원본에 있다
         spent += r["usd_equiv"]
         state[c.run_id] = {**r, "variant": c.variant, "scenario": c.scenario, "seed": c.seed,
+                           "repeat": c.repeat,
                            "finished": datetime.now().isoformat(timespec="seconds")}
         state_path.write_text(json.dumps(state, indent=2, ensure_ascii=False), encoding="utf-8")
         mark = "완료" if r["exit"] == 0 else f"실패(종료 {r['exit']}) — {r['log']}"
         print(f"       {mark} · {r['elapsed_sec']}초 · ${r['usd_equiv']:.3f} · 누적 ${spent:.2f}")
 
-    # 요약 — 성공한 칸 전부 (이번에 안 돈 칸도 state 에 있으면 포함)
-    rows = [collect(c, raw_dir) for c in plan if state.get(c.run_id, {}).get("exit") == 0]
+    # 요약 — 성공한 실행 전부 (이번에 안 돈 칸도 state 에 있으면 포함). 반복은 칸당 한 행으로.
+    raw_rows = [collect(c, raw_dir) for c in plan if state.get(c.run_id, {}).get("exit") == 0]
+    rows = fold(raw_rows)
+    if any(c.repeat is not None for c in plan):
+        (out / "summary_repeats.json").write_text(
+            json.dumps(raw_rows, indent=2, ensure_ascii=False), encoding="utf-8")
     (out / "summary.json").write_text(json.dumps(rows, indent=2, ensure_ascii=False), encoding="utf-8")
     if rows:
         keys = sorted({k for r in rows for k in r}, key=lambda k: (k not in rows[0], k))
@@ -288,7 +382,7 @@ def main() -> int:
             w = csv.DictWriter(f, fieldnames=keys)
             w.writeheader()
             w.writerows(rows)
-    print(f"\n요약 {len(rows)}칸 → {(out / 'summary.csv').relative_to(ROOT)}")
+    print(f"\n요약 {len(rows)}칸 (실행 {len(raw_rows)}) → {(out / 'summary.csv').relative_to(ROOT)}")
     return 0
 
 

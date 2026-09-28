@@ -36,6 +36,18 @@ ROOT = Path(__file__).resolve().parent
 SCENARIOS = ("normal", "emergency", "special_event", "iot_surge", "mixed")
 
 
+def make_run_id(args) -> str:
+    """`{arm}-{scenario}-s{seed}` · 반복이면 `-r{K}` 접미 (workplan C-9).
+
+    LLM 칸은 같은 시드여도 실행마다 다르다. 반복 실행이 서로의 장부를 덮지 않게
+    run_id 를 가르고, 어느 반복인지는 config 에도 남긴다.
+    """
+    rid = f"{args.arm}-{args.scenario}-s{args.seed}"
+    if args.repeat is not None:
+        rid += f"-r{args.repeat}"
+    return rid
+
+
 def build_backend(args):
     if args.backend == "mock":
         return MockBackend(seed=args.seed)
@@ -43,7 +55,7 @@ def build_backend(args):
     from agent.backends.mcp import McpBackend
 
     mock_for = [s.strip() for s in args.mock_for.split(",") if s.strip()]
-    run_id = f"{args.arm}-{args.scenario}-s{args.seed}"
+    run_id = make_run_id(args)
     return McpBackend(
         mock_for=mock_for,
         desc_mode=args.desc_mode,
@@ -116,6 +128,8 @@ def main() -> int:
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--steps", type=int, default=None, help="스텝 제한 (기본: 시나리오 전체)")
     p.add_argument("--arm", default="proposed", help="비교군 이름. run_id 에 박힌다")
+    p.add_argument("--repeat", type=int, default=None,
+                   help="같은 조건의 K번째 반복. run_id 에 -rK 가 붙는다 (LLM 칸 반복용, tools/run_matrix --repeats)")
     p.add_argument("--driver", choices=("fixed", "orchestrator"), default="fixed",
                    help="fixed: 파이썬이 순서를 정하고 LLM 은 판단만 (agent/loop.py). "
                         "orchestrator: LLM 이 도구를 직접 들고 스텝의 흐름을 잡는다 "
@@ -155,7 +169,7 @@ def main() -> int:
     if args.intent and args.decider != "llm":
         print("[주의] --intent 는 llm 판단자만 읽는다. 규칙 판단자는 무시한다.")
 
-    run_id = f"{args.arm}-{args.scenario}-s{args.seed}"
+    run_id = make_run_id(args)
 
     # 비교군. 서버를 띄우거나 이전 기록을 지우기 전에 조합부터 거른다.
     kind = arms.kind_of(args.arm)
@@ -249,6 +263,7 @@ def run_config(args) -> dict:
         "seed": args.seed,
         "arm": args.arm,
         "arm_kind": arms.kind_of(args.arm),   # 라벨이 자유라 동작을 따로 남긴다
+        "repeat": args.repeat,                # 같은 조건의 K번째 실행 (None 이면 단일)
         "driver": args.driver,
         "intent": args.intent,
         "steps_limit": args.steps,
