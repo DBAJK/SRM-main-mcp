@@ -215,12 +215,14 @@ class Tools:
         vendor_id: Optional[str] = None,
         cost_total: Optional[float] = None,
         chosen_policy: Optional[str] = None,
+        agent_allocation: Optional[dict] = None,
         config: Optional[dict] = None,
     ) -> dict:
         # 이 호출 자체가 개입 1회다 (spec/audit.md:53)
         # 조달 3필드는 record_decision 과 같은 중계선이다 (audit/server.py:84)
         # chosen_policy 는 에이전트가 고르려던 정책이다 (workplan A-1). ④는 실행된 폴백을
         # chosen_policy 에 그대로 두고 이 값을 agent_policy 로 따로 남긴다.
+        # agent_allocation 은 그 정책이 낸 배분 — ⑤가 개입 스텝에서도 가상 채점한다 (workplan-2 D5).
         return self._call(
             "audit",
             "record_escalation",
@@ -233,6 +235,7 @@ class Tools:
             vendor_id=vendor_id,
             cost_total=cost_total,
             chosen_policy=chosen_policy,
+            agent_allocation=agent_allocation,
             config=config,
         )
 

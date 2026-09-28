@@ -45,6 +45,15 @@ TOOL_DESC = {
 # 안 된다. 사람이 `reliability.json` 을 열어 폴백 성능을 따로 읽는 용도다.
 FALLBACK_BUCKET = "fallback"
 
+def _shadow_view(shadow: Optional[dict]) -> Optional[dict]:
+    if shadow is None:
+        return None
+    return {"policy": shadow["policy"], "sla_met": shadow["sla_met"],
+            "error": round(float(shadow["error"]), 4),
+            "applied_allocation": shadow["applied_allocation"],
+            "counted": shadow.get("counted", False)}
+
+
 # decision_id = "{run_id}-{step:04d}" (§5.0). ⑤는 run_id 인자를 받지 않으므로 여기서 되돌린다.
 DECISION_ID_RE = re.compile(r"^(?P<run_id>.+)-(?P<step>\d{4})$")
 
@@ -174,14 +183,27 @@ def report_outcome(decision_id: str, observed: dict) -> dict:
     table = _load_table()
     entry = table[policy]
     before = float(entry["r"])
+    shadow = None
     if escalated:
         # 갱신하지 않는다. 적용된 배분은 에이전트가 고른 정책이 낸 것이 아니라
-        # ④의 폴백 상수이므로, 그 결과를 정책의 r 에 적으면 귀속이 틀린다.
+        # ④의 폴백이므로, 그 결과를 정책의 r 에 적으면 귀속이 틀린다.
         after, n = before, int(entry["n"])
         fallback = table.setdefault(FALLBACK_BUCKET, reliability.initial_entry())
         fb_after, fb_n = reliability.update(float(fallback["r"]), int(fallback["n"]), met)
         fallback["r"], fallback["n"] = fb_after, fb_n
         fallback["errors"] = reliability.push_error(fallback.get("errors", []), error)
+        # D5 — 가상 채점. 폴백만 채점하면 개입 중 정책 성적이 멈춰 한번 부르면 끝까지 부른다
+        # (after-B1 60칸: 개입 80% · 탈출 21회). 에이전트가 적용하려던 배분(④ agent_allocation)을
+        # "적용됐다면"으로 채점해 그 정책(agent_policy)의 성적에 쌓는다. 적용된 폴백의 성적은 위의 fallback 칸.
+        if scoring.shadow_enabled():
+            shadow = scoring.shadow_outcome(record, observed)
+            if shadow is not None and shadow["policy"] in reliability.POLICIES:
+                sh = table[shadow["policy"]]
+                sh["r"], sh["n"] = reliability.update(float(sh["r"]), int(sh["n"]), shadow["sla_met"])
+                sh["errors"] = reliability.push_error(sh.get("errors", []), shadow["error"])
+                shadow["counted"] = True
+            elif shadow is not None:
+                shadow["counted"] = False
     else:
         after, n = reliability.update(before, int(entry["n"]), met)
         entry["r"], entry["n"] = after, n
@@ -204,6 +226,8 @@ def report_outcome(decision_id: str, observed: dict) -> dict:
         "reliability_after": round(after, 4),
         # 개입한 스텝이면 두 값이 같다. "왜 n 이 안 늘었나" 를 장부만 보고 알 수 있어야 한다.
         "counted_in_reliability": not escalated,
+        # 개입 스텝의 가상 채점 결과(D5). 에이전트 제안이 없으면 null.
+        "shadow": _shadow_view(shadow),
     }
 
     # ④의 레코드에 덧붙인다 (분리 설계서 §2.1 — ④가 만들고 ⑤가 같은 레코드에 기입).
@@ -217,6 +241,7 @@ def report_outcome(decision_id: str, observed: dict) -> dict:
         "observed_violations": outcome["observed_violations"],
         # 채점은 했지만 신뢰도에는 안 들어갔다는 사실이 장부에도 남아야 한다 (B-2).
         "counted_in_reliability": not escalated,
+        "shadow": _shadow_view(shadow),
     }
     write_json(paths.decisions_json(run_id), book)
 

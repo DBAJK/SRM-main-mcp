@@ -30,6 +30,28 @@ FALLBACK_INSTRUCTION = (
     "이번 스텝을 진행한 뒤, step() 후 decision_id 로 report_outcome 을 호출하라."
 )
 
+# 개입하면 무엇을 적용하나 (workplan-2 D4). 실험 속 "사람"의 모형이다.
+#   expert  결정 시점 관측(obs_t)으로 계산한 최적 배분 a*(obs_t) — ⑤ scoring.ideal_allocation 과 같은 식.
+#           "필요한 스텝만 골라 부른다"는 주장이 성립하려면 부른 사람이 도움이 되어야 한다(권고 c1).
+#           다음 스텝 트래픽은 모른다 — 미래를 아는 사람(c2)이 아니다.
+#   init    예전 동작. 늘 INIT_ALLOCATION {0.4, 0.4, 0.2} — 사람이 평시 배분만 한다(M-0 · after-B1 의 값).
+# 적용 설정은 레코드의 fallback_mode 로 남는다. 어느 쪽이든 ①의 평활을 거친다(액추에이터 제약).
+FALLBACK_MODE_DEFAULT = "expert"
+
+
+def fallback_mode() -> str:
+    mode = os.environ.get("SLICE_FALLBACK", FALLBACK_MODE_DEFAULT).lower()
+    return mode if mode in ("expert", "init") else FALLBACK_MODE_DEFAULT
+
+
+def fallback_allocation(observation: Any) -> tuple[dict, str]:
+    """(개입 스텝에 적용할 배분, 실제로 쓴 방식). 관측에 traffic 이 없으면 init 으로 물러난다."""
+    if fallback_mode() == "expert" and isinstance(observation, dict) and observation.get("traffic"):
+        from ..feedback.scoring import ideal_allocation   # 순수 함수 — ⑤ 서버를 부르지 않는다
+        a = ideal_allocation(observation)
+        return {k: round(float(v), 6) for k, v in a.items()}, "expert"
+    return dict(INIT_ALLOCATION), "init"
+
 
 # ── run_id · config ────────────────────────────────────────────
 def env_run_id() -> Optional[str]:
@@ -203,9 +225,14 @@ def record_escalation(step: int, observation: dict, situation: str, reason: str,
                       slice_id: Optional[str] = None, vendor_id: Optional[str] = None,
                       cost_total: Optional[float] = None,
                       chosen_policy: Optional[str] = None,
+                      agent_allocation: Optional[dict] = None,
                       run_id: Optional[str] = None,
                       config: Optional[dict] = None) -> dict:
     """한 호출이 `kind: "escalation"` 과 `kind: "decision"` 레코드를 같은 step 으로 남긴다.
+
+    `agent_allocation` 은 에이전트가 적용하려던 배분이다(workplan-2 D5 · A-6). ⑤가 개입 스텝에서도
+    그 배분을 가상 채점해 `agent_policy` 의 성적을 쌓는다 — 없으면 개입 중 성적이 멈춰 한번 부르면
+    끝까지 부른다(after-B1 60칸: 개입 80% · 탈출 21회).
 
     에스컬레이션한 스텝도 배분은 적용되고 SLA 결과가 나온다. `escalation_id` 만 주면
     `report_outcome(decision_id=?)` 을 부를 수 없어 **그 스텝의 결과가 통계에서 통째로
@@ -252,7 +279,7 @@ def record_escalation(step: int, observation: dict, situation: str, reason: str,
 
     decision_id = decision_id_for(resolved, step)
     escalation_id = escalation_id_for(resolved, step)
-    fallback = dict(INIT_ALLOCATION)
+    fallback, fb_mode = fallback_allocation(observation)
 
     book["decisions"].append({
         "decision_id": escalation_id,
@@ -277,6 +304,9 @@ def record_escalation(step: int, observation: dict, situation: str, reason: str,
         "escalation_id": escalation_id,
         "fallback_situation": FALLBACK_SITUATION,
         "fallback_allocation": fallback,
+        "fallback_mode": fb_mode,
+        "agent_allocation": ({k: float(v) for k, v in agent_allocation.items()}
+                             if isinstance(agent_allocation, dict) else None),
         # record_decision 과 같은 자리·같은 이름이다. ⑤와 metrics 가 kind 를 구분하지 않고
         # 이 세 필드만 보므로, 여기 담기면 에스컬레이션한 스텝의 조달도 그대로 집계된다.
         "slice_id": slice_id,
@@ -296,6 +326,7 @@ def record_escalation(step: int, observation: dict, situation: str, reason: str,
         "fallback_policy": FALLBACK_POLICY,
         "fallback_situation": FALLBACK_SITUATION,
         "fallback_allocation": fallback,
+        "fallback_mode": fb_mode,
         "instruction": FALLBACK_INSTRUCTION,
     })
 

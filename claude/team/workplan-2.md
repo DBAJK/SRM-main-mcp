@@ -200,7 +200,7 @@
 권고 (b) — 고정 루프는 1.0 반응형, 오케스트레이터만 추세로 선제 허용. B-1 효과가 작아서, M-0b 에서
 "조달과 무관한 위반" 비율을 다시 보고 켠다. 여는 작업 C-8.
 
-### D4. 개입하면 무엇이 적용되는가 (1차 그대로)
+### D4. 개입하면 무엇이 적용되는가 (1차 그대로) — **결정 2026-09-28: (c1) expert** · 구현 A-4
 
 권고 (c1) 현재 관측 전문가 `a*(obs_t)`. 여는 작업 A-4. 참고: 폴백 배분도 ①의 평활을 거친다. 액추에이터
 제약이라 맞지만, 사람의 배분도 스텝당 30% 씩만 반영된다는 것을 해석에 적는다.
@@ -208,7 +208,7 @@
 **M-0b 결과(§1.5):** 선택적 개입 칸 proposed − arm2 가 +0.073 → **+0.085**(15쌍 중 13쌍 악화). 상수 폴백인 채로
 개입이 61% → 80% 로 늘어 벌점이 커졌다. D5 와 함께 정해야 이 칸이 움직인다.
 
-### D5. 개입에서 빠져나오지 못한다 (신규)
+### D5. 개입에서 빠져나오지 못한다 (신규) — **결정 2026-09-28: (a) 가상 채점** · 구현 A-6 · B-6 · C-17
 
 | | |
 |---|---|
@@ -222,7 +222,7 @@
 | **권고** | **(a).** 새 상수가 없고, B-2 의 원칙(적용된 것의 성적은 적용된 것에)을 지키면서 정책은 계속 평가된다. 운영에서 말하는 섀도 모드다 |
 | 여는 작업 | A-6 · B-6 → C-17 |
 
-### D6. 안 써본 정책이 개입의 비상구가 된다 (신규 · 2026-09-26 오케스트레이터)
+### D6. 안 써본 정책이 개입의 비상구가 된다 (신규 · 2026-09-26 오케스트레이터) — **결정 2026-09-28: (a) 막지 않고 센다** · 구현 C-18
 
 | | |
 |---|---|
@@ -255,7 +255,9 @@
 → 그런데도 오케스트레이터에서 `classify_demand` 가 26번 중 24번 실패했다 — **LLM 이 관측을 옮겨 적으며
   `features` 를 뺐다**(`orchcheck3` · `orchcheck4` calls.jsonl, features 가 있던 2번만 available). → C-22.
 
-**A-4 · `book.py:242` 폴백 배분** — 의존 **D4**
+**A-4 · `book.py:242` 폴백 배분** — 의존 **D4** · **완료 2026-09-28**
+→ 결과: `fallback_allocation(observation)` — 기본 `SLICE_FALLBACK=expert` 는 ⑤ `ideal_allocation(obs_t)`(순수 함수를
+  가져다 쓴다, 식은 한 곳), `init` 은 예전 상수. 레코드 · 반환에 `fallback_mode`. 목도 같은 함수. `claude/spec/audit.md` 갱신.
 → (c1)이면 `fallback = dict(INIT_ALLOCATION)` 을 `a*(obs_t)` 로. `a*` 는 ⑤ `feedback/scoring.py`
   `ideal_allocation` 과 같은 식이다 — 같은 식을 두 곳에 두지 않도록 어디서 가져올지 A · B 가 정한다.
 → 검증: 개입 레코드의 `fallback_allocation` 이 스텝마다 다르고 ⑤ `ideal(obs_t)` 와 같다.
@@ -264,7 +266,7 @@
 → 선택 인자 `correction: dict | None` 을 평활(`:247`) 뒤 · 클립(`:250`) 앞에 더한다. 없으면 지금과 같다.
 → 검증: 원본 `update_allocation_rule_based` 와 같은 입력에 같은 출력(소수 6자리) — 단위 검사 1개.
 
-**A-6 · `book.py` `record_escalation(agent_allocation=)`** — 의존 **D5 (a)**
+**A-6 · `book.py` `record_escalation(agent_allocation=)`** — 의존 **D5 (a)** · **완료 2026-09-28** (④ 서버 인자 · 도구 설명 포함)
 → A-1 의 `chosen_policy` 와 같은 방식으로 에이전트가 적용하려던 배분을 받아 남긴다.
 → 검증: 개입 레코드에 `agent_allocation`. 안 주면 `null` 이고 다른 동작은 그대로.
 
@@ -290,7 +292,10 @@
   반환 필드라 에이전트는 안 깨진다. `SLICE_RULE_CORRECTION=off` 면 correction 은 0.
 → 검증: `check_policy` 1b 를 "목표 + correction = 지금의 on 값" 으로.
 
-**B-6 · `srm_mcp/feedback/server.py` `report_outcome` 가상 채점** — 의존 **D5 (a)** · A-6
+**B-6 · `srm_mcp/feedback/server.py` `report_outcome` 가상 채점** — 의존 **D5 (a)** · A-6 · **완료 2026-09-28**
+→ 결과: 액추에이터 식을 `srm_mcp/common/actuator.py` 한 곳으로 옮겨 ①(`env.apply_allocation`)과 ⑤가 같이 쓴다.
+  `scoring.shadow_outcome` 이 반사실 SLA · 오차를 내고 `report_outcome` 이 `agent_policy` 에 쌓는다. 스위치
+  `SLICE_SHADOW_SCORING`(기본 on) — `scoring.shadow_enabled` 에 둬서 목이 fastmcp 없이 읽는다. `check_feedback` 9번.
 → 개입 레코드에 `agent_allocation` 이 있으면: ①과 같은 평활 · 클립으로 "그 배분이 적용됐을 값"을 만들고,
   obs_{t+1} 의 `traffic` · `capacity` 로 이용률 · SLA · error 를 계산해 **`agent_policy`** 의 r · n · errors 를
   갱신한다. 실제 적용된 폴백의 성적은 지금처럼 `fallback` 에. 반환과 장부에 `shadow: true`.
@@ -365,7 +370,11 @@
 → 고정 루프: ②의 `correction` 을 ① `apply_allocation` 에. 오케스트레이터: 프롬프트 한 줄.
 → 검증: 같은 관측에서 적용값이 원본 `update_allocation_rule_based` 출력과 같다.
 
-**C-17 · 개입 시 제안 중계** — 의존 **A-6 · B-6**
+**C-17 · 개입 시 제안 중계** — 의존 **A-6 · B-6** · **완료 2026-09-28**
+→ 결과: `loop.py` 가 `agent_allocation=decision.allocation` · `tools.py` 인자 · 목 · 오케스트레이터 프롬프트 한 줄.
+  실측(규칙 판단자 30스텝, D4 + D5 전 → 후): emergency 개입 18 → 16 · 탈출 1 → 2 · SLA 위반 19 → 19 /
+  normal 개입 14 → 14 · SLA 위반 18 → **14**. 개입 필요도(C-20e) 0.69 · 0.79. 여전히 대부분 끝까지 개입하는 것은
+  rule_based 의 가상 성적이 실제로 나빠서다(목표표 — D7 · D1-b).
 → 고정 루프: 개입 경로에서 판단자의 제안 배분을 `agent_allocation` 으로. 오케스트레이터: 프롬프트 한 줄.
 
 **C-19 · 심판 `ignored_escalation` 오탐** — 의존 없음 · **완료 2026-09-26**
@@ -386,7 +395,9 @@
 → `:49` 가 `.venv310` 을 하드코딩해 `.venv` 를 쓰는 트리에서는 첫 칸부터 `WinError 2` 로 죽는다.
   `web/serve.py:32` 는 커밋 `b78f6d6` 에서 이미 고쳤는데 여기가 빠져 있었다. 같은 규칙으로 맞췄다.
 
-**C-20e · `escalation_precision` 이 4/5 시나리오에서 정보가 없다** — **발견만 2026-09-28 · A · C 판단**
+**C-20e · `escalation_precision` 이 4/5 시나리오에서 정보가 없다** — **새 지표 추가 2026-09-28** (옛 지표는 그대로 둔다)
+→ `eval/breakdown.py` `escalation_need` — 개입 스텝에서 **에이전트 제안대로였으면 위반이었나**(D5 가상 채점)로 센
+  `need_precision` · 자율 위반 수. 가상 채점이 없는 실행은 None.
 → 정의가 "개입한 스텝의 정답이 `normal` 이 아니었나"(`eval/score.py:107`)라, 정답 라벨이
   한 종류인 시나리오에서는 **에이전트 행동과 무관하게 시나리오 이름만으로 정해진다** —
   `normal` 이면 0.0, 나머지면 1.0. 실측: emergency s0 에서 개입 18회 중 SLA 를 지킨 것이
@@ -435,7 +446,10 @@
   단위로 같고, `runs/` 가 두 번째 매트릭스에 덮인 뒤 `c20-a --resume` 요약이 자기 `raw/` 를 읽었다.
   파이썬 경로는 병합 때 kim 의 규칙(C-20b — `.venv310` → `.venv` → 스크립트 인터프리터)으로 합쳤고, 보관은 한 곳(`archive_cell`)에서만 하며 kim 의 "보관 실패가 실험을 죽이지 않게" 처리를 더했다.
 
-**C-18 · 비상구 전환을 센다** — 의존 **D6 (a)**
+**C-18 · 비상구 전환을 센다** — 의존 **D6 (a)** · **완료 2026-09-28**
+→ 결과: 위반(warn)이 아니라 **사실**로 셌다 — `Verdict.switched_under_threshold`, 절차 준수율에 안 들어간다(합법적인
+  전환이 준수율을 깎지 않게). `breakdown.switch_split` 이 전환 · 개입 · 자율의 SLA 를 나란히. 검사 3항목.
+  저장된 실행 재판정: orchcheck3 전환 9 · 11번째(SLA 0/2) · orchcheck4 9 · 11 · 12 · 13 · 14 · 17번째(SLA 1/6).
 → `agent/orchestrator/referee.py`: 기록 전 `compute_confidence` 중 escalate=true 가 하나라도 있고 마지막이
   false 인데 `record_decision` 을 불렀으면 `policy_switch_under_threshold`(warn). `compute_confidence` 는
   정책명을 받지 않으므로 판정의 순서만 본다. 기록된 정책은 `record_decision.chosen_policy`.

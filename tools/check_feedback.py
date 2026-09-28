@@ -194,6 +194,36 @@ def main() -> int:
     check("최근 N회만 유지", len(reliability.push_error([0.1] * 9, 0.2)), 5)
     check("최근 값에 더 큰 가중", reliability.recent_error([0.0, 0.0, 0.0, 0.0, 0.6]) > 0.1, True)
 
+    print("\n9. 개입 스텝 가상 채점 (workplan-2 D5)")
+    from srm_mcp.common.actuator import actuate, violations as viol_of
+    obs_t = {"step": 20, "allocation": {"embb": 0.4, "urllc": 0.4, "mmtc": 0.2}}
+    agent = {"embb": 0.30, "urllc": 0.30, "mmtc": 0.40}
+    esc = {**decision(20), "escalated": True, "agent_policy": "lstm_forecast",
+           "allocation": {"embb": 0.4, "urllc": 0.4, "mmtc": 0.2},
+           "agent_allocation": agent, "observation": obs_t}
+    obs_next = {**observed, "step": 21}
+    applied, _, _ = actuate(obs_t["allocation"], agent)
+    want_met = not any(viol_of(obs_next["traffic"], applied, obs_next["capacity"]).values())
+    for mode, want_lstm_n in (("on", 1), ("off", 0)):
+        cleanup()
+        seed_book([esc])
+        write_json(paths.run_dir(RUN_ID) / "reliability.json", reliability.initial_table())
+        os.environ["SLICE_SHADOW_SCORING"] = mode
+        out = s.report_outcome(f"{RUN_ID}-0020", obs_next)
+        os.environ.pop("SLICE_SHADOW_SCORING")
+        table = read_json(paths.run_dir(RUN_ID) / "reliability.json")
+        check(f"[{mode}] 실제 성적은 정책에 안 들어간다 (B-2)", table["rule_based"]["n"], 0)
+        check(f"[{mode}] 폴백 칸에 쌓인다", table["fallback"]["n"], 1)
+        check(f"[{mode}] agent_policy(lstm) 표본", table["lstm_forecast"]["n"], want_lstm_n)
+        if mode == "on":
+            check("[on] 반사실 SLA = 액추에이터 식으로 다시 계산한 값",
+                  (out.get("shadow") or {}).get("sla_met"), want_met)
+            check("[on] 반사실 배분 = ① 의 평활 · 클립 결과",
+                  (out.get("shadow") or {}).get("applied_allocation"),
+                  {k: round(v, 6) for k, v in applied.items()})
+        else:
+            check("[off] shadow 없음", out.get("shadow"), None)
+
     cleanup()
     print(f"\n{'실패 ' + str(len(failures)) + '건: ' + ', '.join(failures) if failures else '전부 통과'}")
     return 1 if failures else 0

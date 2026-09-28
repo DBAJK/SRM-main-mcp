@@ -105,6 +105,53 @@ def scored_without(run_id: str, excluded: set[int]) -> dict:
     }
 
 
+def escalation_need(decisions: list[dict]) -> dict:
+    """개입이 **필요했나** — 에이전트 제안의 가상 채점으로 센다 (workplan-2 C-20e · D5).
+
+    `score.py` 의 escalation_precision 은 "개입한 스텝의 정답이 normal 이 아니었나"라, 정답 라벨이 한
+    종류인 시나리오에서는 행동과 무관하게 시나리오 이름만으로 정해진다. 여기서는 개입 스텝마다 ⑤가
+    남긴 `outcome.shadow` — "에이전트 제안이 적용됐다면" 의 SLA — 를 본다.
+      필요했음   제안대로였으면 위반  → 사람을 부른 게 맞다
+      불필요     제안대로였어도 충족  → 안 불러도 됐다
+      자율 위반  사람을 안 불렀는데 위반 — 불렀어야 했을 수 있는 스텝(놓침)
+    가상 채점이 없는 실행(D5 이전 · SLICE_SHADOW_SCORING=off · 제안 없음)은 needed 가 None 이다.
+    """
+    recs = [d for d in decisions if d.get("kind") == "decision" and d.get("outcome")]
+    esc = [d for d in recs if d.get("escalated")]
+    shadowed = [d for d in esc if (d["outcome"].get("shadow") or {}).get("sla_met") is not None]
+    needed = sum(1 for d in shadowed if d["outcome"]["shadow"]["sla_met"] is False)
+    auto = [d for d in recs if not d.get("escalated")]
+    return {
+        "escalations": len(esc),
+        "shadow_scored": len(shadowed),
+        "needed": needed if shadowed else None,
+        "unneeded": len(shadowed) - needed if shadowed else None,
+        "need_precision": round(needed / len(shadowed), 4) if shadowed else None,
+        "autonomous": len(auto),
+        "autonomous_violations": sum(1 for d in auto if d["outcome"].get("sla_met") is False),
+    }
+
+
+def switch_split(referee_rows: list[dict], decisions: list[dict]):
+    """기준 미달 정책을 두고 다른 정책으로 자율 처리한 스텝(D6)의 SLA 를 개입 · 일반 자율과 나란히.
+
+    심판 기록이 있는 오케스트레이터 실행만(없으면 None). 전환 스텝의 SLA 가 개입 스텝보다 나쁘면
+    비상구, 비슷하거나 나으면 정당한 탐색으로 읽는다(workplan-2 D6).
+    """
+    if not referee_rows:
+        return None
+    by_step = _decision_records(decisions)
+    groups: dict[str, list[bool]] = {"전환": [], "개입": [], "자율": []}
+    for r in referee_rows:
+        rec = by_step.get(int(r["step"]))
+        if rec is None or not rec.get("outcome"):
+            continue
+        key = ("개입" if rec.get("escalated") else
+               "전환" if r.get("switched_under_threshold") else "자율")
+        groups[key].append(rec["outcome"].get("sla_met") is True)
+    return {k: {"n": len(v), "sla_met": sum(v)} for k, v in groups.items()}
+
+
 # ── 실행 ───────────────────────────────────────────────────────
 def breakdown(run_id: str) -> dict:
     base = score.score_run(run_id)
@@ -123,6 +170,8 @@ def breakdown(run_id: str) -> dict:
             "error_steps": sorted(errors),
             "excluded": len(errors),
         },
+        "escalation_need": escalation_need(book["decisions"]),
+        "switch_split": switch_split(referee, book["decisions"]),
     }
     # 제외할 게 있을 때만 다시 계산한다. 없으면 score 와 같다.
     result["score_excluding_referee_errors"] = (
@@ -145,6 +194,14 @@ def _fmt(r: dict) -> str:
         f"  개입 정밀도        {ep['precision']}   ({ep['correct']}/{ep['n']})"
         + ("   ⚠ 정답 라벨이 한 종류라 이 값은 고정이다 (mixed 에서만 유효)"
            if cfg.get("scenario") not in (None, "mixed") else ""),
+    ]
+    en = r.get("escalation_need") or {}
+    if en.get("shadow_scored"):
+        lines.append(f"  개입 필요도        {en['need_precision']}   (필요 {en['needed']}/{en['shadow_scored']} · "
+                     f"가상 채점 기준, C-20e)   자율 위반 {en['autonomous_violations']}/{en['autonomous']}")
+    elif en.get("escalations"):
+        lines.append(f"  개입 필요도        —   (개입 {en['escalations']} · 가상 채점 없음 — D5 이전 또는 꺼짐)")
+    lines += [
         "",
         f"  SLA 위반 {sp['violations']}/{sp['scored']}",
         f"    배분으로 피할 수 있었음   {sp['avoidable']}",
@@ -158,6 +215,10 @@ def _fmt(r: dict) -> str:
         if ex:
             lines.append(f"    제외 후 정확도 {ex['perception_accuracy']['accuracy']} · "
                          f"정밀도 {ex['escalation_precision']['precision']}")
+        sw = r.get("switch_split")
+        if sw and sw["전환"]["n"]:
+            lines.append("  정책 전환(D6) · SLA 충족  " + " · ".join(
+                f"{k} {v['sla_met']}/{v['n']}" for k, v in sw.items()))
     else:
         lines.append("  심판 기록 없음 (고정 루프 — 위반 정의상 0)")
     return "\n".join(lines)

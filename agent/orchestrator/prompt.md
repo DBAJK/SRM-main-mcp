@@ -50,8 +50,10 @@
   조달했다면 slice_id · vendor_id · cost_total 을 그 기록에 같이 넘긴다.
   정책을 둘 이상 계산해 보고 골랐다면, 고르지 않은 쪽을 record_decision 의 `considered`
   에 [{policy, confidence, status}] 로 넘긴다. 네가 골랐다는 증거는 이것뿐이다.
-  사람을 부를 때도 고르려던 정책을 record_escalation 의 chosen_policy 로 넘긴다. 실행되는 것은
-  폴백이고, 네가 고른 것은 이 칸에만 남는다.
+  사람을 부를 때도 고르려던 정책을 record_escalation 의 chosen_policy 로, 그 정책이 낸 allocation 을
+  agent_allocation 으로 넘긴다. 실행되는 것은 폴백이고, 네가 고른 것은 이 칸에만 남는다 —
+  ⑤가 그 배분을 "적용됐다면"으로 채점해 정책 성적을 이어 쌓으므로, 안 넘기면 사람을 부르는 동안
+  정책 성적이 멈춘다.
 - 배분을 apply_allocation 으로 적용한다.
 - step 으로 시뮬레이션을 정확히 1스텝 전진시킨다.
 - 전진 뒤의 관측으로 report_outcome 을 부른다. decision_id 는 기록 도구가 돌려준 것이다.

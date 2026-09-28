@@ -43,6 +43,8 @@ TOOL_DESC = {
         "record_decision 과 같은 자리이며, 여기 넘기지 않으면 그 조달은 기록되지 않는다. "
         "chosen_policy 에 원래 고르려던 정책을 넘기면(선택) 기록에 agent_policy 로 남는다 — "
         "실제로 실행되는 건 항상 rule_based 폴백이다. "
+        "agent_allocation 에 그 정책이 낸 배분을 넘기면(선택) ⑤가 개입 스텝에서도 그 배분을 가상 채점해 "
+        "정책 성적을 쌓는다 — 안 넘기면 개입 중에는 성적이 멈춘다. "
         "fallback_allocation 과 decision_id 를 돌려주며, instruction 에 다음 행동이 적혀 있다."
     ),
     "get_decisions": (
@@ -80,6 +82,7 @@ def record_escalation(step: int, observation: dict, situation: str, reason: str,
                       slice_id: Optional[str] = None, vendor_id: Optional[str] = None,
                       cost_total: Optional[float] = None,
                       chosen_policy: Optional[str] = None,
+                      agent_allocation: Optional[dict] = None,
                       run_id: Optional[str] = None,
                       config: Optional[dict] = None) -> dict:
     """한 호출이 개입 레코드와 폴백 결정 레코드를 같은 step 으로 남긴다.
@@ -91,7 +94,7 @@ def record_escalation(step: int, observation: dict, situation: str, reason: str,
     """
     return book.record_escalation(step, observation, situation, reason, confidence,
                                   slice_id, vendor_id, cost_total, chosen_policy,
-                                  run_id, config)
+                                  agent_allocation, run_id, config)
 
 
 @mcp.tool(description=TOOL_DESC["get_decisions"])

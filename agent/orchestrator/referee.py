@@ -43,6 +43,11 @@ class Verdict:
     # 호스트가 다음 시도의 스텝 번호를 여기서 정한다 — 자기 카운터를 올리지 않는다.
     obs_step_after: Optional[int] = None
     attempt: Optional[int] = None
+    # 기준 미달 판정이 있었는데 **다른 정책**(판정 통과)으로 자율 기록했다 — workplan-2 D6 · C-18.
+    # 규칙 위반이 아니라 사실이다(판정은 고른 정책 기준). 위반으로 세면 합법적인 정책 전환이 절차 준수율을
+    # 깎으므로 violations 에 넣지 않고 따로 센다. "개입을 피하는 비상구인가, 정당한 탐색인가"는 이 스텝들의
+    # SLA 를 개입 스텝과 비교해 판단한다(eval/breakdown.py).
+    switched_under_threshold: bool = False
 
     # 완료되지 않은 호출 — 서버가 값으로 거부(flow/errors.md) 했거나 예외를 냈거나
     # 상한에 걸린 것. 순서·횟수 판정에서 빼고, 그 수 자체를 "되풀이 비용"으로 센다.
@@ -60,6 +65,7 @@ class Verdict:
         return {
             "step": self.step,
             "attempt": self.attempt,
+            "switched_under_threshold": self.switched_under_threshold,
             "calls": self.calls,
             "failed_calls": self.failed_calls,
             "escalated": self.escalated,
@@ -214,6 +220,9 @@ def judge(step: int, calls: list[dict], budget_hit: bool = False,
                      f"{rec_tool} 의 confidence 가 어느 compute_confidence 판정과도 값이 다르다 — "
                      "기록된 신뢰도를 공식으로 확인할 수 없어 마지막 판정으로 대신 본다")
             said = bool(check.get("escalate"))
+            if (rec_tool == "record_decision" and not said and matched
+                    and any(c.get("escalate") for c in checks)):
+                v.switched_under_threshold = True
             if said and rec_tool == "record_decision":
                 flag("ignored_escalation", "warn",
                      f"기록한 정책의 compute_confidence 가 escalate=true (combined {check.get('combined')})"
@@ -259,6 +268,8 @@ class RefereeLog:
             "mean_calls_per_step": round(sum(v.calls for v in self.verdicts) / n, 1) if n else None,
             "mean_failed_calls_per_step":
                 round(sum(v.failed_calls for v in self.verdicts) / n, 2) if n else None,
+            # D6 — 위반이 아니라 사실. 절차 준수율에 안 들어간다.
+            "switched_under_threshold": sum(1 for v in self.verdicts if v.switched_under_threshold),
         }
 
     def close(self) -> None:

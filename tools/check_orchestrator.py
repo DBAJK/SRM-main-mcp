@@ -225,6 +225,13 @@ def main() -> int:
         v = judge(22, head + [cc(*RULE), cc(*LSTM), rec("record_escalation", *RULE)] + tail)
         check("미달 → 통과 순으로 계산, 미달 정책으로 개입 기록 → 위반 0",
               codes(v) == [], codes(v))
+        v = judge(24, head + [cc(*RULE), cc(*LSTM), rec("record_decision", *LSTM)] + tail)
+        check("D6 — 미달 정책 두고 통과 정책으로 자율 기록 → 전환 사실 · 위반 아님",
+              (v.switched_under_threshold, codes(v)) == (True, []), (v.switched_under_threshold, codes(v)))
+        v = judge(25, head + [cc(*LSTM), rec("record_decision", *LSTM)] + tail)
+        check("D6 — 통과 판정 하나로 기록 → 전환 아님", v.switched_under_threshold is False, v.switched_under_threshold)
+        v = judge(26, head + [cc(*RULE), cc(*LSTM), rec("record_escalation", *RULE)] + tail)
+        check("D6 — 미달 정책으로 개입 → 전환 아님", v.switched_under_threshold is False, v.switched_under_threshold)
         v = judge(23, head + [cc(*LSTM), rec("record_decision", 0.9, 0.9)] + tail)
         check("기록 값이 어느 판정과도 다름 → confidence_unmatched (warn)",
               codes(v) == [("confidence_unmatched", "warn")], codes(v))

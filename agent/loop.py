@@ -132,6 +132,9 @@ def run_step(
             reason=_escalation_reason(decision),
             confidence=decision.confidence(),
             chosen_policy=decision.policy,
+            # 그 정책이 낸 배분(실패했으면 None). ⑤가 "적용됐다면"으로 채점해 정책 성적을 이어
+            # 쌓는다 — 없으면 개입 중 성적이 멈춰 한번 부르면 끝까지 부른다 (workplan-2 D5).
+            agent_allocation=decision.allocation,
             **relay,
         )
         _require(esc, "record_escalation", step_no)

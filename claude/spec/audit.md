@@ -76,7 +76,8 @@
 | **`decision_id`** | string | **폴백 결정의 ID. `report_outcome`에 쓴다** |
 | `fallback_policy` | `PolicyName` | **항상 `"rule_based"`** |
 | `fallback_situation` | `Situation` | **항상 `"normal"`** |
-| `fallback_allocation` | `SliceTriple` | 폴백 정책이 낸 배분. **`apply_allocation`에 넣는다** |
+| `fallback_allocation` | `SliceTriple` | 개입 스텝에 적용할 배분. **`apply_allocation`에 넣는다**. 기본(`SLICE_FALLBACK=expert`)은 결정 시점 관측의 최적 배분 `a*(obs_t)` = normalize(traffic / (θ × capacity)) — ⑤ `ideal_allocation` 과 같은 식(workplan-2 D4). `init` 이면 예전처럼 `{0.4, 0.4, 0.2}` 상수 |
+| `fallback_mode` | `"expert"` \| `"init"` | 위 배분을 어느 방식으로 만들었나 |
 | `instruction` | string | 에이전트에게 주는 다음 행동 지시 |
 
 ```json
@@ -84,7 +85,8 @@
  "decision_id": "exp-proposed-mixed-s0-0031",
  "fallback_policy": "rule_based",
  "fallback_situation": "normal",
- "fallback_allocation": {"embb": 0.40, "urllc": 0.40, "mmtc": 0.20},
+ "fallback_allocation": {"embb": 0.40, "urllc": 0.40, "mmtc": 0.20},   // init 모드 예시. expert 면 관측마다 다르다
+ "fallback_mode": "init",
  "instruction": "사람 호출을 기록했다. 대기하지 말고 fallback_allocation을 apply_allocation에 넣어 이번 스텝을 진행한 뒤, step() 후 decision_id로 report_outcome을 호출하라."}
 ```
 

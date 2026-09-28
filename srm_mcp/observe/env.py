@@ -29,6 +29,7 @@ from typing import Optional
 import numpy as np
 
 from ..common import paths
+from ..common.actuator import actuate
 from ..common.const import (ALLOC_CLIP, BS_COUNT_BAND, BS_COUNT_BASE, CAPACITY_BASE,
                             CAPACITY_MAX, CLIENT_COUNT_AMPLITUDE, CLIENT_COUNT_BAND,
                             CLIENT_COUNT_BASE, FEATURE_COLUMNS, INIT_ALLOCATION,
@@ -241,16 +242,9 @@ class SliceEnv:
                     "normalized": {k: round(self.allocation[k], 6) for k in SLICE_KEYS},
                     "delta": 0.0, "reason": f"rejected: {bad}; allocation unchanged"}
 
-        total = sum(float(v) for v in requested.values())
-        requested = {k: float(v) / total for k, v in requested.items()}
-
-        smoothed = {k: STABILITY_FACTOR * self.allocation[k]
-                       + (1 - STABILITY_FACTOR) * requested[k] for k in SLICE_KEYS}
+        # 식은 common/actuator.py 한 곳에 있다 — ⑤의 가상 채점(D5)이 같은 식을 쓴다.
+        self.allocation, requested, was_clipped = actuate(self.allocation, requested)
         low, high = ALLOC_CLIP
-        clipped = {k: min(max(v, low), high) for k, v in smoothed.items()}
-        was_clipped = any(abs(clipped[k] - smoothed[k]) > 1e-12 for k in SLICE_KEYS)
-        total = sum(clipped.values())
-        self.allocation = {k: v / total for k, v in clipped.items()}
 
         delta = sum(abs(requested[k] - self.allocation[k]) for k in SLICE_KEYS) / 2
         return {

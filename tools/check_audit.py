@@ -166,7 +166,11 @@ def main() -> int:
     check("decision_id 도 함께 발급", escalated["decision_id"], f"{RUN}-0013")
     check("fallback_policy", escalated["fallback_policy"], "rule_based")
     check("fallback_situation", escalated["fallback_situation"], "normal")
-    check("fallback_allocation", escalated["fallback_allocation"], dict(INIT_ALLOCATION))
+    # D4 — 기본은 결정 시점 관측의 최적 배분(expert). ⑤ ideal_allocation 과 같은 식이다.
+    from srm_mcp.feedback.scoring import ideal_allocation
+    expert = {k: round(v, 6) for k, v in ideal_allocation(obs).items()}
+    check("fallback_allocation = a*(obs_t) (D4 expert)", escalated["fallback_allocation"], expert)
+    check("fallback_mode", escalated.get("fallback_mode"), "expert")
     check_true("instruction 이 다음 행동을 지정",
                "apply_allocation" in escalated["instruction"])
 
@@ -180,7 +184,8 @@ def main() -> int:
                f"situation={fallback_record['situation']}, "
                f"fallback_situation={fallback_record['fallback_situation']}")
     check("⑤가 읽는 allocation = 폴백",
-          fallback_record["allocation"], dict(INIT_ALLOCATION))
+          fallback_record["allocation"], expert)
+
 
     after = book.record_decision(
         step=13, observation=obs, situation="emergency", chosen_policy="lstm_forecast",
@@ -313,6 +318,18 @@ def main() -> int:
         confidence={"situation": float("nan"), "intrinsic": 0.5, "empirical": 0.8, "combined": 0.63},
         rationale="NaN 확신")
     check("NaN confidence → 거부", nan.get("error"), "malformed_confidence")
+
+    # 옛 동작 스위치 — SLICE_FALLBACK=init 이면 상수 (M-0 · after-B1 과 비교할 때)
+    os.environ["SLICE_FALLBACK"] = "init"
+    old_fb = book.record_escalation(
+        step=902, observation=obs, situation="emergency", reason="init 모드",
+        confidence=CONF, agent_allocation={"embb": 0.2, "urllc": 0.7, "mmtc": 0.1})
+    os.environ.pop("SLICE_FALLBACK")
+    check("SLICE_FALLBACK=init → INIT 상수", old_fb["fallback_allocation"], dict(INIT_ALLOCATION))
+    rec902 = next(r for r in read_json(paths.decisions_json(RUN))["decisions"]
+                 if r["step"] == 902 and r["kind"] == "decision")
+    check("agent_allocation 저장 (D5)", rec902.get("agent_allocation"),
+          {"embb": 0.2, "urllc": 0.7, "mmtc": 0.1})
 
     print(f"\n{'실패 ' + str(len(failures)) + '건: ' + ', '.join(failures) if failures else '전부 통과'}")
     return 1 if failures else 0

@@ -18,9 +18,9 @@ import math
 import random
 from typing import Any
 
-from srm_mcp.audit.book import bad_confidence, clean_confidence  # ④ A-2 · A-2b — 거부 · float 저장
-from srm_mcp.common.const import INIT_ALLOCATION     # ④ 폴백 배분 (book.py 와 같은 상수)
+from srm_mcp.audit.book import bad_confidence, clean_confidence, fallback_allocation  # ④ A-2 · A-2b · D4
 from srm_mcp.feedback import reliability as rel      # ⑤ EMA · 축소 · recent_error 사전값(B-3)
+from srm_mcp.feedback import scoring as fb_scoring   # ⑤ 가상 채점(D5)
 from srm_mcp.policy import rule                      # ② rule_based — 위반 보정(B-1) 포함
 
 # ⑤가 개입 스텝의 성적을 담는 자리 (B-2). feedback/server.py 의 FALLBACK_BUCKET 과 같은 이름.
@@ -354,7 +354,7 @@ class MockBackend:
 
     def _record_escalation(self, step, observation, situation, reason, confidence,
                            slice_id=None, vendor_id=None, cost_total=None,
-                           chosen_policy=None, config=None, **_) -> dict:
+                           chosen_policy=None, agent_allocation=None, config=None, **_) -> dict:
         # 실제 ④(audit/server.py:78) 와 같은 인자를 받는다. 고정 시그니처였을 때는
         # 조달 3필드나 config 가 넘어오면 TypeError 로 죽었다.
         bad = bad_confidence(confidence)
@@ -363,9 +363,8 @@ class MockBackend:
         confidence = clean_confidence(confidence)
         self.escalations += 1
         did = f"{self.run_id}-{step:04d}"
-        # 폴백은 ④처럼 INIT_ALLOCATION 상수다 (book.py). rule_based 제안을 쓰면 B-1 이후
-        # 위반 보정이 섞여 실서버와 달라진다.
-        fallback = dict(INIT_ALLOCATION)
+        # 폴백은 ④와 같은 함수로 만든다 (D4 — 기본 expert a*(obs_t) · SLICE_FALLBACK=init 이면 상수).
+        fallback, fb_mode = fallback_allocation(observation)
         self.decisions[did] = {
             "step": step, "kind": "decision", "chosen_policy": "rule_based",
             # 에이전트가 고르려던 정책 (A-1). 실행된 것은 폴백이라 chosen_policy 와 따로 둔다.
@@ -373,7 +372,9 @@ class MockBackend:
             # 에이전트의 판단을 보존한다 (audit/book.py:185). 폴백 라벨로 덮으면
             # 상황 인지 측정의 입력이 사라진다 — 실제 ④가 그렇게 한다.
             "situation": situation, "fallback_situation": "normal",
-            "allocation": fallback, "escalated": True,
+            "allocation": fallback, "escalated": True, "fallback_mode": fb_mode,
+            "agent_allocation": dict(agent_allocation) if isinstance(agent_allocation, dict) else None,
+            "observation": observation,
             "slice_id": slice_id, "vendor_id": vendor_id, "cost_total": cost_total,
         }
         return {
@@ -435,11 +436,19 @@ class MockBackend:
         escalated = bool(rec.get("escalated"))
         st = self.reliability[policy]
         before = float(st["r"])
+        shadow = None
         if escalated:
             after = before
             fb = self.reliability.setdefault(FALLBACK_BUCKET, rel.initial_entry())
             fb["r"], fb["n"] = rel.update(float(fb["r"]), int(fb["n"]), sla)
             fb["errors"] = rel.push_error(fb.get("errors", []), error)
+            # D5 — 에이전트 제안을 "적용됐다면"으로 채점해 그 정책에 쌓는다 (⑤와 같은 함수).
+            if fb_scoring.shadow_enabled():
+                shadow = fb_scoring.shadow_outcome(rec, observed)
+                if shadow is not None and shadow["policy"] in rel.POLICIES:
+                    sh = self.reliability[shadow["policy"]]
+                    sh["r"], sh["n"] = rel.update(float(sh["r"]), int(sh["n"]), shadow["sla_met"])
+                    sh["errors"] = rel.push_error(sh.get("errors", []), shadow["error"])
         else:
             after, n = rel.update(before, int(st["n"]), sla)
             st["r"], st["n"] = after, n
@@ -447,7 +456,10 @@ class MockBackend:
 
         rec["outcome"] = {"sla_met": sla, "error": round(error, 3),
                           "scored_at_step": observed["step"],
-                          "counted_in_reliability": not escalated}
+                          "counted_in_reliability": not escalated,
+                          # ⑤처럼 장부에도 남긴다 — 가상 채점이 어느 정책에 몇 번 쌓였는지 장부로 센다.
+                          "shadow": None if shadow is None
+                          else {"policy": shadow["policy"], "sla_met": shadow["sla_met"]}}
         return {
             "sla_met": sla,
             "policy": policy,
@@ -461,6 +473,7 @@ class MockBackend:
             "reliability_before": round(before, 4),
             "reliability_after": round(after, 4),
             "counted_in_reliability": not escalated,
+            "shadow": None if shadow is None else {"policy": shadow["policy"], "sla_met": shadow["sla_met"]},
         }
 
     def _get_reliability_table(self) -> dict:

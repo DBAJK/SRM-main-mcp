@@ -6,6 +6,7 @@
 그대로 가져다 쓴다(workplan-2 C-14). 서버 쪽 계약이 또 바뀌었는데 목이 따라가지 못하면
 여기서 걸린다. 수치(용량 · 트래픽)는 목이 가짜이므로 검사하지 않는다.
 """
+import os
 import sys
 from pathlib import Path
 
@@ -49,8 +50,14 @@ scored_esc = [d for d in esc_recs if "outcome" in d]
 rel = mb.reliability
 print(f"  개입 {len(esc_recs)} · 자율 {len(auto_recs)} · rule_based n {rel['rule_based']['n']} · "
       f"fallback n {rel.get('fallback', {}).get('n')}")
-check("B-2 — 정책 n = 채점된 자율 스텝 수", rel["rule_based"]["n"] == len(scored_auto),
-      (rel["rule_based"]["n"], len(scored_auto)))
+# D5 가상 채점이 켜져 있으면(기본) 개입 스텝도 agent_policy 로 한 번씩 쌓인다 — 실제 성적은 여전히 폴백 칸.
+shadowed = [d for d in scored_esc if (d["outcome"].get("shadow") or {}).get("policy") == "rule_based"]
+check("B-2 · D5 — 정책 n = 채점된 자율 스텝 + 가상 채점된 개입 스텝",
+      rel["rule_based"]["n"] == len(scored_auto) + len(shadowed),
+      (rel["rule_based"]["n"], len(scored_auto), len(shadowed)))
+check("D5 — 개입 레코드에 agent_allocation (고정 루프가 넘김) · 전부 가상 채점됨",
+      bool(esc_recs) and all(d.get("agent_allocation") for d in esc_recs) and len(shadowed) == len(scored_esc),
+      (len(esc_recs), len(shadowed)))
 check("B-2 — fallback n = 채점된 개입 스텝 수",
       (rel.get("fallback", {}).get("n", 0)) == len(scored_esc), (rel.get("fallback", {}).get("n"), len(scored_esc)))
 check("B-2 — counted_in_reliability 가 개입이면 False",
@@ -59,8 +66,22 @@ check("B-2 — counted_in_reliability 가 개입이면 False",
 check("A-1 — 개입 레코드에 agent_policy (고정 루프가 넘김)",
       bool(esc_recs) and all(d.get("agent_policy") == "rule_based" for d in esc_recs),
       sorted({d.get("agent_policy") for d in esc_recs}) if esc_recs else "개입 없음")
-check("폴백 = INIT 상수 {0.4, 0.4, 0.2}",
-      all(d["allocation"] == {"embb": 0.4, "urllc": 0.4, "mmtc": 0.2} for d in esc_recs))
+from srm_mcp.audit.book import fallback_allocation  # noqa: E402
+check("D4 — 폴백 = ④ 와 같은 a*(obs_t) (expert)",
+      bool(esc_recs) and all(d["allocation"] == fallback_allocation(d["observation"])[0]
+                             and d.get("fallback_mode") == "expert" for d in esc_recs))
+
+# 옛 동작 스위치 — 둘 다 끄면 B-2 까지의 동작(상수 폴백 · 개입 중 성적 멈춤)
+os.environ["SLICE_FALLBACK"], os.environ["SLICE_SHADOW_SCORING"] = "init", "off"
+mb0 = MockBackend(seed=0)
+run_episode(Tools(mb0, Guard(enabled=True)), rule_decider, "mockold-emergency-s0",
+            scenario="emergency", seed=0, max_steps=30)
+del os.environ["SLICE_FALLBACK"], os.environ["SLICE_SHADOW_SCORING"]
+esc0 = [d for d in mb0.decisions.values() if d.get("escalated")]
+auto0 = [d for d in mb0.decisions.values() if not d.get("escalated") and "outcome" in d]
+check("스위치 off — 폴백 = INIT 상수 · 정책 n = 자율 스텝만",
+      all(d["allocation"] == {"embb": 0.4, "urllc": 0.4, "mmtc": 0.2} for d in esc0)
+      and mb0.reliability["rule_based"]["n"] == len(auto0), (len(esc0), mb0.reliability["rule_based"]["n"], len(auto0)))
 rats = [d.get("rationale", "") for d in auto_recs]
 # 근거 끝은 ②가 정한다 — B-7 이후 "(보정 on · 목표표 original)". 목은 ② 를 그대로 부르므로 형식이
 # 바뀌어도 따라가고, 여기서는 보정 설정이 남는지만 본다.

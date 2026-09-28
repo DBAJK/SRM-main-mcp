@@ -36,6 +36,7 @@ error = L1(applied_allocation, a*) / 2                 # [0, 1]
 **신뢰도 갱신**: `r ← (1−0.2)·r + 0.2·(sla_met ? 1 : 0)`
 
 - **개입(`escalated`) 레코드는 정책의 `r`·`n`·`errors` 를 갱신하지 않는다** (B-2). 적용된 배분이 정책의 제안이 아니라 ④의 폴백 상수이기 때문이다. 채점은 그대로 하고, 그 성적은 `reliability.json` 의 `fallback` 항목에 쌓인다 — `get_reliability_table()` 출력에는 넣지 않는다(정책이 아니다). 반환값의 `counted_in_reliability` 가 반영 여부를 알린다.
+- **개입 스텝 가상 채점 (D5, 기본 on · `SLICE_SHADOW_SCORING=off` 로 끔).** ④ 레코드에 `agent_policy` · `agent_allocation` 이 있으면, obs_t 의 배분에서 ①과 같은 액추에이터 식(`common/actuator.py`)으로 "그 배분이 적용됐다면"을 만들고 obs_{t+1} 의 traffic · capacity 로 위반을 다시 계산해 **`agent_policy` 의** r · n · errors 에 쌓는다. 트래픽은 배분과 무관하게 생성되므로 이 반사실은 정확하다. 실제 적용된 폴백의 성적은 위처럼 `fallback` 에. 반환 · 장부의 `shadow` 에 `{policy, sla_met, error, applied_allocation, counted}` 가 남는다. 없으면 개입 중 정책 성적이 멈춰 한번 부르면 끝까지 부른다(after-B1 60칸 개입 80%).
 
 **부작용**: ④의 해당 레코드에 `outcome`을 덧붙인다 (`sla_met`, `error`, `scored_at_step`, `applied_allocation`, `requested_allocation`, `actuator_delta`, `observed_violations`).
 
