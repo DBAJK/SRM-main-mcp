@@ -247,8 +247,13 @@
 → `_is_floatable` 이 `"0.52"` 같은 숫자 문자열과 NaN 을 통과시키고, 장부에는 받은 값 그대로(문자열)
   저장한다(`book.py:174 · 250 · 261`). 저장 전에 float 로 바꾸거나 int · float 만 받는다. NaN · inf 는 거부.
 → 검증: `confidence.situation="0.5"` 로 기록 → 장부 값이 `0.5`(float), 또는 `malformed_confidence`.
+→ **완료 2026-09-28 (C 가 고침):** `_is_floatable` 이 NaN · inf 도 거부하고, 검사를 통과한 네 값은
+  `clean_confidence` 가 float 로 바꿔 저장한다(숫자 문자열은 받아서 고친다 — LLM 이 다시 부르지 않아도 된다).
+  목도 같은 함수를 쓴다. `check_audit` 7번 · `check_mock` 2항목 추가, 각각 61 · 14 통과.
 
-**A-3 · `srm_mcp/observe/` `features` 블록** — 의존 없음 · 1차 문서 그대로
+**A-3 · `srm_mcp/observe/` `features` 블록** — 의존 없음 · **①은 이미 충족** (`env.py` 관측에 `features`)
+→ 그런데도 오케스트레이터에서 `classify_demand` 가 26번 중 24번 실패했다 — **LLM 이 관측을 옮겨 적으며
+  `features` 를 뺐다**(`orchcheck3` · `orchcheck4` calls.jsonl, features 가 있던 2번만 available). → C-22.
 
 **A-4 · `book.py:242` 폴백 배분** — 의존 **D4**
 → (c1)이면 `fallback = dict(INIT_ALLOCATION)` 을 `a*(obs_t)` 로. `a*` 는 ⑤ `feedback/scoring.py`
@@ -395,6 +400,18 @@
   구분 안 되는데도 결론에 쓰였다(§1.5 · D2). Hanley–McNeil 반폭과 `(0.5포함)` 표시를 붙였다.
 → 남은 문제: 시드별로만 내고 **묶지 못한다.** 120스텝이 필요한데 시나리오 길이가 60 이라,
   시드를 합쳐 한 번에 AUC 를 내는 기능이 있어야 D2 를 판정할 수 있다 — C 작업으로 남긴다.
+→ **남은 문제 완료 2026-09-28:** `--pool`(실행을 합쳐 AUC 한 번 더) · `*` 패턴(PowerShell 용) · `--quiet`.
+  한 실행 안의 스텝은 독립이 아니라 묶은 CI 는 낙관적이라고 출력에 적는다.
+  **첫 결과 — after-B1 proposed 15칸(1080스텝):** `combined` 0.514±0.037 **(0.5포함)** · `intrinsic`
+  0.514±0.037 (0.5포함) · `empirical` 0.497±0.037 (0.5포함) · `worst u/θ` **0.684±0.032**. 자율 스텝만(214):
+  `combined` 0.641±0.074 · `worst u/θ` 0.588±0.076. → 개입 판정 공식은 전체 스텝에서 위반을 못 가려내고,
+  관측의 `worst u/θ` 만 가려낸다. D2 의 첫 판정 근거다(`tools/signal_auc.py "runs/_matrix/after-B1/raw/proposed_rule-*" --pool --quiet`).
+
+**C-22 · 오케스트레이터가 관측을 줄여서 넘긴다** — 의존 없음 · **완료 2026-09-28**
+→ A-3 참고. LLM 이 `get_observation` 결과를 옮겨 적으며 `features` 를 빼 `classify_demand` 가 실패했고, 한 번은
+  피처 11개를 직접 만들어 넣었다(D6 기록 · `orchcheck2`). 프롬프트 값의 규칙에 "observation 은 받은 그대로,
+  피처를 만들지 않는다" 한 줄 · ② `classify_demand` 도구 설명에 "features 블록을 읽는다 · 없으면 feature_mismatch".
+→ 검증: 오케스트레이터 special_event s0 6스텝에서 `classify_demand` 호출의 observation 에 `features` 가 있고 available.
 
 **C-20c · `tools/compare_matrix.py` 가 오독을 유도한다** — **kim 이 고침 · C 확인 2026-09-28** (lee 병합 때 검토)
 → 셋이 문제였다. (i) 조달비를 아예 안 낸다 — SLA 만 보면 "돈을 더 써서 좋아진 것"과 구별이

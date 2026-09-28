@@ -81,6 +81,13 @@ check("키 누락 → missing_confidence", r.get("error") == "missing_confidence
 r = mb.call("audit", "record_decision",
             {**base, "confidence": {"situation": 0.9, "intrinsic": 0.5, "empirical": 0.5, "combined": 0.5}})
 check("정상 → decision_id", "decision_id" in r, r.get("decision_id"))
+r = mb.call("audit", "record_decision",
+            {**base, "step": 1, "confidence": {"situation": "0.9", "intrinsic": 0.5, "empirical": 0.5, "combined": 0.5}})
+stored = mb.decisions.get(r.get("decision_id"), {}).get("confidence", {}).get("situation")
+check("A-2b — 숫자 문자열은 float 로 저장", isinstance(stored, float) and stored == 0.9, repr(stored))
+r = mb.call("audit", "record_decision",
+            {**base, "step": 2, "confidence": {"situation": float("nan"), "intrinsic": 0.5, "empirical": 0.5, "combined": 0.5}})
+check("A-2b — NaN → malformed_confidence", r.get("error") == "malformed_confidence", r.get("error"))
 
 print("\n" + ("전부 통과" if FAILS == 0 else f"실패 {FAILS}건"))
 sys.exit(1 if FAILS else 0)

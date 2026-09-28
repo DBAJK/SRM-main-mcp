@@ -9,6 +9,7 @@
 """
 from __future__ import annotations
 
+import math
 import os
 from typing import Any, Optional
 
@@ -108,13 +109,23 @@ def bad_confidence(confidence: Any) -> Optional[dict]:
 
 
 def _is_floatable(value: Any) -> bool:
+    """유한한 수로 바뀌는가. bool · NaN · inf 는 아니다 (workplan-2 A-2b)."""
     if isinstance(value, bool):  # bool 은 int 의 서브클래스라 float() 이 조용히 통과한다
         return False
     try:
-        float(value)
-        return True
+        return math.isfinite(float(value))
     except (TypeError, ValueError):
         return False
+
+
+def clean_confidence(confidence: dict) -> dict:
+    """검사를 통과한 confidence 의 네 값을 float 로 바꿔 저장한다 (workplan-2 A-2b).
+
+    `bad_confidence` 는 "float 로 바뀌는가"만 봐서, LLM 이 `"0.52"` 처럼 숫자 모양 문자열을 넣으면
+    통과한 뒤 **문자열 그대로** 장부에 남았다 — AUC · 평균을 내는 쪽에서 문자열 비교가 된다.
+    네 키 외의 값은 건드리지 않는다.
+    """
+    return {**confidence, **{k: float(confidence[k]) for k in CONFIDENCE_KEYS}}
 
 
 def _existing_decision(book: dict, step: int) -> Optional[dict]:
@@ -151,6 +162,7 @@ def record_decision(step: int, observation: dict, situation: str, chosen_policy:
     bad = bad_confidence(confidence)
     if bad is not None:
         return bad
+    confidence = clean_confidence(confidence)
 
     book = load(resolved)
     if config:
@@ -226,6 +238,7 @@ def record_escalation(step: int, observation: dict, situation: str, reason: str,
     bad = bad_confidence(confidence)
     if bad is not None:
         return bad
+    confidence = clean_confidence(confidence)
 
     book = load(resolved)
     if config:

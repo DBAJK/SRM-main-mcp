@@ -294,6 +294,26 @@ def main() -> int:
     only = book.get_decisions(n=10, kind="escalation")
     check_true("kind 필터", all(r["kind"] == "escalation" for r in only), str(len(only)))
 
+    # ── 7. confidence 값 정리 (workplan-2 A-2b) ────────────────
+    # 맨 끝에 둔다 — 앞 검사의 get_metrics(window=…) · get_decisions(n=…) 를 가로채지 않게.
+    print("\n7. confidence 값 정리 (A-2b)")
+    s900 = book.record_decision(
+        step=900, observation=obs, situation="normal", chosen_policy="rule_based",
+        allocation=dict(INIT_ALLOCATION),
+        confidence={"situation": "0.9", "intrinsic": 0.5, "empirical": 0.8, "combined": 0.63},
+        rationale="문자열 확신")
+    stored = next(r for r in book.get_decisions(n=5, full=True)
+                  if r.get("decision_id") == s900.get("decision_id"))
+    check_true("숫자 문자열 confidence → float 로 저장",
+               isinstance(stored["confidence"]["situation"], float),
+               repr(stored["confidence"]["situation"]))
+    nan = book.record_decision(
+        step=901, observation=obs, situation="normal", chosen_policy="rule_based",
+        allocation=dict(INIT_ALLOCATION),
+        confidence={"situation": float("nan"), "intrinsic": 0.5, "empirical": 0.8, "combined": 0.63},
+        rationale="NaN 확신")
+    check("NaN confidence → 거부", nan.get("error"), "malformed_confidence")
+
     print(f"\n{'실패 ' + str(len(failures)) + '건: ' + ', '.join(failures) if failures else '전부 통과'}")
     return 1 if failures else 0
 

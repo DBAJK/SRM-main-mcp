@@ -37,7 +37,11 @@ TOOL_DESC = {
     "compare_policies": (
         "전 정책을 같은 관측으로 한 번에 평가한다. 반환량이 propose_allocation 의 3배다."
     ),
-    "classify_demand": "관측에서 어느 슬라이스 수요가 지배적인지 분류한다.",
+    "classify_demand": (
+        "관측에서 어느 슬라이스 수요가 지배적인지 분류한다. observation 은 get_observation 결과를 "
+        "고치지 말고 그대로 넘긴다 — 분류 모델은 그 안의 features 블록(11차원)을 읽는다. "
+        "features 가 없으면 available=false · feature_mismatch 로 돌려준다."
+    ),
 }
 
 

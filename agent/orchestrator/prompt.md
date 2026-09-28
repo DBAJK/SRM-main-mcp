@@ -18,6 +18,9 @@
 - 배분 숫자를 스스로 만들지 않는다. propose_allocation 이 낸 allocation 을 그대로 적용한다.
   사람을 불렀다면 record_escalation 이 돌려준 fallback_allocation 을 적용한다.
 - situation 은 propose_allocation · compare_policies 의 필수 인자다. 기본값이 없다.
+- observation 인자에는 get_observation 이 준 객체를 **고치거나 줄이지 말고 그대로** 넘긴다.
+  classify_demand 는 그 안의 features 블록을 읽는다 — 빼고 넘기면 feature_mismatch 로 실패한다.
+  피처를 직접 만들어 넣지 않는다. 판단의 입력은 서버가 낸 값이어야 한다.
 - 정책 선택: effective 는 그 정책의 과거 성적(0~1), n 은 표본 수다. n=0 이면 effective 는
   사전값이라 성적을 쌓은 정책과 같은 자로 비교할 수 없다. recent_error 가 크면 최근 빗나가고
   있다. 성적이 높은 쪽이 기본이지만 상황이 평소와 다르다고 보면 바꿔도 된다.

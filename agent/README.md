@@ -148,8 +148,9 @@ py -3.10 run.py --scenario mixed --seed 1
 
 실행은 `.venv310\Scripts\python.exe` 로 한다. 웹 UI는 `web\serve.py`, 본실험 배치는 `tools\run_matrix.py`.
 
-**새로 받은 폴더에서 검사부터 돌릴 때** — `data/vendors.json` 은 git 에 없다(C-6). `run.py` 는 없으면
-만들지만 `tools/check_market.py` 는 멈춘다. `tools/bootstrap_vendors.py` 를 먼저 돌린다.
+**새로 받은 폴더에서 검사부터 돌릴 때** — `data/vendors.json` 은 git 에 없다(C-6). `run.py` 와
+`tools/check_market.py` 모두 없으면 원본에서 만든다(2026-09-28 부터). 평판을 초기화하려면
+`tools/bootstrap_vendors.py --force`.
 
 **B-2(2026-09-25) 이전에 warm 으로 돌린 적이 있으면** `data/reliability.json` 을 `data/reliability.pre-B2.json`
 으로 옮긴다(`.gitignore` 가 막는다). 그 파일에는 개입 스텝 성적이 정책에 잘못 붙어 있어, 이어 쓰면 처음부터

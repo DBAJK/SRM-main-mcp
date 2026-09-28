@@ -18,7 +18,7 @@ import math
 import random
 from typing import Any
 
-from srm_mcp.audit.book import bad_confidence        # ④ A-2 — 키 누락 · 숫자 아님 거부
+from srm_mcp.audit.book import bad_confidence, clean_confidence  # ④ A-2 · A-2b — 거부 · float 저장
 from srm_mcp.common.const import INIT_ALLOCATION     # ④ 폴백 배분 (book.py 와 같은 상수)
 from srm_mcp.feedback import reliability as rel      # ⑤ EMA · 축소 · recent_error 사전값(B-3)
 from srm_mcp.policy import rule                      # ② rule_based — 위반 보정(B-1) 포함
@@ -347,6 +347,7 @@ class MockBackend:
         bad = bad_confidence(kw.get("confidence"))
         if bad:
             return bad
+        kw = {**kw, "confidence": clean_confidence(kw["confidence"])}
         did = f"{self.run_id}-{kw['step']:04d}"
         self.decisions[did] = {**kw, "kind": "decision"}
         return {"decision_id": did, "recorded_at_step": kw["step"]}
@@ -359,6 +360,7 @@ class MockBackend:
         bad = bad_confidence(confidence)
         if bad:
             return bad
+        confidence = clean_confidence(confidence)
         self.escalations += 1
         did = f"{self.run_id}-{step:04d}"
         # 폴백은 ④처럼 INIT_ALLOCATION 상수다 (book.py). rule_based 제안을 쓰면 B-1 이후
