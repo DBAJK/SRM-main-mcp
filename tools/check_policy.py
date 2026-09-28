@@ -39,7 +39,8 @@ except ImportError:
     sys.modules["fastmcp"] = stub
     print("fastmcp 없음 — 스텁으로 도구 함수만 검사한다\n")
 
-from srm_mcp.common.const import FORBIDDEN, SEQUENCE_LENGTH  # noqa: E402
+from srm_mcp.common.const import FORBIDDEN, SEQUENCE_LENGTH, THRESHOLDS  # noqa: E402
+from srm_mcp.observe.env import BASE_TRAFFIC, EVENT_MULTIPLIERS  # noqa: E402
 from srm_mcp.policy import features, lstm, rule  # noqa: E402
 from srm_mcp.policy import server as s  # noqa: E402
 
@@ -91,6 +92,38 @@ def main() -> int:
           s.propose_allocation("rule_based", calm, "normal")["allocation"],
           {"embb": 0.4, "urllc": 0.4, "mmtc": 0.2})
     os.environ["SLICE_RULE_CORRECTION"] = "off"   # 이하 검사는 목표표 기준
+
+    print("\n1c. 목표표 선택 — D7 (workplan-2 §2 · B-7)")
+    # D7 이 결정되기 전까지 기본 동작이 바뀌면 안 된다.
+    os.environ.pop("SLICE_TARGET_TABLE", None)
+    check("기본은 원본 표", s.propose_allocation("rule_based", OBS, "emergency")["allocation"],
+          {"embb": 0.2, "urllc": 0.7, "mmtc": 0.1})
+    os.environ["SLICE_TARGET_TABLE"] = "theta"
+    theta = s.propose_allocation("rule_based", OBS, "emergency")
+    check("theta 면 θ 판", (round(theta["allocation"]["embb"], 4),
+                            round(theta["allocation"]["urllc"], 4)), (0.329, 0.4627))
+    check("θ 판도 합이 1", round(sum(theta["allocation"].values()), 4), 1.0)
+    check("rationale 에 어느 표인지 남는다", "목표표 theta" in theta["rationale"], True)
+    # 유도식과 리터럴이 갈라지면 D7 의 근거가 무너진다.
+    need = {k: BASE_TRAFFIC[k] * EVENT_MULTIPLIERS["emergency"][k] / THRESHOLDS[k]
+            for k in ("embb", "urllc", "mmtc")}
+    z = sum(need.values())
+    check("리터럴 == BASE_TRAFFIC × 배율 / θ",
+          max(abs(rule.TARGET_BY_SITUATION_THETA["emergency"][k] - need[k] / z)
+              for k in need) < 5e-5, True)
+    os.environ["SLICE_TARGET_TABLE"] = "theta_only"
+    only = s.propose_allocation("rule_based", OBS, "emergency")["allocation"]
+    check("theta_only 는 원본÷θ", (round(only["embb"], 4), round(only["urllc"], 4)),
+          (0.2388, 0.6269))
+    check("theta_only 도 합이 1", round(sum(only.values()), 4), 1.0)
+    check("세 판이 서로 다르다",
+          len({tuple(round(t[k], 4) for k in ("embb", "urllc", "mmtc"))
+               for t in (rule.TARGET_BY_SITUATION["emergency"],
+                         rule.TARGET_BY_SITUATION_THETA_ONLY["emergency"],
+                         rule.TARGET_BY_SITUATION_THETA["emergency"])}), 3)
+    os.environ["SLICE_TARGET_TABLE"] = "garbage"
+    check("알 수 없는 값은 원본으로 떨어진다", rule.target_table_name(), "original")
+    os.environ.pop("SLICE_TARGET_TABLE", None)
 
     print("\n2. 완료 판정 — situation 만 바꾸면 배분이 달라진다")
     seen = {}

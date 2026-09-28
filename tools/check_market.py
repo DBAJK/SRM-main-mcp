@@ -4,7 +4,16 @@
 
 `claude/spec/market.md` 의 예시 값은 engine.py 를 실제로 실행해 얻은 것이다. 추출본이
 원본과 같은 값을 내는지 여기서 못 박는다. fastmcp 없이 돌아가므로 0단계 전에도 쓸 수 있다
-(`scoring.py` 와 `common/const.py` 만 import 한다).
+(`scoring.py` · `common/const.py` · `bootstrap_vendors.py` 만 import 한다).
+
+⚠️ **산술 검사는 원본 `5G-Marketplace/data/vendors.json` 으로 한다.** 실행용
+   `data/vendors.json` 의 `rating` 은 ⑤→③ 되먹임으로 실행마다 움직여서(warm 누적,
+   설계서 §5.0), 그걸로 검사하면 실험을 한 번만 돌려도 점수가 전부 어긋난다.
+   이 검사가 묻는 것은 `scoring.py` 가 `engine.py` 와 같은 값을 내는가이고 그건
+   평판 이력과 무관하다. 움직이는 값은 §0 에서 정보로만 보고한다.
+
+실행용 파일은 추적하지 않으므로 없으면 원본에서 만든다 — `--force` 를 주지 않아
+이미 있는 warm 누적 평판은 건드리지 않는다 (workplan-2 §3.2).
 
 도구 자체(procure · update_rating)는 fastmcp 가 필요하므로 여기서는 산술만 검증한다.
 """
@@ -25,6 +34,9 @@ from srm_mcp.common.const import (GAIN_SCALE, RATING_DELTA, REFERENCE_BANDWIDTH,
                               cost_per_step)
 from srm_mcp.common.store import read_json  # noqa: E402
 from srm_mcp.market import scoring  # noqa: E402
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from bootstrap_vendors import bootstrap  # noqa: E402
 
 QOS = {"latency": 1.0, "bandwidth": 400, "reliability": 99.99}
 
@@ -51,12 +63,42 @@ def check(label: str, got, want, tol: float = 0.005) -> None:
 
 
 def main() -> int:
-    vendors = read_json(paths.VENDORS_JSON)
+    # 산술 검사의 기준은 원본이다 (독스트링 ⚠️). 읽기 전용이라 실행이 못 바꾼다.
+    vendors = read_json(paths.SRC_VENDORS_JSON)
     if vendors is None:
-        print("data/vendors.json 이 없다. python tools/bootstrap_vendors.py 먼저.", file=sys.stderr)
+        print(f"원본이 없다: {paths.SRC_VENDORS_JSON}", file=sys.stderr)
         return 1
 
-    print("1. score_offerings('URLLC', qos) — 순위와 점수")
+    print("0. 실행용 data/vendors.json — 존재와 평판 이력 (검사가 아니라 보고)")
+    runtime = read_json(paths.VENDORS_JSON)
+    if runtime is None:
+        # .gitignore 대상이라 새로 받은 작업 트리에는 없다 (workplan-2 §3.2).
+        print("   없다 — 원본에서 부트스트랩한다.")
+        if bootstrap() != 0:
+            return 1
+        runtime = read_json(paths.VENDORS_JSON)
+    if runtime is None:
+        print("   부트스트랩 후에도 읽지 못한다.", file=sys.stderr)
+        return 1
+
+    base = {v["id"]: float(v["rating"]) for v in vendors}
+    drift = [(v["id"], base[v["id"]], float(v["rating"])) for v in runtime
+             if v["id"] in base and abs(float(v["rating"]) - base[v["id"]]) > 1e-9]
+    missing_regions = [v["id"] for v in runtime if not v.get("regions")]
+    if missing_regions:
+        # 이건 진짜 고장이다 — region 필터가 아무것도 못 찾으면 조달 분기가 통째로 죽는다.
+        check("모든 벤더에 regions 가 있다", missing_regions, [])
+    else:
+        print(f"   PASS  모든 벤더에 regions 가 있다 (벤더 {len(runtime)}곳)")
+    if drift:
+        print(f"   평판이 원본에서 움직였다 — warm 누적이 살아있다는 뜻이고 정상이다:")
+        for vid, was, now in sorted(drift):
+            print(f"        {vid:10} {was:.2f} → {now:.2f}")
+        print("   초기화하려면 tools/bootstrap_vendors.py --force (누적 평판을 버린다)")
+    else:
+        print("   평판이 원본과 같다 (실험을 돌린 적이 없거나 방금 --force 로 초기화했다)")
+
+    print("\n1. score_offerings('URLLC', qos) — 순위와 점수  [원본 기준]")
     scored = sorted(
         ((v["id"], round(scoring.score_offering(v, "URLLC", QOS), 2)) for v in vendors),
         key=lambda row: row[1], reverse=True,

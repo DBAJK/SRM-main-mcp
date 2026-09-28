@@ -36,6 +36,7 @@ import csv
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -46,7 +47,12 @@ from typing import Optional
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-PYTHON = ROOT / ".venv310" / "Scripts" / "python.exe"
+# venv 이름·플랫폼이 사람마다 다르다. 없으면 이 스크립트를 띄운 인터프리터로 (web/serve.py:32).
+_VENV = [ROOT / ".venv310" / "Scripts" / "python.exe",
+         ROOT / ".venv310" / "bin" / "python",
+         ROOT / ".venv" / "Scripts" / "python.exe",
+         ROOT / ".venv" / "bin" / "python"]
+PYTHON = next((p for p in _VENV if p.is_file()), Path(sys.executable))
 
 SCENARIOS = ("normal", "emergency", "special_event", "iot_surge", "mixed")
 STEPS = {"mixed": 120}                       # 그 외 60 (observe env total_steps)
@@ -135,6 +141,26 @@ def run_cell(c: Cell, limit, model, log_dir: Path) -> dict:
         p.wait()
     return {"exit": p.returncode, "elapsed_sec": round(time.monotonic() - t0, 1),
             "usd_equiv": round(usd, 4), "log": str(log.relative_to(ROOT))}
+
+
+def preserve(c: Cell, out: Path) -> Optional[str]:
+    """칸이 끝나는 즉시 `runs/<run_id>/` 를 매트릭스 폴더로 복사한다 (C-20).
+
+    run_id 에 매트릭스 이름이 안 들어가므로 다음 매트릭스가 같은 칸을 덮어쓴다. 요약만
+    남고 개입 패턴·스텝별 배분 같은 원본이 사라진다. 중간에 죽어도 거기까지는 남도록
+    칸마다 즉시 복사한다. `compare_matrix.py` 는 이미 `raw/` 를 먼저 찾는다.
+    """
+    srcdir = ROOT / "runs" / c.run_id
+    if not srcdir.is_dir():
+        return f"원본 없음: {srcdir}"
+    dst = out / "raw" / c.run_id
+    try:
+        if dst.exists():
+            shutil.rmtree(dst)
+        shutil.copytree(srcdir, dst)
+    except OSError as e:                               # noqa: BLE001 — 보관 실패가 실험을 죽이지 않게
+        return f"{type(e).__name__}: {e}"
+    return None
 
 
 def collect(c: Cell) -> dict:
@@ -236,6 +262,14 @@ def main() -> int:
         state[c.run_id] = {**r, "variant": c.variant, "scenario": c.scenario, "seed": c.seed,
                            "finished": datetime.now().isoformat(timespec="seconds")}
         state_path.write_text(json.dumps(state, indent=2, ensure_ascii=False), encoding="utf-8")
+        if r["exit"] == 0:
+            err = preserve(c, out)
+            r["raw"] = f"raw/{c.run_id}" if err is None else None
+            if err:
+                print(f"       ⚠ 원본 보관 실패 — {err}")
+            state[c.run_id] = {**state[c.run_id], "raw": r["raw"]}
+            state_path.write_text(json.dumps(state, indent=2, ensure_ascii=False),
+                                  encoding="utf-8")
         mark = "완료" if r["exit"] == 0 else f"실패(종료 {r['exit']}) — {r['log']}"
         print(f"       {mark} · {r['elapsed_sec']}초 · ${r['usd_equiv']:.3f} · 누적 ${spent:.2f}")
 

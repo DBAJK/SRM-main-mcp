@@ -184,8 +184,13 @@ def main() -> int:
     print(f"        최종: {end}")
 
     print("\n8. recent_error — ②의 공급선 (V4)")
-    check("표본 없으면 null", reliability.recent_error([]), None)
+    # 실서버는 `view()` 를 거쳐 항상 정책명을 넘긴다 (B-3). 정책명 없는 호출은 구
+    # 호출부용 경로라 그것만 걸면 실행되지 않는 코드를 검사하게 된다 (workplan-2 B-3b).
+    check("표본 없으면 lstm 사전값", reliability.recent_error([], "lstm_forecast"), 0.2)
+    check("표본 없으면 dqn 사전값", reliability.recent_error([], "dqn"), 0.6)
+    check("정책명 없으면 종전대로 null", reliability.recent_error([]), None)
     check("1건이면 그 값", reliability.recent_error([0.3]), 0.3)
+    check("표본이 있으면 사전값을 안 쓴다", reliability.recent_error([0.3], "lstm_forecast"), 0.3)
     check("최근 N회만 유지", len(reliability.push_error([0.1] * 9, 0.2)), 5)
     check("최근 값에 더 큰 가중", reliability.recent_error([0.0, 0.0, 0.0, 0.0, 0.6]) > 0.1, True)
 

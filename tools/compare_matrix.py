@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parents[1]
 MATRIX = ROOT / "runs" / "_matrix"
 VARIANTS = ("baseline", "arm1_rule", "arm2_rule", "proposed_rule")
 SCENARIOS = ("normal", "emergency", "special_event", "iot_surge", "mixed")
-SEEDS = (0, 1, 2)
+SEEDS: tuple[int, ...] = (0, 1, 2)   # load() 가 실제 요약을 보고 덮어쓴다
 LADDER = (("baseline", "arm1_rule", "상황 인지   arm1 − baseline"),
           ("arm1_rule", "arm2_rule", "정책 선택   arm2 − arm1"),
           ("arm2_rule", "proposed_rule", "선택적 개입 proposed − arm2"))
@@ -33,8 +33,35 @@ def load(name: str) -> dict:
     return {(r["variant"], r["scenario"], r["seed"]): r for r in rows}
 
 
+def narrow(*tables: dict) -> None:
+    """실제로 돌아간 변형 · 시나리오 · 시드만 남긴다. 전역을 덮어쓴다.
+
+    상수를 박아두면 시드를 늘리거나 변형 일부만 돌린 매트릭스에서 KeyError 가 나거나
+    앞 3개만 조용히 쓰게 된다.
+    """
+    global VARIANTS, SCENARIOS, SEEDS
+    common = set(tables[0])
+    for t in tables[1:]:
+        common &= set(t)
+    VARIANTS = tuple(v for v in VARIANTS if any(k[0] == v for k in common))
+    SCENARIOS = tuple(s for s in SCENARIOS if any(k[1] == s for k in common))
+    SEEDS = tuple(sorted({k[2] for k in common}))
+
+
 def rate(r: dict) -> float:
     return r["sla_violations"] / r["sla_scored"]
+
+
+# t(0.975, df). 칸이 수십 개라 정규근사(1.96)를 쓰면 경계에서 유의하다고 잘못 읽는다.
+_T975 = {1: 12.706, 2: 4.303, 3: 3.182, 4: 2.776, 5: 2.571, 6: 2.447, 7: 2.365,
+         8: 2.306, 9: 2.262, 10: 2.228, 11: 2.201, 12: 2.179, 14: 2.145, 16: 2.120,
+         19: 2.093, 24: 2.064, 29: 2.045, 39: 2.023, 59: 2.001}
+
+
+def t975(df: int) -> float:
+    if df < 1:
+        return float("inf")
+    return next((v for k, v in sorted(_T975.items()) if df <= k), 1.96)
 
 
 def mean_sd(xs: list[float]) -> str:
@@ -60,9 +87,18 @@ def main() -> int:
         return 2
     b_name, a_name = sys.argv[1], sys.argv[2]
     B, A = load(b_name), load(a_name)
+    narrow(B, A)
+    missing = [k for v in VARIANTS for k in ((v, s, sd) for s in SCENARIOS for sd in SEEDS)
+               if k not in B or k not in A]
+    if missing:
+        print(f"⚠ 두 매트릭스에 공통으로 없는 칸 {len(missing)}개는 뺐다: {missing[:4]} …"
+              if len(missing) > 4 else f"⚠ 공통으로 없는 칸: {missing}")
+    print(f"  칸 구성 — 변형 {len(VARIANTS)} × 시나리오 {len(SCENARIOS)} × 시드 {len(SEEDS)}"
+          f" = {len(VARIANTS) * len(SCENARIOS) * len(SEEDS)}칸")
     keys = lambda v: [(v, s, sd) for s in SCENARIOS for sd in SEEDS]  # noqa: E731
 
-    print(f"{b_name} → {a_name}\n\n비교군별 (15칸 평균 ± 칸 간 표준편차)")
+    print(f"{b_name} → {a_name}\n\n비교군별 "
+          f"({len(SCENARIOS) * len(SEEDS)}칸 평균 ± 칸 간 표준편차)")
     for v in VARIANTS:
         b = [rate(B[k]) for k in keys(v)]
         a = [rate(A[k]) for k in keys(v)]
@@ -72,23 +108,48 @@ def main() -> int:
         ia = st.mean(A[k]["intervention_rate"] for k in keys(v))
         pb = st.mean(B[k]["perception_accuracy"] for k in keys(v))
         pa = st.mean(A[k]["perception_accuracy"] for k in keys(v))
+        n = len(b)
+        # SLA 만 보면 "비용을 더 써서 좋아진 것" 과 구별이 안 된다.
+        cb = st.mean(B[k].get("procurement_cost", 0.0) for k in keys(v))
+        ca = st.mean(A[k].get("procurement_cost", 0.0) for k in keys(v))
         print(f"  {v:<14} SLA 위반율 {mean_sd(b)} → {mean_sd(a)} · 좋아짐 {better} · 같음 "
-              f"{15 - better - worse} · 나빠짐 {worse} · 개입률 {ib:.3f} → {ia:.3f} · 상황 인지 {pb:.3f} → {pa:.3f}")
+              f"{n - better - worse} · 나빠짐 {worse} · 개입률 {ib:.3f} → {ia:.3f} · 상황 인지 {pb:.3f} → {pa:.3f}")
+        print(f"  {'':<14} 조달비 칸평균 {cb:,.0f} → {ca:,.0f}"
+              + (f"  ({(ca - cb) / cb:+.0%})" if cb else ""))
 
-    print("\n사다리 (같은 시나리오 · 시드 15쌍의 SLA 위반율 차이, 음수가 좋아짐)")
+    print(f"\n사다리 (같은 시나리오 · 시드 {len(SCENARIOS) * len(SEEDS)}쌍의 SLA 위반율 "
+          f"차이, 음수가 좋아짐 · 95%CI 는 t분포)")
     for lo, hi, label in LADDER:
+        if lo not in VARIANTS or hi not in VARIANTS:
+            print(f"  {label:<30} — 이 매트릭스에 {lo}/{hi} 칸이 없다. 건너뜀")
+            continue
         for tag, D in (("전", B), ("후", A)):
             d = [rate(D[(hi, s, sd)]) - rate(D[(lo, s, sd)]) for s in SCENARIOS for sd in SEEDS]
             g, w = sum(1 for x in d if x < -1e-9), sum(1 for x in d if x > 1e-9)
-            print(f"  {label:<30} {tag}  {st.mean(d):+.3f}   좋아짐 {g} · 같음 {15 - g - w} · 나빠짐 {w}")
+            # 평균만 내면 칸마다 부호가 갈리는 것을 못 본다.
+            m, sd_ = st.mean(d), (st.stdev(d) if len(d) > 1 else 0.0)
+            half = t975(len(d) - 1) * sd_ / (len(d) ** 0.5) if len(d) > 1 else 0.0
+            flag = "0 포함 ← 방향 주장 불가" if (m - half) * (m + half) <= 0 else "0 불포함"
+            print(f"  {label:<30} {tag}  {m:+.3f} ±{sd_:.3f}  [{m - half:+.3f}, {m + half:+.3f}] "
+                  f"{flag}   좋아짐 {g} · 같음 {len(d) - g - w} · 나빠짐 {w}")
+            # 풀링하면 한 시나리오의 큰 효과가 나머지의 0 에 희석되고 분산만 커진다.
+            for s in SCENARIOS:
+                ds = [rate(D[(hi, s, sd)]) - rate(D[(lo, s, sd)]) for sd in SEEDS]
+                ms = st.mean(ds)
+                sds = st.stdev(ds) if len(ds) > 1 else 0.0
+                hs = t975(len(ds) - 1) * sds / (len(ds) ** 0.5) if len(ds) > 1 else 0.0
+                fs = "0 포함" if (ms - hs) * (ms + hs) <= 0 else "0 불포함 ←"
+                print(f"      {s:<16} {tag}  {ms:+.3f} ±{sds:.3f} "
+                      f"[{ms - hs:+.3f}, {ms + hs:+.3f}] {fs}  "
+                      + " ".join(f"{x:+.3f}" for x in ds))
 
-    print("\n시나리오별 SLA 위반율 (시드 3개 평균) 전 → 후")
+    print(f"\n시나리오별 SLA 위반율 (시드 {len(SEEDS)}개 평균) 전 → 후")
     for s in SCENARIOS:
         cells = [f"{v.split('_')[0]} {st.mean(rate(B[(v, s, sd)]) for sd in SEEDS):.2f}→"
                  f"{st.mean(rate(A[(v, s, sd)]) for sd in SEEDS):.2f}" for v in VARIANTS]
         print(f"  {s:<14} " + " · ".join(cells))
 
-    print("\n위반의 원인 (60칸 합) 전 → 후")
+    print(f"\n위반의 원인 ({len(VARIANTS) * len(SCENARIOS) * len(SEEDS)}칸 합) 전 → 후")
     for tag, D in (("전", B), ("후", A)):
         tot = sum(r["sla_violations"] for r in D.values())
         av = sum(r["sla_avoidable"] for r in D.values())

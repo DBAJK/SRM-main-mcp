@@ -7,12 +7,16 @@
 AUC(1차 workplan §6): 위반 스텝(sla_met=False)을 양성으로 두고 신호를 "위험" 방향으로 맞춰 Mann-Whitney 로
 계산한다 — combined · intrinsic · empirical 은 낮을수록 위험, worst u/θ(결정 시점 관측의 maxₖ uₖ/θₖ)는 높을수록
 위험. 0.5 = 구분 못 함 · 1.0 = 완벽. "자율만" 은 개입 스텝을 뺀 것이다 — 개입 스텝의 SLA 는 폴백 배분의 결과라서.
-표본이 30스텝 안팎이면 AUC 는 ±0.1 정도 흔들린다. 방향만 읽는다.
+⚠️ **AUC 옆의 ± 는 95%CI 반폭(Hanley–McNeil)이다.** 30스텝(위반 19 · 충족 11)이면 ±0.22 라
+0.5 와 구분되지 않는다 — `(0.5포함)` 이 붙으면 그 신호는 **구분력을 주장할 수 없다**.
+±0.10 까지 줄이려면 약 120스텝이 필요하다. 1차 §2 D2 의 판정 기준(0.7 유지 / 0.6 미만 게이트)은
+30~60스텝 단일 실행으로는 **판정 불가**다 — AUC 0.7 의 CI 가 [0.51, 0.89] 로 0.6 과 겹친다.
 """
 from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 from pathlib import Path
 
@@ -24,11 +28,19 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
 
 
-def auc(pos: list[float], neg: list[float]) -> float | None:
+def auc(pos: list[float], neg: list[float]) -> tuple[float, float] | None:
+    """(AUC, 95%CI 반폭). 반폭은 Hanley–McNeil 근사다.
+
+    맨숫자만 내면 30스텝짜리 AUC 0.49 를 "무작위보다 나쁘다" 로 읽게 된다. 실제로는
+    위반 19 · 충족 11 에서 95%CI 가 ±0.22 라 0.5 와 구분되지 않는다.
+    """
     if not pos or not neg:
         return None
-    wins = sum((p > n) + 0.5 * (p == n) for p in pos for n in neg)
-    return round(wins / (len(pos) * len(neg)), 3)
+    m, n = len(pos), len(neg)
+    a = sum((p > q) + 0.5 * (p == q) for p in pos for q in neg) / (m * n)
+    q1, q2 = a / (2 - a), 2 * a * a / (1 + a)
+    var = (a * (1 - a) + (m - 1) * (q1 - a * a) + (n - 1) * (q2 - a * a)) / (m * n)
+    return a, 1.96 * math.sqrt(max(var, 0.0))
 
 
 def signal(d: dict, key: str) -> float | None:
@@ -63,7 +75,13 @@ def report(target: str, max_step: int | None) -> None:
         for key, sign in SIGNALS:
             pairs = [(sign * signal(d, key), d["outcome"]["sla_met"] is False)
                      for d in subset if signal(d, key) is not None]
-            parts.append(f"{key} {auc([v for v, p in pairs if p], [v for v, p in pairs if not p])}")
+            r = auc([v for v, p in pairs if p], [v for v, p in pairs if not p])
+            if r is None:
+                parts.append(f"{key} —")
+            else:
+                a, h = r
+                # 0.5 를 포함하면 그 신호는 위반을 가려내지 못한다는 뜻이다.
+                parts.append(f"{key} {a:.3f}±{h:.3f}{'' if abs(a - 0.5) > h else '(0.5포함)'}")
         n_pos = sum(1 for d in subset if d["outcome"]["sla_met"] is False)
         print(f"   AUC [{name} · 위반 {n_pos}/{len(subset)}]  " + " · ".join(parts))
 

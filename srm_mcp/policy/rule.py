@@ -29,6 +29,53 @@ TARGET_BY_SITUATION: dict[str, dict[str, float]] = {
     "normal":        {"embb": 0.4, "urllc": 0.4, "mmtc": 0.2},
 }
 
+# ── D7 (workplan-2 §2) — 목표표와 임계값의 불일치. **기본값은 `original`** ────────
+#
+# 위 표는 수요 배율만 보고 나눴는데, 위반이 없어지는 배분은 수요/임계에 비례한다
+# (a*ₖ ∝ traffic_k/(θₖ·capacityₖ), ⑤ scoring.ideal_allocation). θ 는 urllc 만 1.0 을
+# 넘어서, 네 줄 모두 urllc 과잉·mmtc 과소다. 근거와 측정은 tools/target_audit.py.
+#
+# 아래는 튜닝이 아니라 BASE_TRAFFIC × EVENT_MULTIPLIERS / THRESHOLDS 의 유도값이다.
+# 리터럴로 두는 것은 ②가 ①의 상수를 import 하지 않기 위해서고, target_audit.py 가
+# 유도식과 같은지 매번 검사한다. 공유 상수로 올릴지는 A · B 합의 사항이다.
+TARGET_BY_SITUATION_THETA: dict[str, dict[str, float]] = {
+    "emergency":     {"embb": 0.3290, "urllc": 0.4627, "mmtc": 0.2082},
+    "special_event": {"embb": 0.5970, "urllc": 0.1791, "mmtc": 0.2239},
+    "iot_surge":     {"embb": 0.3721, "urllc": 0.2093, "mmtc": 0.4186},
+    "normal":        {"embb": 0.4706, "urllc": 0.2647, "mmtc": 0.2647},
+}
+# 위 표는 ①의 생성 상수에서 유도한 것이라 시뮬레이터의 정답지를 본 셈이다. 운영자가
+# 실제로 아는 것은 θ 뿐이므로, 원본 표를 θ 로만 나눈 판을 따로 둔다 — 셋을 나란히 재면
+# "θ 만 아는 경우" 와 "수요까지 아는 경우" 가 갈린다.
+TARGET_BY_SITUATION_THETA_ONLY: dict[str, dict[str, float]] = {
+    situation: {k: (target[k] / THRESHOLDS[k])
+                   / sum(target[j] / THRESHOLDS[j] for j in SLICE_KEYS)
+                for k in SLICE_KEYS}
+    for situation, target in TARGET_BY_SITUATION.items()
+}
+
+TARGET_TABLES = {
+    "original":   TARGET_BY_SITUATION,             # 원본 재현. 기본값
+    "theta_only": TARGET_BY_SITUATION_THETA_ONLY,  # θ 만 씀 — 정보 우위 없음
+    "theta":      TARGET_BY_SITUATION_THETA,       # θ + 생성 수요비 — 정보 우위 있음
+}
+TARGET_TABLE_DEFAULT = "original"   # D7 전까지 원본 동작
+
+
+def target_table_name() -> str:
+    """`SLICE_TARGET_TABLE` 이 고르는 표 이름. 호출마다 읽는다.
+
+    `correction_enabled()` 와 같은 이유다 — 어느 표로 돈 실행인지 `rationale` 을 통해
+    장부에 남는다. 모르는 값은 원본으로 떨어진다.
+    """
+    name = os.environ.get("SLICE_TARGET_TABLE", TARGET_TABLE_DEFAULT).lower()
+    return name if name in TARGET_TABLES else TARGET_TABLE_DEFAULT
+
+
+def targets(situation: str) -> dict[str, float]:
+    return dict(TARGET_TABLES[target_table_name()][situation])
+
+
 CONFIDENCE_FLOOR = 0.50
 CONFIDENCE_SPAN = 0.30
 
@@ -75,8 +122,12 @@ def _violation_correction(target: dict[str, float],
 
 
 def propose(observation: dict[str, Any], situation: str) -> dict[str, float]:
-    """목표 배분. 평활·클립 없음. 위반 보정은 `SLICE_RULE_CORRECTION` 에 따른다."""
-    target = dict(TARGET_BY_SITUATION[situation])
+    """목표 배분. 평활·클립 없음.
+
+    위반 보정은 `SLICE_RULE_CORRECTION`, 목표표는 `SLICE_TARGET_TABLE` 에 따른다.
+    둘 다 기본값이 원본 동작이다.
+    """
+    target = targets(situation)
     if not correction_enabled():
         return target
     return _violation_correction(target, observation)
@@ -123,4 +174,5 @@ def rationale(observation: dict[str, Any], situation: str,
         detail = "임계 초과 슬라이스 없음."
 
     mode = "보정 on" if correction_enabled() else "보정 off"
-    return f"situation={situation} → 목표 [{triple}] ({mode}). {detail}"
+    table = target_table_name()
+    return f"situation={situation} → 목표 [{triple}] ({mode} · 목표표 {table}). {detail}"
