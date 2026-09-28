@@ -26,6 +26,12 @@
     runs/_matrix/<이름>/state.json     칸별 종료 코드 · 소요 · 사용량 (재시작 지점)
     runs/_matrix/<이름>/logs/<run_id>.log
     runs/_matrix/<이름>/summary.json · summary.csv   칸별 지표 한 줄씩
+    runs/_matrix/<이름>/raw/<run_id>/  칸별 원본 보관본 (장부 · 정답 · 심판 · 추적) — C-20
+
+run_id 가 `{arm}-{scenario}-s{seed}` 라 다음 매트릭스가 같은 칸을 돌리면 `runs/<run_id>/` 를
+--fresh 로 지우고 덮어쓴다. 그래서 칸이 끝날 때마다 `runs/<run_id>/` 를 `raw/` 에 복사하고,
+요약도 보관본이 있으면 그것을 읽는다 (--resume 으로 안 돈 칸도 이 매트릭스의 것으로 집계된다).
+tools/compare_matrix.py 는 이미 raw/ 를 먼저 찾는다.
 
 지표는 에이전트가 끝난 뒤 장부와 정답을 직접 읽어 만든다 (eval.breakdown · score).
 """
@@ -36,6 +42,7 @@ import csv
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -46,7 +53,10 @@ from typing import Optional
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-PYTHON = ROOT / ".venv310" / "Scripts" / "python.exe"
+# 팀 표준은 .venv310 (Python 3.10 + TF). 없는 PC 에서는 이 스크립트를 띄운 인터프리터로 칸을 돈다
+# — 서버 5개는 .venv(3.14) 에서도 뜨고 LSTM 만 model_not_loaded 다.
+_VENV310 = ROOT / ".venv310" / "Scripts" / "python.exe"
+PYTHON = _VENV310 if _VENV310.is_file() else Path(sys.executable)
 
 SCENARIOS = ("normal", "emergency", "special_event", "iot_surge", "mixed")
 STEPS = {"mixed": 120}                       # 그 외 60 (observe env total_steps)
@@ -137,17 +147,44 @@ def run_cell(c: Cell, limit, model, log_dir: Path) -> dict:
             "usd_equiv": round(usd, 4), "log": str(log.relative_to(ROOT))}
 
 
-def collect(c: Cell) -> dict:
-    """장부 · 정답에서 칸 하나의 지표를 뽑는다. 서버가 필요 없다."""
+def archive_cell(c: Cell, raw_dir: Path) -> Optional[str]:
+    """`runs/<run_id>/` 를 `raw/<run_id>/` 로 복사한다 (C-20). 원본이 없으면 None.
+
+    다음 매트릭스가 같은 run_id 를 --fresh 로 지우기 전에 이 매트릭스의 몫을 떼어 둔다.
+    같은 칸을 다시 돌리면(--resume 없이) 보관본도 새것으로 바뀐다.
+    """
+    src = ROOT / "runs" / c.run_id
+    if not src.is_dir():
+        return None
+    dst = raw_dir / c.run_id
+    if dst.exists():
+        shutil.rmtree(dst)
+    shutil.copytree(src, dst)
+    return str(dst.relative_to(ROOT))
+
+
+def collect(c: Cell, raw_dir: Path) -> dict:
+    """장부 · 정답에서 칸 하나의 지표를 뽑는다. 서버가 필요 없다.
+
+    raw/<run_id>/ 보관본이 있으면 그것을 읽는다 — runs/<run_id>/ 는 다른 매트릭스가
+    덮어썼을 수 있다. eval 은 경로를 전부 paths.RUNS_DIR 로 푸므로 그 값만 잠시 바꾼다.
+    """
     from eval import breakdown                         # C 소유 — score.py 를 감싼다
+    from srm_mcp.common import paths
     row = {"variant": c.variant, "scenario": c.scenario, "seed": c.seed, "run_id": c.run_id}
+    base = raw_dir if (raw_dir / c.run_id / "decisions.json").is_file() else ROOT / "runs"
+    row["source"] = str((base / c.run_id).relative_to(ROOT))
+    saved = paths.RUNS_DIR
+    paths.RUNS_DIR = base
     try:
         b = breakdown.breakdown(c.run_id)
     except Exception as e:                             # noqa: BLE001 — 칸 하나가 전체를 죽이지 않게
         row["collect_error"] = f"{type(e).__name__}: {e}"
         return row
+    finally:
+        paths.RUNS_DIR = saved
 
-    book = json.loads((ROOT / "runs" / c.run_id / "decisions.json").read_text(encoding="utf-8"))
+    book = json.loads((base / c.run_id / "decisions.json").read_text(encoding="utf-8"))
     decs = [r for r in book["decisions"] if r.get("kind") == "decision"]
     escs = [r for r in book["decisions"] if r.get("kind") == "escalation"]
     s, sp = b["score"], b["sla_split"]
@@ -222,6 +259,8 @@ def main() -> int:
         return 0
 
     (out / "logs").mkdir(parents=True, exist_ok=True)
+    raw_dir = out / "raw"
+    raw_dir.mkdir(exist_ok=True)
     (out / "plan.json").write_text(json.dumps([asdict(c) for c in plan], indent=2), encoding="utf-8")
     spent = sum(v.get("usd_equiv", 0) for v in state.values())
 
@@ -232,6 +271,7 @@ def main() -> int:
             break
         print(f"[{i}/{len(todo)}] {c.run_id} ({c.mode}) …", flush=True)
         r = run_cell(c, args.steps, args.model, out / "logs")
+        r["raw"] = archive_cell(c, raw_dir)            # 실패한 칸도 남긴다 — 원인이 원본에 있다
         spent += r["usd_equiv"]
         state[c.run_id] = {**r, "variant": c.variant, "scenario": c.scenario, "seed": c.seed,
                            "finished": datetime.now().isoformat(timespec="seconds")}
@@ -240,7 +280,7 @@ def main() -> int:
         print(f"       {mark} · {r['elapsed_sec']}초 · ${r['usd_equiv']:.3f} · 누적 ${spent:.2f}")
 
     # 요약 — 성공한 칸 전부 (이번에 안 돈 칸도 state 에 있으면 포함)
-    rows = [collect(c) for c in plan if state.get(c.run_id, {}).get("exit") == 0]
+    rows = [collect(c, raw_dir) for c in plan if state.get(c.run_id, {}).get("exit") == 0]
     (out / "summary.json").write_text(json.dumps(rows, indent=2, ensure_ascii=False), encoding="utf-8")
     if rows:
         keys = sorted({k for r in rows for k in r}, key=lambda k: (k not in rows[0], k))

@@ -306,13 +306,19 @@
   `orchcheck4` 의 `calls.jsonl` 을 다시 판정하면 13 · 17번째 `ignored_escalation` 이 사라지고 9번째
   `record_after_apply` 는 남는다.
 
-**C-20 · `tools/run_matrix.py` 가 칸별 원본을 매트릭스 폴더에 보관** — 의존 없음
+**C-20 · `tools/run_matrix.py` 가 칸별 원본을 매트릭스 폴더에 보관** — 의존 없음 · **완료 2026-09-28**
 → 매트릭스는 칸마다 `run.py --fresh` 를 부르고 run_id 가 `{arm}-{scenario}-s{seed}` 라, 다음 매트릭스가 앞
   매트릭스의 `runs/<run_id>/` 를 **지우고 덮어쓴다.** 요약(`summary.json`)은 남지만 개입 패턴 · 탈출 같은
   칸별 원본이 사라진다. M-0b 직전에 알아채 before-B1 · after-B1 은 손으로 `raw/` 에 옮겼다.
 → 칸이 끝날 때마다 `runs/<run_id>/` 를 `runs/_matrix/<이름>/raw/<run_id>/` 로 복사한다. `tools/compare_matrix.py`
   는 이미 `raw/` 를 먼저 찾는다.
 → 검증: 무료 3칸 매트릭스 두 번(이름만 다르게) 뒤 두 `raw/` 가 각자 남아 있다.
+→ 결과: 칸이 끝나면(실패한 칸도) `runs/<run_id>/` 를 `raw/<run_id>/` 로 복사하고 `state.json` 에 `raw` 경로를
+  적는다. 요약(`collect`)도 보관본이 있으면 그것을 읽는다 — `--resume` 으로 안 돈 칸이 다른 매트릭스에
+  덮인 `runs/` 를 읽던 문제가 같이 사라진다(`summary.json` 의 `source` 칸이 어디서 읽었는지 보인다).
+  실측: emergency s0 5스텝 3칸 매트릭스 두 번(c20-a · c20-b) → 두 `raw/` 각자 보존, 같은 시드라 장부가 바이트
+  단위로 같고, `runs/` 가 두 번째 매트릭스에 덮인 뒤 `c20-a --resume` 요약이 자기 `raw/` 를 읽었다.
+  덤: `.venv310` 이 없는 PC 에서는 스크립트를 띄운 인터프리터로 칸을 돈다 (C 로컬은 `.venv` 3.14).
 
 **C-18 · 비상구 전환을 센다** — 의존 **D6 (a)**
 → `agent/orchestrator/referee.py`: 기록 전 `compute_confidence` 중 escalate=true 가 하나라도 있고 마지막이
