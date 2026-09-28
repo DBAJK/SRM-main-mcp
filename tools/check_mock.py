@@ -62,7 +62,9 @@ check("A-1 — 개입 레코드에 agent_policy (고정 루프가 넘김)",
 check("폴백 = INIT 상수 {0.4, 0.4, 0.2}",
       all(d["allocation"] == {"embb": 0.4, "urllc": 0.4, "mmtc": 0.2} for d in esc_recs))
 rats = [d.get("rationale", "") for d in auto_recs]
-check("B-1 — rule_based 근거에 (보정 on)", any("(보정 on)" in r for r in rats), rats[0][-40:] if rats else None)
+# 근거 끝은 ②가 정한다 — B-7 이후 "(보정 on · 목표표 original)". 목은 ② 를 그대로 부르므로 형식이
+# 바뀌어도 따라가고, 여기서는 보정 설정이 남는지만 본다.
+check("B-1 — rule_based 근거에 보정 설정(보정 on)", any("보정 on" in r for r in rats), rats[0][-50:] if rats else None)
 allocs = {tuple(sorted(d["allocation"].items())) for d in auto_recs}
 check("B-1 — 자율 스텝 요청 배분이 하나로 고정되지 않음", len(allocs) > 1, len(allocs))
 

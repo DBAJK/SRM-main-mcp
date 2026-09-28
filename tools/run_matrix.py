@@ -64,10 +64,12 @@ from typing import Optional
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-# 팀 표준은 .venv310 (Python 3.10 + TF). 없는 PC 에서는 이 스크립트를 띄운 인터프리터로 칸을 돈다
-# — 서버 5개는 .venv(3.14) 에서도 뜨고 LSTM 만 model_not_loaded 다.
-_VENV310 = ROOT / ".venv310" / "Scripts" / "python.exe"
-PYTHON = _VENV310 if _VENV310.is_file() else Path(sys.executable)
+# venv 이름·플랫폼이 사람마다 다르다. 없으면 이 스크립트를 띄운 인터프리터로 (web/serve.py:32).
+_VENV = [ROOT / ".venv310" / "Scripts" / "python.exe",
+         ROOT / ".venv310" / "bin" / "python",
+         ROOT / ".venv" / "Scripts" / "python.exe",
+         ROOT / ".venv" / "bin" / "python"]
+PYTHON = next((p for p in _VENV if p.is_file()), Path(sys.executable))
 
 SCENARIOS = ("normal", "emergency", "special_event", "iot_surge", "mixed")
 STEPS = {"mixed": 120}                       # 그 외 60 (observe env total_steps)
@@ -187,9 +189,13 @@ def archive_cell(c: Cell, raw_dir: Path) -> Optional[str]:
     if not src.is_dir():
         return None
     dst = raw_dir / c.run_id
-    if dst.exists():
-        shutil.rmtree(dst)
-    shutil.copytree(src, dst)
+    try:
+        if dst.exists():
+            shutil.rmtree(dst)
+        shutil.copytree(src, dst)
+    except OSError as e:                     # 보관 실패가 실험을 죽이지 않게 (kim 225e188)
+        print(f"       ⚠ 원본 보관 실패 — {type(e).__name__}: {e}")
+        return None
     return str(dst.relative_to(ROOT))
 
 

@@ -126,9 +126,9 @@ mcp/common/
 
 ```
 main                 ← 통합. 직접 커밋 금지
-├── feature/kim      ← A
-├── feature/lee      ← B
-└── feature/choi     ← C
+├── feature/choi     ← A (환경 · 측정 — ①④)
+├── feature/kim      ← B (모델 · 정책 — ②③⑤)
+└── feature/lee      ← C (에이전트 · 오케스트레이터)
 ```
 
 - 합류 지점(§7)마다 `main`으로 PR. 그 사이에는 각자 브랜치에서 자유롭게.

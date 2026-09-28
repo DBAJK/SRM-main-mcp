@@ -140,7 +140,11 @@ def _fmt(r: dict) -> str:
         f"driver={cfg.get('driver')} intent={'있음' if cfg.get('intent') else '없음'}",
         "",
         f"  상황 인지 정확도   {pa['accuracy']}   ({pa['correct']}/{pa['n']})",
-        f"  개입 정밀도        {ep['precision']}   ({ep['correct']}/{ep['n']})",
+        # 정답 라벨이 한 종류인 시나리오(mixed 외 전부)에서는 이 값이 에이전트의 행동과
+        # 무관하게 시나리오 이름만으로 정해진다 — normal 이면 0.0, 나머지면 1.0.
+        f"  개입 정밀도        {ep['precision']}   ({ep['correct']}/{ep['n']})"
+        + ("   ⚠ 정답 라벨이 한 종류라 이 값은 고정이다 (mixed 에서만 유효)"
+           if cfg.get("scenario") not in (None, "mixed") else ""),
         "",
         f"  SLA 위반 {sp['violations']}/{sp['scored']}",
         f"    배분으로 피할 수 있었음   {sp['avoidable']}",
