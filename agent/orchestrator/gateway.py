@@ -35,7 +35,7 @@ from pydantic import PrivateAttr
 
 from ..backends.mcp import McpBackend
 from ..guard import ForbiddenLeak, Guard
-from ..schema import ESCALATION_THRESHOLD
+from ..schema import ESCALATION_THRESHOLD, escalation_check
 from ..trace import MARK, brief
 
 logger = logging.getLogger(__name__)
@@ -61,8 +61,8 @@ CONFIDENCE_DESC = (
     "결합 신뢰도를 계산한다. combined = √(intrinsic × empirical). "
     "intrinsic 은 propose_allocation 이 낸 confidence, "
     "empirical 은 get_reliability_table 의 그 정책 effective 다. "
-    f"combined 가 {ESCALATION_THRESHOLD} 미만이면 escalate 가 true 이며, "
-    "그 경우 record_decision 대신 record_escalation 을 부른다."
+    f"combined 가 {ESCALATION_THRESHOLD} 미만이거나 empirical 이 하한(empirical_floor) 미만이면 "
+    "escalate 가 true 이며, 그 경우 record_decision 대신 record_escalation 을 부른다."
 )
 
 
@@ -362,13 +362,15 @@ class Gateway:
 
         @mcp.tool(name="compute_confidence", description=CONFIDENCE_DESC)
         def compute_confidence(intrinsic: float, empirical: float) -> dict:
-            combined = (max(0.0, float(intrinsic)) * max(0.0, float(empirical))) ** 0.5
+            chk = escalation_check(intrinsic, empirical)   # 고정 루프와 같은 함수 (schema.py)
             return {
                 "intrinsic": round(float(intrinsic), 4),
                 "empirical": round(float(empirical), 4),
-                "combined": round(combined, 4),
+                "combined": round(chk["combined"], 4),
                 "threshold": ESCALATION_THRESHOLD,
-                "escalate": bool(combined < ESCALATION_THRESHOLD),
+                "empirical_floor": chk["empirical_floor"],
+                "escalate": chk["escalate"],
+                "trigger": chk["trigger"],
             }
 
         self.server_of["compute_confidence"] = "gateway"

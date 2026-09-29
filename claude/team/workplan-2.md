@@ -563,6 +563,38 @@ $6.8 · 2026-09-29)** 대조 `orch-theta-tf-rule` 은 C-23 이후 규칙 판단�
   `combined` 0.641±0.074 · `worst u/θ` 0.588±0.076. → 개입 판정 공식은 전체 스텝에서 위반을 못 가려내고,
   관측의 `worst u/θ` 만 가려낸다. D2 의 첫 판정 근거다(`tools/signal_auc.py "runs/_matrix/after-B1/raw/proposed_rule-*" --pool --quiet`).
 
+**C-24 · empirical 하한 (D2 재개)** — 의존 없음 · **구현 2026-09-29** · C 파일만(`schema.py` · `gateway.py` · `loop.py`)
+→ **무엇:** `combined = √(intrinsic × empirical)` 은 intrinsic 이 높으면 empirical 추락을 가린다. lstm 의 intrinsic 은
+  배분과 a* 의 거리라 SLA 위반을 못 보고 0.8~0.9 에 머물렀다(orch-theta-tf emergency: empirical 0.34 · combined 0.515 · 위반).
+→ **고친 식:** `escalate = combined < τ 또는 empirical < floor`. 판정은 `schema.escalation_check` 하나를 두 드라이버가 쓴다
+  (게이트웨이 `compute_confidence` 가 같은 함수를 부르고 `trigger` · `empirical_floor` 를 돌려준다 · 심판은 그 escalate 를 읽는다).
+  `AGENT_EMPIRICAL_FLOOR` = 숫자(기본 0.40) | off. `check_orchestrator` C-24 4항목.
+→ ⚠️ floor 는 τ 와 같은 규칙 — **M-2 전에 한 값으로 확정, 이후 조정 금지**(`build/formulas.md`). 아래는 확정 전 민감도.
+→ **규칙 판단자 (proposed 15칸 · 무료 · `floor-{0.35,0.40,0.45}` vs after-C23):**
+
+| floor | SLA 위반율 | proposed − arm2 | 개입률 | 개입 필요도 | floor 로 걸린 개입 |
+|---|---|---|---|---|---|
+| 없음 | 0.504 | −0.012 | 0.358 | 0.676 | 0 |
+| 0.35 | 0.506 | −0.011 | 0.361 | 0.671 | 3 |
+| 0.40 | 0.504 | −0.012 | 0.373 | 0.654 | 34 |
+| 0.45 | 0.499 | −0.017 | 0.462 | 0.639 | 125 |
+
+  rule_based 는 intrinsic 이 0.5~0.8 이라 combined 가 이미 empirical 추락을 잡는다 — 0.40 까지는 거의 영향이 없고, 0.45 는
+  개입 +10%p 에 SLA −0.005 로 비싸다. floor 가 겨냥한 것은 규칙 판단자가 쓰지 않는 lstm 이다.
+→ **Claude (`orch-floor-0.40` · TF · theta · s0 · 20스텝 × 2 · $6.4) vs orch-theta-tf(floor 없음):**
+
+| 20스텝 | SLA 위반 floor 없음 → 0.40 | 개입 | lstm 채택 스텝 |
+|---|---|---|---|
+| emergency r1 / r2 | 13 / 12 → **11 / 13** | 0 / 0 → **3 / 2** | 7 / 9 → 1 / 5 |
+| normal r1 / r2 | 9 / 9 → 9 / 9 | 1 / 2 → 2 / 2 | 1 / 0 → 0 / 0 |
+
+  - **비상구가 부분적으로 막혔다.** r2 는 12~16스텝 lstm 뒤 17스텝에 floor 로 개입했다(전엔 18스텝까지 lstm). r1 은 13 · 14스텝에
+    combined 로 먼저 개입해 lstm 은 마지막 1스텝뿐. 심판의 "기준 아래 전환"은 두 회차 모두 1회씩 여전히 있다.
+  - **SLA 는 뚜렷이 좋아지지 않았다** — emergency 합 25 → 24. 개입 0 이던 것이 2~3회로 바뀐 것이 주 효과다.
+  - 첫 lstm 스텝은 n=0 이라 effective 가 사전값 0.5 로 시작하고 축소 보정(m=5) 때문에 천천히 내려온다 — floor 에 닿기까지
+    4~5스텝 걸린다. 더 빨리 막으려면 n 이 작은 정책의 사전값 · m 을 봐야 한다(⑤ · kim).
+  - ⚠️ 시드 1개 · 20스텝.
+
 **C-23 · 규칙 판단자 상황 추론을 트래픽 구성비로** — 의존 없음 · **구현 2026-09-29** · 측정 M-0d
 → **무엇:** `agent/deciders/rule.py` `infer_situation` 이 이용률/임계를 봤다. 이용률은 배분의 결과라 판단자가
   emergency 로 보고 URLLC 에 더 주면 다음 스텝엔 증상이 사라져 normal 로 돌아선다. 60스텝 × 12칸(theta ·

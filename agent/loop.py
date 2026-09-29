@@ -11,6 +11,7 @@ from typing import Callable, Optional
 
 from .schema import (
     ESCALATION_THRESHOLD,
+    escalation_check,
     HISTORY_N,
     PROCURE_PRESSURE,
     Decision,
@@ -326,6 +327,10 @@ def _qos_from_observation(obs: dict, key: str) -> dict:
 def _escalation_reason(d: Decision) -> str:
     if d.allocation is None:
         return f"policy_failed: {d.policy} returned no allocation"
+    chk = escalation_check(d.conf_intrinsic, d.conf_empirical)
+    if chk["trigger"] == "empirical_floor":
+        return (f"low_empirical: empirical {d.conf_empirical:.3f} < floor {chk['empirical_floor']} "
+                f"(combined {d.combined:.3f}, intrinsic {d.conf_intrinsic:.3f})")
     return (
         f"low_confidence: combined {d.combined:.3f} < {ESCALATION_THRESHOLD} "
         f"(intrinsic {d.conf_intrinsic:.3f}, empirical {d.conf_empirical:.3f}, "

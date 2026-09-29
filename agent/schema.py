@@ -18,6 +18,43 @@ PROCURE_PRESSURE = 1.0       # spec/observe.md:27
 HISTORY_N = 10               # spec/policy.md:24  lstm_forecast 전제조건
 NEUTRAL_RELIABILITY = 0.5    # ⑤에 표본이 없을 때 쓸 중립값 (축소 보정의 사전확률)
 
+# ─── empirical 하한 (workplan-2 C-24 · D2 재개 · 2026-09-29) ───
+# combined = √(intrinsic × empirical) 는 한쪽이 높으면 다른 쪽이 크게 떨어져도 τ 를 넘긴다.
+# lstm 의 intrinsic 은 배분과 a* 의 거리(exp(−3·recent_error))라 SLA 위반을 못 보고 0.8~0.9 에 머문다 —
+# intrinsic 0.8 이면 empirical 0.25 까지 τ 를 넘긴다. empirical(⑤ effective)은 실제 SLA 로 쌓는
+# 성적이므로, 이 값이 하한 아래면 combined 와 무관하게 사람을 부른다.
+# `AGENT_EMPIRICAL_FLOOR` = 숫자(기본 0.40) | off. 호출마다 읽는다 — 매트릭스에서 값을 바꿔 잰다.
+EMPIRICAL_FLOOR_DEFAULT = 0.40
+
+
+def empirical_floor() -> Optional[float]:
+    import os  # noqa: PLC0415
+    raw = os.environ.get("AGENT_EMPIRICAL_FLOOR", "").strip().lower()
+    if raw in ("off", "none", "0"):
+        return None
+    if not raw:
+        return EMPIRICAL_FLOOR_DEFAULT
+    try:
+        return float(raw)
+    except ValueError:
+        return EMPIRICAL_FLOOR_DEFAULT
+
+
+def escalation_check(intrinsic: float, empirical: float) -> dict:
+    """개입 판정 — 두 드라이버가 **이 함수 하나**를 쓴다 (CLAUDE.md 규칙 7).
+
+    escalate = combined < τ  또는  empirical < 하한.  이유는 `trigger` 로 남긴다.
+    """
+    intrinsic = max(0.0, float(intrinsic))
+    empirical = max(0.0, float(empirical))
+    combined = (intrinsic * empirical) ** 0.5
+    floor = empirical_floor()
+    low_combined = combined < ESCALATION_THRESHOLD
+    low_empirical = floor is not None and empirical < floor
+    trigger = ("combined" if low_combined else "") + ("+" if low_combined and low_empirical else "")         + ("empirical_floor" if low_empirical else "")
+    return {"combined": combined, "threshold": ESCALATION_THRESHOLD, "empirical_floor": floor,
+            "escalate": bool(low_combined or low_empirical), "trigger": trigger or None}
+
 
 @dataclass
 class StepContext:
@@ -134,7 +171,7 @@ class Decision:
             return True
         if self.escalation is not None:
             return self.escalation
-        return self.combined < ESCALATION_THRESHOLD
+        return escalation_check(self.conf_intrinsic, self.conf_empirical)["escalate"]
 
     def confidence(self) -> dict:
         """④.record_decision 의 confidence 객체.

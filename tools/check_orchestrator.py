@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import json
 import shutil
 import sys
@@ -113,6 +114,23 @@ def main() -> int:
         check("compute_confidence 공식 √(i×e)",
               abs(got["conf"]["combined"] - (got["prop"]["confidence"] * got["rel"]["rule_based"]["effective"]) ** 0.5) < 1e-3,
               got["conf"])
+        from agent.schema import Decision, escalation_check  # noqa: PLC0415
+        # C-24 — intrinsic 이 높아 combined 는 τ 위지만 empirical 이 하한 아래 (lstm 비상구 실측값).
+        # 게이트웨이 도구는 이 함수를 그대로 부른다(스텝 호출 상한 검사를 흔들지 않으려고 직접 부른다).
+        cf = escalation_check(0.872, 0.344)
+        check("C-24 — 게이트웨이 compute_confidence 가 같은 판정 함수를 쓴다",
+              "escalation_check(intrinsic, empirical)" in (ROOT / "agent/orchestrator/gateway.py").read_text(encoding="utf-8")
+              and "empirical_floor" in got["conf"] and "trigger" in got["conf"], got["conf"])
+        check("C-24 — combined 0.548 ≥ τ 여도 empirical 0.344 < 하한이면 escalate",
+              cf.get("escalate") is True and cf.get("trigger") == "empirical_floor" and cf["combined"] > 0.45, cf)
+        fixed = Decision(situation="emergency", policy="lstm_forecast", allocation={"embb": 0.3, "urllc": 0.4, "mmtc": 0.3},
+                         conf_intrinsic=0.872, conf_empirical=0.344, conf_situation=0.8, rationale="t")
+        check("C-24 — 고정 루프 Decision.escalate 가 게이트웨이와 같다", fixed.escalate == cf["escalate"],
+              (fixed.escalate, cf["escalate"]))
+        os.environ["AGENT_EMPIRICAL_FLOOR"] = "off"
+        check("C-24 — AGENT_EMPIRICAL_FLOOR=off 면 옛 공식", escalation_check(0.872, 0.344)["escalate"] is False,
+              escalation_check(0.872, 0.344))
+        del os.environ["AGENT_EMPIRICAL_FLOOR"]
         check("④ decision_id 형식 {run_id}-{step:04d}", got["rec"].get("decision_id") == f"{RUN_ID}-0000",
               got["rec"].get("decision_id"))
         check("7번째 호출은 상한으로 거부", got["refused"].get("error") == "call_budget_exceeded",

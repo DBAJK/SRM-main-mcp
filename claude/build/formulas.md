@@ -34,9 +34,12 @@ effective = (r·n + r₀·m) / (n + m)      r₀ = 0.5,  m = 5
 ```
 combined = sqrt( intrinsic × effective )          # 기하평균
 escalate if combined < τ,   τ = 0.45              # 사전 확정
+        or  effective < floor,  floor = 0.40         # C-24 (2026-09-29) · AGENT_EMPIRICAL_FLOOR · off 로 끈다
 ```
 
 기하평균을 쓰는 이유: 한쪽이 낮으면 전체가 낮아진다. 산술평균은 "이번엔 확신 없지만 평소 잘 맞으니 간다"를 허용하는데, 그건 에스컬레이션이 필요한 바로 그 상황이다.
+
+**empirical 하한 (C-24 · 2026-09-29).** 기하평균은 한 항이 높으면 다른 항의 추락을 가린다. `lstm_forecast` 의 intrinsic 은 배분과 a* 의 거리에서 나와 SLA 위반을 못 보고 0.8~0.9 에 머물렀고(orch-theta-tf emergency), intrinsic 0.8 이면 effective 0.25 까지 τ 를 넘긴다. effective 는 실제 SLA 로 쌓이므로 이것이 하한 아래면 combined 와 무관하게 부른다. 판정은 `agent/schema.py escalation_check` 하나를 두 드라이버가 같이 쓴다. ⚠️ **floor 도 τ 와 같은 규칙을 따른다** — M-2 전에 한 값으로 확정하고 이후 조정하지 않는다. 0.35 · 0.40 · 0.45 비교(workplan-2 C-24)는 확정 전 민감도 측정이며, 본 결과가 아니다.
 
 **τ = 0.45 고정.** 실험 전에 확정하고 절대 조정하지 않는다. 조정하면 개입 횟수를 원하는 대로 만들 수 있어 결과가 무의미해진다. τ 민감도는 **사후 분석**으로 별도 보고한다 (`decisions.json`에 `combined`를 기록해 두었으므로 재실행 없이 τ를 바꿔 곡선을 그릴 수 있다).
 
