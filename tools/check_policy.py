@@ -61,8 +61,10 @@ def check(label: str, got, want, tol: float = 0.0005) -> None:
 
 
 def main() -> int:
-    print("1. rule_based — spec/policy.md 예시 1 (emergency · 보정 off)")
-    # 예시는 목표표 그대로다. 보정(B-1)은 아래 1b 에서 따로 건다.
+    print("1. rule_based — spec/policy.md 예시 1 (emergency · 보정 off · 원본 목표표)")
+    # 예시는 원본 목표표 그대로다. 기본값은 D7 로 theta 가 됐으므로(2026-09-29) 예시 대조는
+    # original 을 명시한다. 보정(B-1)은 아래 1b 에서 따로 건다.
+    os.environ["SLICE_TARGET_TABLE"] = "original"
     os.environ["SLICE_RULE_CORRECTION"] = "off"
     p = s.propose_allocation("rule_based", OBS, "emergency")
     check("policy", p["policy"], "rule_based")
@@ -104,12 +106,12 @@ def main() -> int:
           {"embb": 0.4, "urllc": 0.4, "mmtc": 0.2})
     os.environ["SLICE_RULE_CORRECTION"] = "off"   # 이하 검사는 목표표 기준
 
-    print("\n1c. 목표표 선택 — D7 (workplan-2 §2 · B-7)")
-    # D7 이 결정되기 전까지 기본 동작이 바뀌면 안 된다.
-    os.environ.pop("SLICE_TARGET_TABLE", None)
-    check("기본은 원본 표", s.propose_allocation("rule_based", OBS, "emergency")["allocation"],
+    print("\n1c. 목표표 선택 — D7 (workplan-2 §2 · B-7 · 결정 2026-09-29: 기본 theta)")
+    os.environ["SLICE_TARGET_TABLE"] = "original"
+    check("original 이면 원본 표", s.propose_allocation("rule_based", OBS, "emergency")["allocation"],
           {"embb": 0.2, "urllc": 0.7, "mmtc": 0.1})
-    os.environ["SLICE_TARGET_TABLE"] = "theta"
+    os.environ.pop("SLICE_TARGET_TABLE", None)
+    check("기본은 theta", rule.target_table_name(), "theta")
     theta = s.propose_allocation("rule_based", OBS, "emergency")
     check("theta 면 θ 판", (round(theta["allocation"]["embb"], 4),
                             round(theta["allocation"]["urllc"], 4)), (0.329, 0.4627))
@@ -133,7 +135,7 @@ def main() -> int:
                          rule.TARGET_BY_SITUATION_THETA_ONLY["emergency"],
                          rule.TARGET_BY_SITUATION_THETA["emergency"])}), 3)
     os.environ["SLICE_TARGET_TABLE"] = "garbage"
-    check("알 수 없는 값은 원본으로 떨어진다", rule.target_table_name(), "original")
+    check("알 수 없는 값은 기본값(theta)으로 떨어진다", rule.target_table_name(), "theta")
     os.environ.pop("SLICE_TARGET_TABLE", None)
 
     print("\n2. 완료 판정 — situation 만 바꾸면 배분이 달라진다")

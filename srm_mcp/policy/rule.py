@@ -29,7 +29,7 @@ TARGET_BY_SITUATION: dict[str, dict[str, float]] = {
     "normal":        {"embb": 0.4, "urllc": 0.4, "mmtc": 0.2},
 }
 
-# ── D7 (workplan-2 §2) — 목표표와 임계값의 불일치. **기본값은 `original`** ────────
+# ── D7 (workplan-2 §2) — 목표표와 임계값의 불일치. **기본값은 `theta`** (결정 2026-09-29) ──
 #
 # 위 표는 수요 배율만 보고 나눴는데, 위반이 없어지는 배분은 수요/임계에 비례한다
 # (a*ₖ ∝ traffic_k/(θₖ·capacityₖ), ⑤ scoring.ideal_allocation). θ 는 urllc 만 1.0 을
@@ -44,6 +44,12 @@ TARGET_BY_SITUATION_THETA: dict[str, dict[str, float]] = {
     "iot_surge":     {"embb": 0.3721, "urllc": 0.2093, "mmtc": 0.4186},
     "normal":        {"embb": 0.4706, "urllc": 0.2647, "mmtc": 0.2647},
 }
+# 리터럴이 소수 4자리라 합이 0.9999 인 줄이 있다(emergency). ①은 평활 전에 요청을 합 1 로
+# 정규화하므로 표도 합 1 로 맞춰 둔다 — 안 맞추면 check_observe 의 원본 대조가 1e-5 를 넘는다.
+TARGET_BY_SITUATION_THETA = {
+    situation: {k: v / sum(row.values()) for k, v in row.items()}
+    for situation, row in TARGET_BY_SITUATION_THETA.items()
+}
 # 위 표는 ①의 생성 상수에서 유도한 것이라 시뮬레이터의 정답지를 본 셈이다. 운영자가
 # 실제로 아는 것은 θ 뿐이므로, 원본 표를 θ 로만 나눈 판을 따로 둔다 — 셋을 나란히 재면
 # "θ 만 아는 경우" 와 "수요까지 아는 경우" 가 갈린다.
@@ -55,18 +61,21 @@ TARGET_BY_SITUATION_THETA_ONLY: dict[str, dict[str, float]] = {
 }
 
 TARGET_TABLES = {
-    "original":   TARGET_BY_SITUATION,             # 원본 재현. 기본값
+    "original":   TARGET_BY_SITUATION,             # 원본 재현 — 민감도 분석용
     "theta_only": TARGET_BY_SITUATION_THETA_ONLY,  # θ 만 씀 — 정보 우위 없음
-    "theta":      TARGET_BY_SITUATION_THETA,       # θ + 생성 수요비 — 정보 우위 있음
+    "theta":      TARGET_BY_SITUATION_THETA,       # θ + 생성 수요비 — 정보 우위 있음. 기본값
 }
-TARGET_TABLE_DEFAULT = "original"   # D7 전까지 원본 동작
+# D7 결정 (2026-09-29): theta 가 본 조건, 원본표는 `SLICE_TARGET_TABLE=original` 로 민감도만.
+# 근거는 workplan-2 §1.6 — theta 60칸에서 사다리 첫 칸(arm1 − baseline)이 −0.043 → +0.073 으로
+# 뒤집혔고, Claude 오케스트레이터는 상황을 잘 맞힐수록 원본표에서 손해였다.
+TARGET_TABLE_DEFAULT = "theta"
 
 
 def target_table_name() -> str:
     """`SLICE_TARGET_TABLE` 이 고르는 표 이름. 호출마다 읽는다.
 
     `correction_enabled()` 와 같은 이유다 — 어느 표로 돈 실행인지 `rationale` 을 통해
-    장부에 남는다. 모르는 값은 원본으로 떨어진다.
+    장부에 남는다. 모르는 값은 기본값(theta)으로 떨어진다.
     """
     name = os.environ.get("SLICE_TARGET_TABLE", TARGET_TABLE_DEFAULT).lower()
     return name if name in TARGET_TABLES else TARGET_TABLE_DEFAULT

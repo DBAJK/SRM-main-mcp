@@ -192,7 +192,7 @@ def main() -> int:
         util = [rng.uniform(0.3, 1.8) for _ in range(3)]
         situation = rng.choice(["normal", "emergency", "special_event", "iot_surge"])
         keys = ("embb", "urllc", "mmtc")
-        # 원본 :429~462 (목표표는 원본표 — SLICE_TARGET_TABLE 기본)
+        # 원본 :429~462 (목표표는 SLICE_TARGET_TABLE 이 고른 표 — 식은 표와 무관)
         tgt = rule.targets(situation)
         new = [0.7 * cur[i] + 0.3 * tgt[keys[i]] for i in range(3)]
         for i in range(3):

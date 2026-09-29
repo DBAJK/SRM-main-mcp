@@ -37,7 +37,8 @@ from srm_mcp.feedback import scoring  # noqa: E402
 from srm_mcp.observe.env import (BASE_TRAFFIC, EVENT_MULTIPLIERS,  # noqa: E402
                                  TRAFFIC_CLIP, SliceEnv)
 from srm_mcp.policy.rule import (TARGET_BY_SITUATION,  # noqa: E402
-                                 TARGET_BY_SITUATION_THETA, target_table_name)
+                                 TARGET_BY_SITUATION_THETA, TARGET_TABLE_DEFAULT,
+                                 target_table_name)
 
 SCENARIOS = ("normal", "emergency", "special_event", "iot_surge")
 INIT = {"embb": 0.4, "urllc": 0.4, "mmtc": 0.2}
@@ -130,7 +131,7 @@ def main() -> int:
                     for s in SCENARIOS for k in SLICE_KEYS)
     print(f"   [{'PASS' if worst_lit <= 5e-5 else 'FAIL'}] rule.py 의 θ 리터럴 == 유도값"
           f" — 최대 차 {worst_lit:.6f}")
-    print(f"   [정보] SLICE_TARGET_TABLE = {target_table_name()}  (기본 original)")
+    print(f"   [정보] SLICE_TARGET_TABLE = {target_table_name()}  (기본 {TARGET_TABLE_DEFAULT})")
     print()
 
     print("1. 목표표 vs 실측 a* 평균")

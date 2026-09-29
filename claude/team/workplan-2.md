@@ -192,8 +192,31 @@
   **lstm 으로의 전환(D6) 7회가 개입을 대신했다.** 정당한 탐색인지 비상구인지는 반복 측정으로만 가린다.
 - 한 번씩 돌린 결과다 — 같은 시드도 실행마다 갈린다(C-9). 차이 3스텝은 우연 범위일 수 있다.
 
-**다음(사용자 결정 대기):** D7 기본값(theta 를 본 조건으로?) · Claude 칸 반복 — 권고 최소안: theta · emergency · normal ·
-20스텝 × 2회 = Claude 4칸, 약 $11 · 80분.
+**결정 (2026-09-29):** D7 은 theta 를 기본값으로(§2 D7). Claude 칸 반복은 권고 최소안대로 돌렸다 — 아래.
+
+**Claude 반복 — orch-theta (theta 기본 · s0 · 20스텝 × 2회 · sonnet · 사용량 $6.59 · 34분)**
+재현: `tools/run_matrix.py --name orch-theta --variants proposed_orch --scenarios emergency,normal --seeds 0 --steps 20 --repeats 2 --go`
+· 대조 `--name orch-theta-rule --variants proposed_rule`(무료). 원본 `runs/_matrix/orch-theta{,-rule}/raw/` (C 로컬).
+
+| 20스텝 | SLA 위반 (피할 수 있던 것) | 개입 | 상황 인지 | 조달비 |
+|---|---|---|---|---|
+| emergency · 규칙 판단자 | 14 (8) | 7 | 0.30 | 2,738 |
+| emergency · Claude r1 / r2 | **13 (7) / 13 (7)** | 8 / 8 | 0.40 / 0.50 | 2,675 / 2,488 |
+| normal · 규칙 판단자 | 10 (9) | 6 | 0.85 | 188 |
+| normal · Claude r1 / r2 | **8 (7) / 9 (8)** | 1 / 2 | 0.90 / 0.95 | 188 / 188 |
+
+- **두 반복이 거의 같다.** emergency 는 위반·개입이 완전히 같고, normal 은 1스텝 차이다. C-9 에서 걱정한 "첫 스텝부터
+  갈린다"는 이 조건에서는 작다. 규칙 판단자 emergency 가 §1.6 과 같은 14 · 7 로 재현돼 서버 쪽 변화도 없다.
+- **Claude 가 규칙 판단자보다 위반 1~2 적다.** normal 에서는 개입도 6 → 1~2 로 크게 줄었다. emergency 개입은 8 로 규칙(7)과
+  비슷하고 escalation_precision 1.0 — 부른 스텝은 전부 제안대로면 위반이었다.
+- **§1.6 의 "개입 0 · lstm 전환 7" 은 재현되지 않았다.** 네 실행 모두 `chosen_policy` 가 rule_based 20/20 이고 lstm 으로
+  한 번도 안 갔다. `compare_policies` 도 거의 안 불렀다(`considered` 1회, lstm `history_insufficient`). 그 결과 D6 의
+  "전환이 개입을 대신한다" 우려는 이번에는 나타나지 않았다. §1.6 단일 실행이 예외였는지, 그 뒤 들어온 D1-b 게이트웨이
+  자동 부착 등으로 행동이 바뀐 것인지는 아직 가리지 못했다.
+- **상황 인지가 §1.6 보다 낮다.** emergency 에서 §1.6 은 16~17/20 이었는데 이번엔 0.40~0.50 이다. 장부의 상황 라벨이
+  emergency 13~15 · normal 12~15 로, 후반에 normal 로 돌아서는 경향이 있다. M-0c 에서 본 "보정이 증상을 빨리 지워 평시처럼
+  보인다"와 같은 방향이다 · 확인 안 함.
+- ⚠️ 시드 1개 · 20스텝이다. 차이 1~2스텝은 논문 근거로 쓰기엔 작다. M-2 에서 시드를 늘려야 한다.
 
 ---
 
@@ -206,7 +229,7 @@
 > 있다는 것이다. 어긋난 크기(최대 0.243)가 D1-b 가 다투는 보정 크기(최대 0.1, 평활 뒤 0.03)
 > 보다 한 자릿수 크다.
 
-### D7. 목표표가 임계값을 안 나눴다 (신규 · 2026-09-28 kim) — **C 권고 2026-09-29: theta 를 본 조건 · 원본표는 민감도** (사용자 결정 대기)
+### D7. 목표표가 임계값을 안 나눴다 (신규 · 2026-09-28 kim) — **결정 2026-09-29: `theta` 를 기본값(본 조건) · 원본표는 `SLICE_TARGET_TABLE=original` 로 민감도** · 구현 B-7 ✓ · C-21
 
 > theta 60칸에서 사다리 첫 칸이 −0.043 → **+0.073**(15/15) 으로 뒤집혔고, Claude 오케스트레이터는 상황을 잘 맞힐수록
 > 원본표에서 손해였다(§1.6). 원본표로는 상황 인지 칸을 해석할 수 없다. 원본 결과도 나란히 싣고 "원본 목표표는
@@ -228,6 +251,7 @@
 | 전제 검증 | θ 정규화 표는 **슬라이스별 용량이 같다**고 가정한다 — 실측 슬라이스 간 용량 차 최대 `0.000000`(조달 전). `TRAFFIC_CLIP` 이 물리면 비율이 왜곡되는데 실측 270칸 중 3~5칸뿐이라 무시할 수 있다. 위 반사실은 **조달이 없다고 본 값**이다 — 목표표의 모양만 보기 위해서고, 조달까지 켠 비교는 M-0c 에서 한다 |
 | 순환 아님 | θ 표와 `a*` 은 같은 식에서 나오지만, **위반 판정은 그 식을 안 쓴다** — ①이 `utilization > θ` 로 직접 센다(`env.py:199`). 그래서 "a* 에 가까우면 위반이 적다"는 가정이 아니라 측정 결과다 |
 | 여는 작업 | B-7 → C-21 |
+| **결정 반영 (2026-09-29)** | `rule.py` `TARGET_TABLE_DEFAULT = "theta"`. 모르는 값도 theta 로 떨어진다. θ 리터럴은 소수 4자리라 emergency 줄의 합이 0.9999 였는데 ①이 평활 전에 합 1 로 정규화하므로 표도 합 1 로 맞췄다(안 맞추면 `check_observe` 원본 대조가 1.06e-5 로 허용치를 넘는다 — 맞춘 뒤 9.5e-7). `check_policy` 의 spec 예시 대조는 `original` 을 명시한다. 이후 모든 매트릭스는 theta 가 기본이고, 원본표 칸은 `SLICE_TARGET_TABLE=original` 로 따로 돌려 나란히 싣는다 |
 
 ### D1-b. 위반 보정을 어디에 거는가 (B-1 후속 · kim 제기 · **D7 뒤에 읽는다**) — **결정 2026-09-28: (iii) + 게이트웨이 자동 부착** · 구현 A-5 · B-5 · C-16
 
@@ -379,7 +403,7 @@
 → **§1.2 의 "264 PASS" 는 깨끗한 트리에서만 성립하는 숫자였다.**
 
 **B-7 · `srm_mcp/policy/rule.py` θ 정규화 목표표** — 의존 **D7** · **플래그까지 구현 2026-09-28**
-→ `SLICE_TARGET_TABLE` 로 세 판을 고른다. **기본 `original`** 이라 D7 전까지 동작이 안 바뀐다.
+→ `SLICE_TARGET_TABLE` 로 세 판을 고른다. 기본은 `original` 이었다가 **D7 결정(2026-09-29)으로 `theta`** 가 됐다.
   `theta` = `BASE_TRAFFIC × 배율 / θ` (생성 상수 사용) · `theta_only` = 원본 표 ÷ θ (생성 상수
   미사용). 어느 표로 돌았는지는 `rationale` 에 실어 장부에 남는다.
 → 세 판 24칸씩 측정 완료 — 결과와 해석은 §2 D7. **`theta_only` 가 emergency 를 못 고친다**는
@@ -622,7 +646,7 @@ M-1 · M-0b 는 R-2 가 정해지기 전까지 C 가 돌린다.
 | A-6 | 개입 레코드에 `agent_allocation` |
 | B-3 | **(1차 판정 대체)** n=0 에서 lstm `recent_error` 0.2 · 그 값을 넘긴 제안의 confidence > τ. "실제로 lstm 을 고르는가"는 판정이 아니라 M-2 의 측정 대상 |
 | B-3b | `check_feedback` 에 `recent_error([], "lstm_forecast") == 0.2` — **충족 2026-09-28** |
-| B-7 | 기본값은 원본 표 그대로 · `SLICE_TARGET_TABLE=theta` 면 `propose_allocation` 출력이 `target_audit.py` 의 θ 줄과 같다 · `rationale` 에 어느 표인지 남는다 |
+| B-7 | **(D7 결정으로 갱신)** 기본값은 `theta` · `SLICE_TARGET_TABLE=original` 이면 원본 표 그대로 · `propose_allocation` 의 θ 판이 `target_audit.py` 의 θ 줄과 같다 · `rationale` 에 어느 표인지 남는다 — `check_policy` 1c 가 건다 |
 | C-21 | θ 짝 60칸에서 `arm1 − baseline` 를 **시나리오별로** 본다. D7 의 예측은 "emergency 칸에서 부호가 뒤집힌다(baseline 이 arm1 보다 나빠지는 것이 사라진다)"이고, 나머지 칸은 예측하지 않는다. emergency 가 안 움직이면 D7 (b) 가 틀린 것이고, emergency 만 움직이고 전체 평균이 그대로면 **나머지 칸의 원인이 따로 있다는 것이 확정된다** — 어느 쪽이든 논문에 쓸 수 있는 답이다 |
 | B-5 | 보정 on 이면 rule_based 제안의 `correction` 합이 0, off 면 전부 0 |
 | B-6 | emergency s0 30스텝 — 개입 스텝에서도 `agent_policy` 의 n 증가 · 반환에 `shadow: true` |

@@ -71,6 +71,8 @@ TensorFlow 적재에 실패하면 서버는 죽지 않고 해당 정책만 `avai
 
 **보정 위치 (D1-b · 2026-09-28 결정 (iii))** — 기본 `SLICE_CORRECTION_STAGE=post`: `rule_based` 의 `allocation` 은 **목표표 그대로**이고, 보정량은 `correction`(합 0, 자르지 않음)으로 따로 나간다. 에이전트가 이를 ① `apply_allocation(…, correction)` 에 넘기면 ①이 **평활 뒤 · 클립 앞**에 더한다 — 원본 `update_allocation_rule_based`(:429~462)와 같은 식이다(`check_observe` 가 200개 입력으로 대조, 최대 오차 1e-6). 위 예시 입력이면 `correction = {+0.050, +0.065, −0.115}`. `target` 은 위에 적은 예전 방식(목표표에 섞기 · 적용값엔 30%만)이며 이때 `correction` 은 null. 오케스트레이터는 LLM 이 보정량을 빠뜨려도 게이트웨이가 같은 배분의 보정량을 붙인다.
 
+**목표표 (D7 · 2026-09-29 결정)** — `rule_based` 의 목표표는 환경변수 `SLICE_TARGET_TABLE` 이 고른다. 기본 **`theta`** = `BASE_TRAFFIC × 배율 / θ` 를 합 1 로 정규화한 표(`rule.py TARGET_BY_SITUATION_THETA`, emergency `{0.329, 0.463, 0.208}`). `original` 은 원본 `ml_orchestrator_demo.py:429~438` 그대로(emergency `{0.2, 0.7, 0.1}`)이며 민감도 분석에만 쓴다. `theta_only` 는 원본 표를 θ 로만 나눈 것. 모르는 값은 `theta` 로 떨어진다. 어느 표로 돌았는지는 `rationale` 끝의 `목표표 <이름>` 으로 장부에 남는다. 근거는 `workplan-2` §1.6 · D7. **아래 예시는 `original` 기준이다.**
+
 **예시 1 — 성공**
 
 ```json
