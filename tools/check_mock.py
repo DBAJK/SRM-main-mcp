@@ -41,6 +41,13 @@ check("effective 0.5 · fallback 은 표에 없음",
 
 print("2. 에피소드 — emergency 30스텝 · 규칙 판단자")
 mb = MockBackend(seed=0)
+# ①에 실제로 넘어간 보정량을 엿본다 (B-1 판정용 — 아래)
+_sent_corrections: list = []
+_orig_apply = mb._apply_allocation
+def _spy_apply(embb, urllc, mmtc, correction=None):
+    _sent_corrections.append(correction)
+    return _orig_apply(embb, urllc, mmtc, correction)
+mb._apply_allocation = _spy_apply
 tools = Tools(mb, Guard(enabled=True))
 results = run_episode(tools, rule_decider, "mockc14-emergency-s0", scenario="emergency", seed=0, max_steps=30)
 esc_recs = [d for d in mb.decisions.values() if d.get("escalated")]
@@ -86,8 +93,11 @@ rats = [d.get("rationale", "") for d in auto_recs]
 # 근거 끝은 ②가 정한다 — B-7 이후 "(보정 on · 목표표 original)". 목은 ② 를 그대로 부르므로 형식이
 # 바뀌어도 따라가고, 여기서는 보정 설정이 남는지만 본다.
 check("B-1 — rule_based 근거에 보정 설정(보정 on)", any("보정 on" in r for r in rats), rats[0][-50:] if rats else None)
-allocs = {tuple(sorted(d["allocation"].items())) for d in auto_recs}
-check("B-1 — 자율 스텝 요청 배분이 하나로 고정되지 않음", len(allocs) > 1, len(allocs))
+# D1-b post 이후 요청 배분은 상황별 목표표 그대로다 — 상황 라벨이 안정되면(C-23) 한 가지로 고정되는 게
+# 맞다. 보정은 correction 으로 ①에 따로 간다. 그래서 "보정이 실제로 ①에 넘어가는가"를 본다.
+nonzero = [c for c in _sent_corrections if c and any(abs(v) > 1e-9 for v in c.values())]
+check("B-1 · D1-b — 자율 스텝에서 0 아닌 보정량이 ①에 넘어간다", len(nonzero) > 0,
+      (len(nonzero), len(_sent_corrections)))
 
 print("3. A-2 — confidence 검사")
 mb = MockBackend(seed=0)
