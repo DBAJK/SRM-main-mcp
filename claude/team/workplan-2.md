@@ -209,13 +209,33 @@
   갈린다"는 이 조건에서는 작다. 규칙 판단자 emergency 가 §1.6 과 같은 14 · 7 로 재현돼 서버 쪽 변화도 없다.
 - **Claude 가 규칙 판단자보다 위반 1~2 적다.** normal 에서는 개입도 6 → 1~2 로 크게 줄었다. emergency 개입은 8 로 규칙(7)과
   비슷하고 escalation_precision 1.0 — 부른 스텝은 전부 제안대로면 위반이었다.
-- **§1.6 의 "개입 0 · lstm 전환 7" 은 재현되지 않았다.** 네 실행 모두 `chosen_policy` 가 rule_based 20/20 이고 lstm 으로
-  한 번도 안 갔다. `compare_policies` 도 거의 안 불렀다(`considered` 1회, lstm `history_insufficient`). 그 결과 D6 의
-  "전환이 개입을 대신한다" 우려는 이번에는 나타나지 않았다. §1.6 단일 실행이 예외였는지, 그 뒤 들어온 D1-b 게이트웨이
-  자동 부착 등으로 행동이 바뀐 것인지는 아직 가리지 못했다.
-- **상황 인지가 §1.6 보다 낮다.** emergency 에서 §1.6 은 16~17/20 이었는데 이번엔 0.40~0.50 이다. 장부의 상황 라벨이
-  emergency 13~15 · normal 12~15 로, 후반에 normal 로 돌아서는 경향이 있다. M-0c 에서 본 "보정이 증상을 빨리 지워 평시처럼
-  보인다"와 같은 방향이다 · 확인 안 함.
+- ⚠️ **이 4칸은 TensorFlow 없는 환경에서 돌았다 — §1.6 Claude 칸과 비교할 수 없다 (2026-09-29 확인).** 이 PC 의 `.venv` 는
+  Python 3.14 라 TF 2.15(3.10 상한, `requirements-mcp.txt`)가 없다. 그래서 `lstm_forecast` 는 두 번 시도해 두 번 다
+  `model_load_failed: No module named 'tensorflow'`, `classify_demand` 도 전 스텝 `available: false` 였다. "lstm 을 한 번도
+  안 골랐다"는 Claude 의 행동이 아니라 환경 탓이고, 상황 인지가 §1.6(16~17/20)보다 낮은 것도 수요 분류기가 꺼진 탓일 수
+  있다. §1.6 Claude 칸은 TF 가 있는 환경(`.venv310`)에서 돌았다. **규칙 판단자 칸은 영향이 없다** — `pick_policy` 가 n=0 인
+  lstm 을 고르지 않고, 대조군이 after-D-theta 수치를 그대로 재현했다(M-0d). Claude 반복은 `.venv310` 에서 다시 돌려야 한다.
+
+**Claude 반복 재측정 — orch-theta-tf (`.venv310` · TF 2.15 · lstm · 분류기 적재 확인 · theta · s0 · 20스텝 × 2회 · sonnet ·
+$6.8 · 2026-09-29)** 대조 `orch-theta-tf-rule` 은 C-23 이후 규칙 판단자. 원본 `runs/_matrix/orch-theta-tf{,-rule}/raw/`.
+
+| 20스텝 | SLA 위반 | 개입 | 상황 인지 | lstm 채택 스텝 |
+|---|---|---|---|---|
+| emergency · 규칙 판단자 (C-23) | 12 | 4 | 1.00 | — |
+| emergency · Claude r1 / r2 | 13 / 12 | **0 / 0** | 0.75 / 0.65 | 7 / 9 |
+| normal · 규칙 판단자 (C-23) | 10 | 2 | 0.75 | — |
+| normal · Claude r1 / r2 | 9 / 9 | 1 / 2 | 0.95 / 0.95 | 1 / 0 |
+
+- **§1.6 의 모양이 재현됐다** — emergency 에서 개입 0 · lstm 7~9스텝. TF 없던 orch-theta(개입 8 · lstm 0)와 갈린 것은 환경 탓이었다.
+- **D6 비상구가 실제로 작동한다.** r1 13스텝: rule_based combined 0.441 < τ → lstm 0.524 로 바꿔 개입을 피했다(심판
+  `switched_under_threshold`). r2 는 10스텝에 rule 0.505(τ 위)에서 바꿔 비상구는 아니다.
+- **lstm 스텝이 더 낫지 않다.** 10스텝 이후 위반율 lstm 12/16 · rule_based 3/4. 그래도 lstm combined 는 0.51~0.70 으로
+  τ 위에 머문다 — intrinsic 이 `exp(−3·recent_error)` 이고 채점 error(배분과 a* 의 거리)가 0.01~0.14 로 작기 때문이다.
+  **배분이 a* 에 가까워도 SLA 는 위반한다** → 신뢰도가 위반을 못 본다. 최종 lstm r 0.17 · 0.26 인데 n 이 작아 축소 보정이
+  effective 를 0.5 쪽으로 끌어올린다.
+- 상황 인지는 분류기가 켜지자 0.40~0.50 → 0.65~0.75. C-23 규칙 판단자(1.00)보다는 낮다.
+- ⚠️ 결과적으로 Claude 는 규칙 판단자와 SLA 가 같거나 1 나쁘고, 사람을 한 번도 안 불렀다. 겉으로는 "개입 없이 같은 성능"
+  이지만 위반을 보고도 못 멈추는 것이다 — D2(개입 공식)와 D6 을 다시 열 근거다.
 - ⚠️ 시드 1개 · 20스텝이다. 차이 1~2스텝은 논문 근거로 쓰기엔 작다. M-2 에서 시드를 늘려야 한다.
 
 **M-0d — C-23 트래픽 구성비 상황 추론 (theta · 규칙 판단자 · 60칸 × 2 · 사용량 0 · 2026-09-29)**
