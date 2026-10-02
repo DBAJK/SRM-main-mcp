@@ -224,6 +224,17 @@ def main() -> int:
         else:
             check("[off] shadow 없음", out.get("shadow"), None)
 
+    print("\n10. escalation_id 로 불러도 같은 스텝의 결정으로 채점한다 (실측 unknown_run 1회)")
+    cleanup()
+    seed_book([decision(12)])
+    write_json(paths.run_dir(RUN_ID) / "reliability.json", reliability.initial_table())
+    out = s.report_outcome(f"{RUN_ID}-esc-0012", observed)
+    check("escalation_id → 채점됨 (error 는 거리값)", "sla_met" in out, True)
+    check("escalation_id → 결정 레코드에 outcome",
+          read_json(paths.decisions_json(RUN_ID))["decisions"][0].get("outcome") is not None, True)
+    check("escalation_id 로 두 번째는 already_scored",
+          s.report_outcome(f"{RUN_ID}-esc-0012", observed).get("error"), "already_scored")
+
     cleanup()
     print(f"\n{'실패 ' + str(len(failures)) + '건: ' + ', '.join(failures) if failures else '전부 통과'}")
     return 1 if failures else 0

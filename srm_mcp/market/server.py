@@ -99,9 +99,17 @@ def _unknown_vendor(vendors: list[dict], vendor_id: str) -> dict:
             "available": [v["id"] for v in vendors]}
 
 
-def _check_slice_type(slice_type: str) -> None:
-    if slice_type not in SLICE_TYPES:
-        raise ValueError(f"unknown slice_type: {slice_type!r}. 가능한 값: {list(SLICE_TYPES)}")
+def _check_slice_type(slice_type: str) -> str:
+    """정규 이름(eMBB · URLLC · mMTC)으로 돌려준다. **대소문자를 가리지 않는다.**
+
+    ① · ② 는 슬라이스 키를 소문자(embb · urllc · mmtc)로 쓰고 ③만 eMBB 표기라, LLM 이 관측의 키를 그대로
+    옮겨 'urllc' · 'mmtc' 를 넣다가 거부당했다(2026-09-25~29 오케스트레이터 실행 10개 중 실패 15회 가운데 9회).
+    뜻이 분명한 입력을 거부할 이유가 없으므로 받아서 정규 이름으로 바꾼다. 모르는 이름만 거부한다.
+    """
+    canonical = {t.lower(): t for t in SLICE_TYPES}.get(str(slice_type).strip().lower())
+    if canonical is None:
+        raise ValueError(f"unknown slice_type: {slice_type!r}. 가능한 값: {list(SLICE_TYPES)} (대소문자 무관)")
+    return canonical
 
 
 def _check_qos(qos_requirements: dict[str, Any]) -> None:
@@ -137,7 +145,7 @@ def list_offerings(slice_type: Optional[str] = None,
     slice_type / region 이 null 이면 거르지 않는다.
     """
     if slice_type is not None:
-        _check_slice_type(slice_type)
+        slice_type = _check_slice_type(slice_type)
 
     rows = []
     for vendor in _load_vendors():
@@ -157,7 +165,7 @@ def score_offerings(slice_type: str, qos_requirements: dict) -> list[dict]:
     rating 이 총점의 10~20%(URLLC 20%)를 차지한다 — ⑤의 피드백이 update_rating 으로
     들어와 순위를 바꾸는 것이 자기 개선의 증거다.
     """
-    _check_slice_type(slice_type)
+    slice_type = _check_slice_type(slice_type)
     _check_qos(qos_requirements)
 
     scored = []
@@ -183,7 +191,7 @@ def explain_score(vendor_id: str, slice_type: str, qos_requirements: dict) -> di
     total 은 score_offerings 의 score 와 반드시 일치한다 — 같은 `scoring` 경로를 쓰고
     같은 자리에서 반올림한다. engine.py:819 의 get_score_breakdown() 은 쓰지 않는다 (정정 J).
     """
-    _check_slice_type(slice_type)
+    slice_type = _check_slice_type(slice_type)
     _check_qos(qos_requirements)
 
     vendors = _load_vendors()
@@ -219,7 +227,7 @@ def procure(vendor_id: str, slice_type: str, qos_requirements: dict,
     """
     global _last_step
 
-    _check_slice_type(slice_type)
+    slice_type = _check_slice_type(slice_type)
     _check_qos(qos_requirements)
 
     vendors = _load_vendors()

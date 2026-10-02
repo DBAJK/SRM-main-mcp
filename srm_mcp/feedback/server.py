@@ -56,6 +56,7 @@ def _shadow_view(shadow: Optional[dict]) -> Optional[dict]:
 
 # decision_id = "{run_id}-{step:04d}" (§5.0). ⑤는 run_id 인자를 받지 않으므로 여기서 되돌린다.
 DECISION_ID_RE = re.compile(r"^(?P<run_id>.+)-(?P<step>\d{4})$")
+ESCALATION_ID_RE = re.compile(r"^(?P<run_id>.+)-esc-(?P<step>\d{4})$")
 
 # cold 모드에서 reliability.json 이 어느 실행 폴더에 있는지 알려면 run_id 가 필요하다.
 # report_outcome 이 본 마지막 run_id 를 쓰고, 환경변수로 덮어쓸 수 있다.
@@ -132,6 +133,12 @@ def report_outcome(decision_id: str, observed: dict) -> dict:
     """
     global _run_id
 
+    # escalation_id("{run_id}-esc-{step:04d}")를 넣으면 같은 스텝의 결정 레코드("{run_id}-{step:04d}")로 읽는다.
+    # record_escalation 이 두 id 를 다 돌려줘서 LLM 이 헷갈린다 — 실측 1회, 예전엔 run_id 를 "…-esc" 로 잘못
+    # 읽어 unknown_run 이 났다. 개입 스텝의 채점 대상은 그 스텝의 폴백 결정 레코드 하나뿐이라 뜻이 분명하다.
+    escalation = ESCALATION_ID_RE.match(decision_id)
+    if escalation is not None:
+        decision_id = f"{escalation.group('run_id')}-{escalation.group('step')}"
     matched = DECISION_ID_RE.match(decision_id)
     if matched is None:
         return {"error": "malformed_decision_id", "decision_id": decision_id,

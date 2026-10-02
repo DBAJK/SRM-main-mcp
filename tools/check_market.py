@@ -138,6 +138,21 @@ def main() -> int:
     check("vendor-1 위반 1회: 4.80 → 4.60", round(min(5.0, max(1.0, 4.80 + down)), 2), 4.60)
     check("상한 클립: 4.98 + 0.05 → 5.00", round(min(5.0, max(1.0, 4.98 + up)), 2), 5.00)
 
+    print("\n5. slice_type 대소문자 — 실측 거부 9회 ('mmtc' · 'urllc')")
+    try:
+        from srm_mcp.market.server import _check_slice_type
+    except ImportError as exc:  # fastmcp 없음 — 0단계 전에도 이 파일은 돌아야 한다
+        print(f"   건너뜀: {exc}")
+    else:
+        for raw, want in (("urllc", "URLLC"), ("mMTC", "mMTC"), ("mmtc", "mMTC"),
+                          (" EMBB ", "eMBB"), ("URLLC", "URLLC")):
+            check(f"{raw!r} → 정규 이름", _check_slice_type(raw), want)
+        try:
+            _check_slice_type("ultra")
+            check("없는 슬라이스는 거부", "통과됨", "ValueError")
+        except ValueError:
+            check("없는 슬라이스는 거부", "ValueError", "ValueError")
+
     print(f"\n{'실패 ' + str(len(failures)) + '건: ' + ', '.join(failures) if failures else '전부 통과'}")
     return 1 if failures else 0
 

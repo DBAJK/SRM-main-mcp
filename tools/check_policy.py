@@ -224,6 +224,21 @@ def main() -> int:
     else:
         print("  SKIP  ranges.json 없음 — tools/step0_verify_models.py 먼저")
 
+    print("\n11. 잘린 이력 행 — 서버 예외가 아니라 FeatureError (실측 IndexError 1회)")
+    columns = list(features.FEATURE_COLUMNS)
+    full = [0.5] * len(columns)
+    short = {"columns": columns, "n": 2, "features": [full, full[:9]]}
+    try:
+        features.window_from_history(short)
+        check("11 → 9칸 행 거부", "통과됨", "FeatureError")
+    except features.FeatureError as exc:
+        check("11 → 9칸 행 거부", "FeatureError", "FeatureError")
+        print(f"        {exc}")
+    except IndexError:
+        check("11 → 9칸 행 거부", "IndexError", "FeatureError")
+    check("온전한 행은 그대로", len(features.window_from_history(
+        {"columns": columns, "n": 1, "features": [full]})[0]), len(columns))
+
     print(f"\n{'실패 ' + str(len(failures)) + '건: ' + ', '.join(failures) if failures else '전부 통과'}")
     return 1 if failures else 0
 

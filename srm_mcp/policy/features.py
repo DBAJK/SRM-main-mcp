@@ -53,6 +53,11 @@ def _reorder(row: Sequence[float], columns: Sequence[str]) -> list[float]:
     missing = [c for c in FEATURE_COLUMNS if c not in index]
     if missing:
         raise FeatureError(f"피처가 모자란다: {missing}")
+    # 행 길이가 열 수와 다르면 값이 어긋나 있다. 확인하지 않으면 row[index] 가 IndexError 로 서버 예외가 됐다
+    # (2026-09-29 오케스트레이터 — LLM 이 get_history 결과를 옮겨 적으며 일부 행을 11 → 9칸으로 잘랐다).
+    if len(row) != len(columns):
+        raise FeatureError(f"이력 행 길이 {len(row)} 가 열 수 {len(columns)} 와 다르다 — "
+                           "get_history 결과를 고치지 말고 그대로 넘긴다")
     return [float(row[index[c]]) for c in FEATURE_COLUMNS]
 
 
