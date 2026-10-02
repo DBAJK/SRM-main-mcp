@@ -69,8 +69,11 @@ def instant(requested: dict, correction: Optional[dict]) -> dict:
     return _norm(c)
 
 
-def violations_of(traffic: dict, alloc: dict, capacity: dict) -> dict:
-    return {k: float(traffic[k]) / (float(alloc[k]) * float(capacity[k])) > THRESHOLDS[k] for k in SLICE_KEYS}
+def violations_of(traffic: dict, alloc: dict, capacity: Optional[dict]) -> dict:
+    # 옛 관측에는 capacity 가 없다 — scoring.ideal_allocation 과 같이 1.0 으로 본다
+    capacity = capacity or {}
+    return {k: float(traffic[k]) / (float(alloc[k]) * float(capacity.get(k, 1.0))) > THRESHOLDS[k]
+            for k in SLICE_KEYS}
 
 
 def _rule_correction(d: dict) -> Optional[dict]:
@@ -129,7 +132,7 @@ def load_run(folder: Path) -> dict:
             if row["requested"]:
                 row["d_requested"] = distance(_norm(row["requested"]), row["ideal"])
                 row["instant_violations"] = violations_of(
-                    nxt["traffic"], instant(row["requested"], None if row["escalated"] else corr), nxt["capacity"])
+                    nxt["traffic"], instant(row["requested"], None if row["escalated"] else corr), nxt.get("capacity"))
             row["pressure_next"] = float(nxt.get("demand_pressure") or 0.0)
             row["util_next"] = nxt.get("utilization")
         rows.append(row)
