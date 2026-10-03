@@ -7,7 +7,7 @@
 """
 
 from dataclasses import dataclass, field
-from typing import Any, Literal, Optional, Protocol
+from typing import Literal, Optional, Protocol
 
 Situation = Literal["normal", "emergency", "special_event", "iot_surge"]
 PolicyName = Literal["rule_based", "lstm_forecast", "dqn"]

@@ -27,9 +27,9 @@ import logging
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Optional
+from typing import Optional
 
-from ..guard import ForbiddenLeak, Guard
+from ..guard import Guard
 from ..llm import LLMError, extract_json
 from ..llm.claude_cli import ClaudeCLI
 from ..trace import brief

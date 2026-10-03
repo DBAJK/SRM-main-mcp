@@ -9,7 +9,7 @@
   validate_palette.js "#2a78d6,#eb6834,#1baf7a" --mode light  -> ALL CHECKS PASS
   (aqua 대비 2.74 < 3:1 WARN -> 모든 막대에 직접 라벨을 달아 해소)
 """
-import io, os, re, subprocess, sys
+import os, re, subprocess, sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent

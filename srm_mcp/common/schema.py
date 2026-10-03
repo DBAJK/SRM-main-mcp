@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from typing import Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 Situation = Literal["normal", "emergency", "special_event", "iot_surge"]
 PolicyName = Literal["rule_based", "lstm_forecast", "dqn"]
