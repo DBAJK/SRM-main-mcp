@@ -37,19 +37,23 @@ runs/*
 *.tmp
 
 # ── 시뮬레이터 실행 산출물 ────────────────────────────────────
-# 이미 커밋된 results/ 182개는 그대로 둔다 — 아래는 앞으로 생길 것만 막는다.
-# 큐레이션한 results/final_comparison · hackathon_demo · urllc_optimization 은
-# 일부러 안 걸었다. 새로 정리한 결과를 커밋하려다 조용히 무시되면 안 된다.
+# 원본 데모가 남긴 타임스탬프 산출물(results/ · 5G-Network-Slicing/results/ 의 *_2025…)은
+# 2026-10-03 정리 때 지웠다 — 어떤 코드도 읽지 않는 실행 기록이다 (git 기록에 남아 있다).
+# 큐레이션한 results/final_comparison · hackathon_demo · urllc_optimization 과
+# 5G-Network-Slicing/results/ 의 하위 폴더는 일부러 안 걸었다. 새로 정리한 결과를 커밋하려다
+# 조용히 무시되면 안 된다.
 
 # 한 번 돌릴 때마다 타임스탬프 폴더가 하나씩 생긴다
-#   ml_orchestrator_demo.py:197 · orchestrator_demo.py:42 · test_scenarios.py:42
+#   ml_orchestrator_demo.py:197 · orchestrator_demo.py:42 · test_scenarios.py:42 · lstm_web_server.py:170
 results/ml_orchestrator_demo_*/
 results/orchestrator_demo_*/
 results/scenario_tests_*/
+results/lstm_web_server_*/
+results/orchestration_*.png
 
-# 5G-Network-Slicing 쪽 타임스탬프 출력
-5G-Network-Slicing/results/*_results_*.json
-5G-Network-Slicing/results/orchestration_*.png
+# 5G-Network-Slicing 쪽 타임스탬프 출력 (실행 위치에 따라 results/ 에 바로 생기기도 한다)
+5G-Network-Slicing/results/*_20[0-9][0-9]*.json
+5G-Network-Slicing/results/*_20[0-9][0-9]*.png
 
 # 로그·캐시
 *.log

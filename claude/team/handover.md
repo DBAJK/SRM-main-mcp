@@ -135,6 +135,9 @@ python tools/pingpong.py --scenario emergency --steps 40
 
 ⚠️ **`pingpong.py` 의 모의 ①은 A의 ①이 아니다.** 난수 모델·시나리오 강도가 임의값이라 실험 산출물로 못 쓴다. A의 판이 오면 그 자리만 갈아끼운다.
 
+> 2026-10-03 — `tools/pingpong.py` 는 지웠다. ①④ 실서버가 들어와 `run.py --backend mcp` · `tools/run_matrix.py` ·
+> `tools/fast_matrix.py`(같은 코드를 한 프로세스에서) 가 그 자리를 대신한다. 원본은 git 기록에 있다.
+
 기동 명령과 환경변수:
 
 | 서버 | 명령 | 환경변수 |
