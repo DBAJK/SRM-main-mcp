@@ -60,7 +60,7 @@ def main() -> int:
         check("HTTP 열림", url.startswith("http://127.0.0.1:"), url)
         check("서버 5개 모두 실서버", gw.backend.live == ["audit", "feedback", "market", "observe", "policy"],
               gw.backend.live)
-        check("도구 21개 = 20개 재노출 + compute_confidence", len(gw.exposed) == 21, len(gw.exposed))
+        check("도구 22개 = 20개 재노출 + compute_confidence + estimate_situation", len(gw.exposed) == 22, len(gw.exposed))
         check("reset 은 숨김", "reset" not in gw.exposed)
         cfg = json.loads(gw.write_mcp_config().read_text(encoding="utf-8"))
         check("servers.json 에 게이트웨이 하나", list(cfg["mcpServers"]) == ["slice"], cfg)
@@ -74,7 +74,7 @@ def main() -> int:
                 return {t.name: (t.description, t.input_schema) for t in await c.list_tools()}
 
         seen = asyncio.run(_list())
-        check("HTTP 로 보이는 도구 수", len(seen) == 21, len(seen))
+        check("HTTP 로 보이는 도구 수", len(seen) == 22, len(seen))
         check("get_observation 설명 동일", seen["get_observation"][0] == upstream["get_observation"])
         check("apply_allocation 스키마에 embb·urllc·mmtc",
               set(seen["apply_allocation"][1].get("properties", {})) >= {"embb", "urllc", "mmtc"},
@@ -154,6 +154,24 @@ def main() -> int:
               (ap["args"].get("correction"), ap.get("correction_injected")))
         check("다른 배분이면 붙이지 않는다",
               gw.correction_for({"embb": 0.5, "urllc": 0.3, "mmtc": 0.2}) is None)
+
+        # 반복 5 — estimate_situation: 게이트웨이가 관측 트래픽을 모아 규칙 판단자와 같은 필터를 돌린다.
+        gw.begin_step(1)
+
+        async def _estimate():
+            from fastmcp import Client
+            async with Client(url) as c:
+                await c.call_tool("get_observation", {})
+                return (await c.call_tool("estimate_situation", {})).data
+
+        est = asyncio.run(_estimate())
+        from agent.deciders.rule import situation_posterior  # noqa: PLC0415
+        want = situation_posterior([gw.traffic_by_step[s] for s in sorted(gw.traffic_by_step)])
+        check("estimate_situation — 사후확률 합 1 · 네 상황", (round(sum(est["posterior"].values()), 3),
+              sorted(est["posterior"])), (1.0, ["emergency", "iot_surge", "normal", "special_event"]))
+        check("estimate_situation — 규칙 판단자와 같은 계산", est["most_likely"] == max(want, key=want.get)
+              and abs(est["posterior"][est["most_likely"]] - want[est["most_likely"]]) < 1e-3, est)
+        check("estimate_situation — 리셋 관측부터 쌓인다", est.get("steps_used", 0) >= 1, est.get("steps_used"))
 
         print("\n4. 심판")
         good = judge(0, calls("get_observation", "get_reliability_table", "propose_allocation",

@@ -255,6 +255,13 @@ def main() -> int:
           env3.add_capacity("mMTC", 0.9, 30, "big")["accepted"], False)
     check("알 수 없는 slice_type 거부",
           env3.add_capacity("URLCC", 0.1, 30, "typo")["accepted"], False)
+    # ③ 이 대소문자를 가리지 않으므로(F1) ① 도 같아야 한다 — 다르면 조달 비용만 청구된다 (2026-10-03 Claude 실측)
+    env3c = SliceEnv(RUN)
+    env3c.reset(RUN, "emergency", 0)
+    low = env3c.add_capacity("urllc", 0.25, 10, "slice-urllc-0000-v1")
+    check("소문자 slice_type 도 받는다 ('urllc')", (low["accepted"], low["capacity"]["urllc"]),
+          (True, round(CAPACITY_BASE + 0.25, 6)))
+    check("리스에는 정규 이름으로 남는다", low["active_leases"][0]["slice_type"], "URLLC")
 
     while env3.t < 22:
         env3.step(1)

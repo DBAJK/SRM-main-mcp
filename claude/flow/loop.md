@@ -145,6 +145,12 @@ LLM 이 게이트웨이(`agent/orchestrator/gateway.py`) 하나에 MCP 로 붙�
 `combined` 공식은 여기서도 코드다 — 게이트웨이의 `compute_confidence` 도구가 `schema.py` 와 같은
 식을 계산하므로, 개입률 비교의 공정성은 두 드라이버에서 같다. `reset` 은 LLM 에 노출하지 않는다.
 
+**`estimate_situation` (2026-10-03 반복 5)** — 게이트웨이의 둘째 자체 도구. 이번 에피소드에서 관측된 트래픽 열에
+고정 루프 규칙 판단자와 **같은 상황 추론**(우도 HMM, `agent/deciders/rule.py situation_posterior`)을 돌려
+상황별 사후확률을 낸다. LLM 은 스텝마다 관측 하나와 직전 요약만 보는데 한 스텝 트래픽은 잡음이 커서
+(σ 0.1 이 mmtc 평균의 절반) 상황 인지가 0.65~0.75 에 머물렀다. 근거를 하나 더 줄 뿐 판단은 LLM 이 한다 —
+그래서 LLM 에 보이는 도구는 22개(서버 20 + `compute_confidence` + `estimate_situation`)다.
+
 # 3.4 컨텍스트는 스텝마다 재구성한다
 
 120스텝 대화를 누적하면 후반에 **100k 토큰**을 넘는다. 비용·지연이 폭증하고, 모델이 20스텝 전의 낡은 관측에 주의를 뺏긴다.

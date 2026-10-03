@@ -299,7 +299,12 @@ class SliceEnv:
 
         거부되어도 ③의 조달은 이미 일어났다 — 비용은 청구되고 용량은 안 늘어난다.
         호출 전에 `Observation.capacity` 로 상한을 확인하는 것이 에이전트 몫이다.
+
+        slice_type 은 대소문자를 가리지 않고 정규 이름(eMBB · URLLC · mMTC)으로 읽는다 — ③ `_check_slice_type`
+        과 같다(F1). ③이 'urllc' 를 받아 조달·청구까지 한 뒤 ①이 같은 값을 거부하면 돈만 나간다
+        (2026-10-03 Claude 실측 1회: procure('urllc') 성공 → add_capacity('urllc') 거부).
         """
+        slice_type = {t.lower(): t for t in SLICE_TYPES}.get(str(slice_type).strip().lower(), slice_type)
         reason = self._capacity_reject(slice_type, amount, expires_at_step)
         if reason is not None:
             return self._capacity_state(accepted=False, reason=reason)

@@ -35,6 +35,7 @@ from pydantic import PrivateAttr
 
 from ..backends.mcp import McpBackend
 from ..guard import ForbiddenLeak, Guard
+from ..deciders.rule import situation_posterior
 from ..schema import ESCALATION_THRESHOLD, escalation_check
 from ..trace import MARK, brief
 
@@ -63,6 +64,18 @@ CONFIDENCE_DESC = (
     "empirical 은 get_reliability_table 의 그 정책 effective 다. "
     f"combined 가 {ESCALATION_THRESHOLD} 미만이거나 empirical 이 하한(empirical_floor) 미만이면 "
     "escalate 가 true 이며, 그 경우 record_decision 대신 record_escalation 을 부른다."
+)
+
+
+# 게이트웨이 자체 도구 둘째 (반복 5 · 2026-10-03). 고정 루프의 규칙 판단자가 쓰는 상황 추론(우도 HMM)을
+# 오케스트레이터 LLM 도 쓸 수 있게 내놓는다. LLM 은 매 스텝 관측 하나와 직전 요약만 보는데, 한 스텝 트래픽은
+# 잡음이 커서(σ 0.1 이 mmtc 평균의 절반) Claude 의 상황 인지가 0.65~0.75 에 머물렀다(9/29 · TF 환경).
+# 판단을 대신하지 않는다 — 근거를 하나 더 줄 뿐이고, situation 은 여전히 LLM 이 정한다.
+SITUATION_DESC = (
+    "지금까지 관측한 트래픽의 슬라이스 구성으로 상황별 사후확률을 낸다. 상황마다 수요 모양(어느 슬라이스 "
+    "수요가 몇 배가 되는가)과 트래픽 잡음으로 우도를 매기고, 상황은 잘 바뀌지 않는다는 사전으로 스텝을 잇는다. "
+    "이용률은 배분의 결과라 대응하면 증상이 사라지지만 트래픽은 배분과 무관하다. 추정이지 정답이 아니다 — "
+    "situation 은 네가 정한다. get_observation 뒤에 부른다."
 )
 
 
@@ -208,6 +221,8 @@ class GatewayMiddleware(Middleware):
         )
         if name in ("propose_allocation", "compare_policies"):
             gw.remember_corrections(payload)
+        if name in ("get_observation", "step"):
+            gw.remember_traffic(name, payload)
         # 콘솔: 경로(MCP) · 서버 · 함수(인자 요약) → 반환 요약. 파일: 인자·반환 전문.
         logger.debug(
             "  %s %s %s(%s)\n        → %s",
@@ -241,6 +256,8 @@ class Gateway:
         self.leak: Optional[ForbiddenLeak] = None
         self.budget_hits = 0
         self.corrections: list[tuple[dict, dict]] = []   # 이번 시도의 (rule_based 배분, 보정량) — D1-b
+        # 에피소드에서 관측된 스텝별 트래픽 — estimate_situation 의 입력 (반복 5). reset 이 비운다.
+        self.traffic_by_step: dict[int, dict] = {}
         self.server_of: dict[str, str] = {}
         # 호스트가 에피소드 시작 전에 채운다. ④ 기록 도구 호출에 끼워 넣는다.
         self.run_config: dict[str, Any] = {}
@@ -271,6 +288,9 @@ class Gateway:
         args = {k: v for k, v in args.items() if v is not None}
         out = self.backend.call(server, tool, args)
         out = self.guard.check(out, f"{server}.{tool}")
+        if tool == "reset":
+            self.traffic_by_step = {}
+            self.remember_traffic("reset", out)
         logger.debug(
             "  %s %s %s(%s)\n        → %s",
             VIA_HOST, MARK.get(server, " "), tool, brief(args, ARGS_WIDTH), brief(out),
@@ -282,6 +302,12 @@ class Gateway:
     def begin_step(self, step: int, attempt: Optional[int] = None) -> None:
         self.log.begin_step(step, attempt)
         self.corrections = []
+
+    def remember_traffic(self, tool: str, payload: Any) -> None:
+        """관측(get_observation · step · reset 결과)의 트래픽을 스텝별로 모은다. 같은 스텝은 덮어쓴다."""
+        obs = payload if tool == "get_observation" else (payload or {}).get("observation")
+        if isinstance(obs, dict) and isinstance(obs.get("traffic"), dict) and "step" in obs:
+            self.traffic_by_step[int(obs["step"])] = dict(obs["traffic"])
 
     def remember_corrections(self, payload: Any) -> None:
         """② 결과에서 rule_based 제안의 (배분, 보정량) 을 모은다. compare_policies 는 목록이다."""
@@ -374,6 +400,20 @@ class Gateway:
             }
 
         self.server_of["compute_confidence"] = "gateway"
+
+        @mcp.tool(name="estimate_situation", description=SITUATION_DESC)
+        def estimate_situation() -> dict:
+            steps = sorted(self.traffic_by_step)
+            if not steps:
+                return {"error": "no_observation",
+                        "detail": "관측한 트래픽이 없다. get_observation 을 먼저 부른다."}
+            # 규칙 판단자(고정 루프)와 같은 필터를 이 에피소드에서 관측된 트래픽 열에 돌린다.
+            post = situation_posterior([self.traffic_by_step[s] for s in steps])
+            return {"step": steps[-1], "steps_used": len(steps),
+                    "posterior": {s: round(p, 4) for s, p in post.items()},
+                    "most_likely": max(post, key=post.get)}
+
+        self.server_of["estimate_situation"] = "gateway"
         mcp.add_middleware(GatewayMiddleware(self))
         return mcp
 

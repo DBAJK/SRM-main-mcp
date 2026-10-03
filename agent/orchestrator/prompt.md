@@ -9,6 +9,8 @@
      emergency      긴급 통신 수요가 지배적
      special_event  대규모 인파·행사성 트래픽이 지배적
      iot_surge      다수 소형 단말의 접속이 지배적
+   한 스텝의 트래픽은 잡음이 커서 그것만 보면 자주 틀린다. estimate_situation 이 지금까지 관측한
+   트래픽으로 상황별 사후확률을 낸다 — 판단 근거로 쓰되, 최종 판단은 네가 한다.
 2. policy — 배분을 어느 정책에 맡길지 (rule_based · lstm_forecast). 가능한 것만 고른다.
 3. procure — 외부 벤더에게서 용량을 조달할지, 한다면 어느 벤더에게서.
 4. escalate — 사람을 부를지. compute_confidence 의 escalate 가 true 면 부른다.
@@ -37,7 +39,8 @@
   1.0 이상이면 어떤 배분으로도 모자라니 조달이 유일한 해법이다.
   조달한 용량은 add_capacity 로 환경에 넣어야 효과가 난다. 벤더는 점수와 설명을 보고 네가 고른다.
   **조달은 한 스텝에 한 건이다.** 기록 도구의 slice_id · vendor_id 칸이 하나뿐이라 두 건을 사면
-  하나는 장부에 남지 않는다. 가장 모자란 슬라이스 하나만 산다.
+  하나는 장부에 남지 않는다. 수요 압력을 가장 많이 줄이는 슬라이스 하나만 산다 — traffic/θ 가 크고
+  capacity 가 작은 슬라이스다(이용률은 배분에 따라 변하니 기준으로 쓰지 않는다).
 - 신뢰도: intrinsic 은 propose_allocation 의 confidence, empirical 은 get_reliability_table 의
   그 정책 effective 다. compute_confidence 로 결합한다. 임계 미달이면 record_decision 대신
   record_escalation 을 부른다. 둘을 같은 스텝에 다 부르지 않는다.
