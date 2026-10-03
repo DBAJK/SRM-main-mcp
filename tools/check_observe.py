@@ -11,6 +11,7 @@
 """
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
@@ -184,6 +185,9 @@ def main() -> int:
     import random
     from srm_mcp.policy import rule
     from srm_mcp.common.const import THRESHOLDS as TH
+    # 원본 식은 보정을 포함한다. 보정 기본은 2026-10-03 부터 off 라(rule.py CORRECTION_DEFAULT) 여기서 켠다.
+    saved_corr = os.environ.get("SLICE_RULE_CORRECTION")
+    os.environ["SLICE_RULE_CORRECTION"] = "on"
     rng = random.Random(7)
     worst = 0.0
     for _ in range(200):
@@ -214,6 +218,10 @@ def main() -> int:
         worst = max(worst, max(abs(out["normalized"][k] - want[i]) for i, k in enumerate(keys)))
     check_true("원본 update_allocation_rule_based 와 같다 (200개 입력, 최대 오차 < 1e-5)",
                worst < 1e-5, f"최대 오차 {worst:.2e}")
+    if saved_corr is None:
+        os.environ.pop("SLICE_RULE_CORRECTION", None)
+    else:
+        os.environ["SLICE_RULE_CORRECTION"] = saved_corr
     bad = SliceEnv(RUN)
     bad.reset(RUN, "normal", 0)
     check("잘못된 correction → accepted false",

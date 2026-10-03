@@ -50,6 +50,9 @@ def main() -> int:
     vendors_backup = vendors.read_bytes() if vendors.exists() else None
 
     print("1. 게이트웨이 기동")
+    # 보정 기본은 2026-10-03 부터 off 지만(rule.py CORRECTION_DEFAULT) 게이트웨이가 보정량을 붙이는 배선은
+    # 살아 있어야 한다 — 아래 3절이 그걸 본다. 서버는 이 환경을 물려받는다(McpBackend).
+    os.environ["SLICE_RULE_CORRECTION"] = "on"
     gw = Gateway(RUN_ID, run_dir / "orchestrator", memory_mode="cold",
                  server_log_dir=run_dir / "servers", max_calls=6)
     try:

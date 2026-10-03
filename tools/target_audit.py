@@ -131,6 +131,12 @@ def main() -> int:
                     for s in SCENARIOS for k in SLICE_KEYS)
     print(f"   [{'PASS' if worst_lit <= 5e-5 else 'FAIL'}] rule.py 의 θ 리터럴 == 유도값"
           f" — 최대 차 {worst_lit:.6f}")
+    # theta_z (2026-10-03) 의 유도 상수 — ②가 ①을 import 하지 않으므로 리터럴이 갈라지지 않았는지 본다.
+    from srm_mcp.observe.env import TRAFFIC_NOISE_SIGMA, WEEKLY_AMPLITUDE   # noqa: PLC0415
+    from srm_mcp.policy import rule as rule_mod                           # noqa: PLC0415
+    same = (rule_mod.DEMAND_BASE == BASE_TRAFFIC and rule_mod.DEMAND_MULT == EVENT_MULTIPLIERS
+            and rule_mod.DEMAND_NOISE == TRAFFIC_NOISE_SIGMA and rule_mod.DEMAND_LEVEL == 1 + WEEKLY_AMPLITUDE)
+    print(f"   [{'PASS' if same else 'FAIL'}] rule.py 의 theta_z 상수 == ① (BASE · 배율 · 잡음 σ · 1+주간 항)")
     print(f"   [정보] SLICE_TARGET_TABLE = {target_table_name()}  (기본 {TARGET_TABLE_DEFAULT})")
     print()
 

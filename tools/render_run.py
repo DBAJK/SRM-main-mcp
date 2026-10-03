@@ -82,12 +82,12 @@ def _rule_correction(d: dict) -> Optional[dict]:
     if d.get("escalated") or d.get("chosen_policy") != "rule_based" or "평활 뒤" not in rat:
         return None
     from srm_mcp.policy import rule
-    table = "original" if "목표표 original" in rat else "theta" if "목표표 theta" in rat else None
+    table = next((name for name in ("original", "theta_only", "theta_z", "theta") if f"목표표 {name}" in rat), None)
     saved = os.environ.get("SLICE_TARGET_TABLE")
     try:
         if table:
             os.environ["SLICE_TARGET_TABLE"] = table
-        return rule.correction_delta(rule.targets(d["situation"]), d["observation"])
+        return rule.correction_delta(rule.targets(d["situation"], d["observation"]), d["observation"])
     except Exception:                                    # noqa: BLE001 — 그림이 죽지 않게
         return None
     finally:

@@ -40,7 +40,8 @@ except ImportError:
     print("fastmcp 없음 — 스텁으로 도구 함수만 검사한다\n")
 
 from srm_mcp.common.const import FORBIDDEN, SEQUENCE_LENGTH, THRESHOLDS  # noqa: E402
-from srm_mcp.observe.env import BASE_TRAFFIC, EVENT_MULTIPLIERS  # noqa: E402
+from srm_mcp.observe.env import (BASE_TRAFFIC, EVENT_MULTIPLIERS, TRAFFIC_NOISE_SIGMA,  # noqa: E402
+                                 WEEKLY_AMPLITUDE)
 from srm_mcp.policy import features, lstm, rule  # noqa: E402
 from srm_mcp.policy import server as s  # noqa: E402
 
@@ -106,12 +107,14 @@ def main() -> int:
           {"embb": 0.4, "urllc": 0.4, "mmtc": 0.2})
     os.environ["SLICE_RULE_CORRECTION"] = "off"   # 이하 검사는 목표표 기준
 
-    print("\n1c. 목표표 선택 — D7 (workplan-2 §2 · B-7 · 결정 2026-09-29: 기본 theta)")
+    print("\n1c. 목표표 선택 — D7 (workplan-2 §2 · B-7 · 결정 2026-09-29: theta → 2026-10-03: 기본 theta_z)")
     os.environ["SLICE_TARGET_TABLE"] = "original"
     check("original 이면 원본 표", s.propose_allocation("rule_based", OBS, "emergency")["allocation"],
           {"embb": 0.2, "urllc": 0.7, "mmtc": 0.1})
     os.environ.pop("SLICE_TARGET_TABLE", None)
-    check("기본은 theta", rule.target_table_name(), "theta")
+    check("기본은 theta_z", rule.target_table_name(), "theta_z")
+    check("보정 기본은 off (2026-10-03)", rule.CORRECTION_DEFAULT, "off")
+    os.environ["SLICE_TARGET_TABLE"] = "theta"
     theta = s.propose_allocation("rule_based", OBS, "emergency")
     check("theta 면 θ 판", (round(theta["allocation"]["embb"], 4),
                             round(theta["allocation"]["urllc"], 4)), (0.329, 0.4627))
@@ -135,8 +138,33 @@ def main() -> int:
                          rule.TARGET_BY_SITUATION_THETA_ONLY["emergency"],
                          rule.TARGET_BY_SITUATION_THETA["emergency"])}), 3)
     os.environ["SLICE_TARGET_TABLE"] = "garbage"
-    check("알 수 없는 값은 기본값(theta)으로 떨어진다", rule.target_table_name(), "theta")
+    check("알 수 없는 값은 기본값(theta_z)으로 떨어진다", rule.target_table_name(), "theta_z")
     os.environ.pop("SLICE_TARGET_TABLE", None)
+
+    print("\n1d. theta_z — 잡음 여유 · 용량 반영 (반복 1 · 2026-10-03)")
+    # 리터럴이 ①의 생성 상수와 갈라지면 유도의 근거가 무너진다.
+    check("DEMAND_BASE == ① BASE_TRAFFIC", rule.DEMAND_BASE, BASE_TRAFFIC)
+    check("DEMAND_MULT == ① EVENT_MULTIPLIERS", rule.DEMAND_MULT, EVENT_MULTIPLIERS)
+    check("DEMAND_NOISE == ① TRAFFIC_NOISE_SIGMA", rule.DEMAND_NOISE, TRAFFIC_NOISE_SIGMA)
+    check("DEMAND_LEVEL == 1 + ① WEEKLY_AMPLITUDE (월요일)", rule.DEMAND_LEVEL, 1 + WEEKLY_AMPLITUDE)
+    keys = ("embb", "urllc", "mmtc")
+    for situation in ("normal", "emergency", "special_event", "iot_surge"):
+        cap = {"embb": 1.6, "urllc": 1.6, "mmtc": 1.6}
+        a = rule.margin_targets(situation, cap)
+        m = rule.DEMAND_MULT[situation]
+        # 여유를 σ 단위로 되돌리면 세 슬라이스가 같아야 한다: (θ·a·cap − μ) / σ
+        zs = [(THRESHOLDS[k] * a[k] * cap[k] - 1.2 * BASE_TRAFFIC[k] * m[k]) / (0.1 * m[k]) for k in keys]
+        check(f"[{situation}] 합 1 · 여유 z 가 세 슬라이스에서 같다",
+              (round(sum(a.values()), 6), round(max(zs) - min(zs), 6)), (1.0, 0.0))
+    more = rule.margin_targets("emergency", {"embb": 1.6, "urllc": 2.1, "mmtc": 1.6})
+    less = rule.margin_targets("emergency", {"embb": 1.6, "urllc": 1.6, "mmtc": 1.6})
+    check("용량이 늘어난 슬라이스는 몫이 준다 (a* 의 capacity 항)", more["urllc"] < less["urllc"], True)
+    zp = s.propose_allocation("rule_based", OBS, "emergency")
+    check("propose 가 관측 capacity 로 계산", zp["allocation"],
+          {k: round(v, 6) for k, v in rule.margin_targets("emergency", OBS.get("capacity")).items()})
+    check("rationale 에 theta_z 가 남는다", "목표표 theta_z" in zp["rationale"], True)
+    hot = rule.margin_targets("emergency", {"embb": 1.0, "urllc": 1.0, "mmtc": 1.0})
+    check("압력 > 1 이어도 몫은 양수 · 합 1", (min(hot.values()) > 0, round(sum(hot.values()), 6)), (True, 1.0))
 
     print("\n2. 완료 판정 — situation 만 바꾸면 배분이 달라진다")
     seen = {}

@@ -40,6 +40,8 @@ check("effective 0.5 · fallback 은 표에 없음",
       all(v["effective"] == 0.5 for v in t0.values()) and "fallback" not in t0, sorted(t0))
 
 print("2. 에피소드 — emergency 30스텝 · 규칙 판단자")
+# 보정 기본은 2026-10-03 부터 off 다(rule.py CORRECTION_DEFAULT). 아래 B-1 판정은 보정 배선을 보는 것이라 켠다.
+os.environ["SLICE_RULE_CORRECTION"] = "on"
 mb = MockBackend(seed=0)
 # ①에 실제로 넘어간 보정량을 엿본다 (B-1 판정용 — 아래)
 _sent_corrections: list = []

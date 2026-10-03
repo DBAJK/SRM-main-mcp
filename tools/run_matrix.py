@@ -237,8 +237,29 @@ def collect(c: Cell, raw_dir: Path) -> dict:
         perception_accuracy=s["perception_accuracy"]["accuracy"],
         escalation_precision=s["escalation_precision"]["precision"],
         referee_error_steps=b["referee"]["excluded"],
+        **urllc_rates(decs, base / c.run_id / "truth.jsonl"),
     )
     return row
+
+
+def urllc_rates(decs: list[dict], truth_path: Path) -> dict:
+    """긴급 슬라이스(URLLC) 위반률 — 동등 가중 SLA 와 따로 본다 (2026-10-02 쟁점 · 보고용 열).
+
+    SLA 는 세 슬라이스 중 하나라도 넘으면 위반이라, emergency 에서 URLLC 를 지켰는지는 따로 세야 보인다.
+    채점된 결정(outcome 있음)의 observed_violations 를 쓴다. emergency 칸은 정답이 emergency 인 스텝만.
+    """
+    scored = [d for d in decs if d.get("outcome")]
+    truth = {}
+    if truth_path.is_file():
+        for line in truth_path.read_text(encoding="utf-8").splitlines():
+            if line.strip():
+                t = json.loads(line)
+                truth[int(t["step"])] = bool(t.get("is_emergency"))
+    em = [d for d in scored if truth.get(int(d["step"]))]
+    hit = lambda rows: sum(1 for d in rows if (d["outcome"].get("observed_violations") or {}).get("urllc"))  # noqa: E731
+    return {"urllc_violation_rate": round(hit(scored) / len(scored), 4) if scored else None,
+            "emergency_steps": len(em),
+            "emergency_urllc_violation_rate": round(hit(em) / len(em), 4) if em else None}
 
 
 _SD_OF = {                                   # 평균 옆에 표본 표준편차를 붙일 지표 → 그 열 이름
@@ -375,7 +396,16 @@ def main() -> int:
         mark = "완료" if r["exit"] == 0 else f"실패(종료 {r['exit']}) — {r['log']}"
         print(f"       {mark} · {r['elapsed_sec']}초 · ${r['usd_equiv']:.3f} · 누적 ${spent:.2f}")
 
-    # 요약 — 성공한 실행 전부 (이번에 안 돈 칸도 state 에 있으면 포함). 반복은 칸당 한 행으로.
+    write_summary(out, plan, state)
+    return 0
+
+
+def write_summary(out: Path, plan: list[Cell], state: dict) -> list[dict]:
+    """요약 — 성공한 실행 전부 (이번에 안 돈 칸도 state 에 있으면 포함). 반복은 칸당 한 행으로.
+
+    tools/fast_matrix.py 도 같은 함수로 쓴다 — 두 실행기의 summary 형식이 갈리지 않게.
+    """
+    raw_dir = out / "raw"
     raw_rows = [collect(c, raw_dir) for c in plan if state.get(c.run_id, {}).get("exit") == 0]
     rows = fold(raw_rows)
     if any(c.repeat is not None for c in plan):
@@ -389,7 +419,7 @@ def main() -> int:
             w.writeheader()
             w.writerows(rows)
     print(f"\n요약 {len(rows)}칸 (실행 {len(raw_rows)}) → {(out / 'summary.csv').relative_to(ROOT)}")
-    return 0
+    return rows
 
 
 if __name__ == "__main__":

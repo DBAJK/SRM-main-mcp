@@ -9,17 +9,17 @@
 (설계서 §3.2). 양쪽에 다 있으면 0.7이 두 번 걸려 배분이 거의 안 움직인다.
 
 원본 :446~457 의 **위반 보정**은 되살렸다 (workplan B-1 · D1). 환경변수
-`SLICE_RULE_CORRECTION` 으로 켜고 끈다 — 기본 `on` 이 원본 동작이고, `off` 는 상황인지
-순도를 논증하기 위한 대조군이다. 보정이 있으면 상황 라벨이 틀려도 관측이 배분을 되돌려
-주므로 오판의 대가가 가려진다. 끄면 그 신호가 깨끗해지는 대신 SLA 위반이 는다.
-D1 이 뒤집히면 `CORRECTION_DEFAULT` 한 줄만 바꾸면 된다.
+`SLICE_RULE_CORRECTION` 으로 켜고 끈다 — `on` 이 원본 동작이다. 기본은 2026-10-03 부터 `off`
+(아래 CORRECTION_DEFAULT): 보정은 **이번 스텝의 위반**에 반응하는데 그 위반은 대부분 다음 스텝과
+독립인 트래픽 잡음이라, 다음 스텝을 돕지 못하고 가장 한가한 슬라이스만 깎는다 (after-F 장부 재생 ·
+정답 라벨: theta 표 보정 on 0.498 → off 0.516, 잡음 여유 표 0.504 → 0.541).
 """
 from __future__ import annotations
 
 import os
 from typing import Any, Optional
 
-from ..common.const import SLICE_KEYS, THRESHOLDS
+from ..common.const import CAPACITY_BASE, SLICE_KEYS, THRESHOLDS
 
 # 원본 :429~:440 의 목표 배분 표. 상황 라벨 하나가 배분을 정한다.
 TARGET_BY_SITUATION: dict[str, dict[str, float]] = {
@@ -63,26 +63,76 @@ TARGET_BY_SITUATION_THETA_ONLY: dict[str, dict[str, float]] = {
 TARGET_TABLES = {
     "original":   TARGET_BY_SITUATION,             # 원본 재현 — 민감도 분석용
     "theta_only": TARGET_BY_SITUATION_THETA_ONLY,  # θ 만 씀 — 정보 우위 없음
-    "theta":      TARGET_BY_SITUATION_THETA,       # θ + 생성 수요비 — 정보 우위 있음. 기본값
+    "theta":      TARGET_BY_SITUATION_THETA,       # θ + 생성 수요비 — 정보 우위 있음 (D7)
 }
+
+# ── 잡음 여유 · 용량 반영 목표 `theta_z` (2026-10-03 · 반복 1) ─────────────────────────
+#
+# theta 는 a* 의 **기대값**이다. SLA 는 다음 스텝의 트래픽(잡음 σ)으로 채점되므로 평균 수요에 딱 맞춘
+# 배분은 잡음이 위로 튀는 스텝마다 위반한다. 여유가 필요한데 a-단위로 같은 여유를 주면, θ 가 빡빡하고
+# 평균 수요가 작은 mmtc 가 잡음 대비 여유가 가장 적다 (after-F 슬라이스별 위반률 mmtc 25.5% 로 최고).
+# 또 조달로 용량이 늘어난 슬라이스는 같은 수요에 배분이 덜 필요한데(⑤ a* 의 capacity 항) 표는 용량을
+# 모른다. 그래서 **모든 슬라이스의 여유가 잡음 σ 단위로 같아지는** 배분을 쓴다:
+#
+#     a_k = (μ_k + z·σ_k) / (θ_k · cap_k),   Σ a_k = 1 이 되는 z  (z 는 공통 여유, σ 단위)
+#     μ_k = f·B_k·M_k(상황)    σ_k = σ·M_k(상황)    cap_k = 관측의 capacity (조달 반영)
+#
+# z → 0 이고 용량이 같으면 theta 와 같다 — a* 기준에 잡음과 용량을 더한 것이다. 상수는 전부 유도값이다:
+# B·M 은 theta 와 같은 ①의 생성 수요비, σ 는 ①의 트래픽 잡음, f 는 시작일(월요일)의 평균 수준
+# 1 + 주간 항 0.2 (일주기 사인은 하루 평균이 0). 튜닝한 수가 아니고, ②가 ①을 import 하지 않도록
+# 리터럴로 두며 target_audit.py 가 ①의 상수와 같은지 검사한다.
+# 측정 (after-F 장부 재생 · 정답 라벨 · 보정 off): theta 0.516 → 용량만 0.525 → theta_z 0.541.
+# 비대칭 z(ΠΦ 최적)는 0.538 로 차이가 없어 단순한 공통 z 를 쓴다.
+DEMAND_BASE = {"embb": 0.4, "urllc": 0.3, "mmtc": 0.2}            # ① BASE_TRAFFIC
+DEMAND_MULT = {                                                    # ① EVENT_MULTIPLIERS
+    "emergency":     {"embb": 0.8, "urllc": 2.0, "mmtc": 0.9},
+    "special_event": {"embb": 1.5, "urllc": 0.8, "mmtc": 1.0},
+    "iot_surge":     {"embb": 0.9, "urllc": 0.9, "mmtc": 1.8},
+    "normal":        {"embb": 1.0, "urllc": 1.0, "mmtc": 1.0},
+}
+DEMAND_NOISE = 0.1                                                 # ① TRAFFIC_NOISE_SIGMA
+DEMAND_LEVEL = 1.2                                                 # 1 + ① WEEKLY_AMPLITUDE (월요일)
+
+TARGET_TABLE_NAMES = (*TARGET_TABLES, "theta_z")
 # D7 결정 (2026-09-29): theta 가 본 조건, 원본표는 `SLICE_TARGET_TABLE=original` 로 민감도만.
 # 근거는 workplan-2 §1.6 — theta 60칸에서 사다리 첫 칸(arm1 − baseline)이 −0.043 → +0.073 으로
 # 뒤집혔고, Claude 오케스트레이터는 상황을 잘 맞힐수록 원본표에서 손해였다.
-TARGET_TABLE_DEFAULT = "theta"
+# 2026-10-03 (반복 1): 기본을 theta_z 로. theta 는 `SLICE_TARGET_TABLE=theta` 로 재현한다.
+TARGET_TABLE_DEFAULT = "theta_z"
 
 
 def target_table_name() -> str:
     """`SLICE_TARGET_TABLE` 이 고르는 표 이름. 호출마다 읽는다.
 
     `correction_enabled()` 와 같은 이유다 — 어느 표로 돈 실행인지 `rationale` 을 통해
-    장부에 남는다. 모르는 값은 기본값(theta)으로 떨어진다.
+    장부에 남는다. 모르는 값은 기본값(theta_z)으로 떨어진다.
     """
     name = os.environ.get("SLICE_TARGET_TABLE", TARGET_TABLE_DEFAULT).lower()
-    return name if name in TARGET_TABLES else TARGET_TABLE_DEFAULT
+    return name if name in TARGET_TABLE_NAMES else TARGET_TABLE_DEFAULT
 
 
-def targets(situation: str) -> dict[str, float]:
-    return dict(TARGET_TABLES[target_table_name()][situation])
+def margin_targets(situation: str, capacity: Optional[dict] = None) -> dict[str, float]:
+    """`theta_z` — 모든 슬라이스의 여유가 잡음 σ 단위로 같아지는 배분 (위 주석의 식).
+
+    `capacity` 가 없으면 조달 전 기본 용량으로 본다. 압력이 1.0 을 넘으면 z 가 음수가 되어
+    (어떤 배분으로도 못 지킨다) 모자람을 σ 단위로 고르게 나눈다 — 음수 몫은 0 에 가깝게 자른다.
+    """
+    cap = {k: float((capacity or {}).get(k, CAPACITY_BASE) or CAPACITY_BASE) for k in SLICE_KEYS}
+    mult = DEMAND_MULT[situation]
+    need = {k: DEMAND_LEVEL * DEMAND_BASE[k] * mult[k] / (THRESHOLDS[k] * cap[k]) for k in SLICE_KEYS}
+    spread = {k: DEMAND_NOISE * mult[k] / (THRESHOLDS[k] * cap[k]) for k in SLICE_KEYS}
+    z = (1.0 - sum(need.values())) / sum(spread.values())
+    raw = {k: max(1e-3, need[k] + z * spread[k]) for k in SLICE_KEYS}
+    total = sum(raw.values())
+    return {k: v / total for k, v in raw.items()}
+
+
+def targets(situation: str, observation: Optional[dict[str, Any]] = None) -> dict[str, float]:
+    """상황의 목표 배분. `theta_z` 만 관측(capacity)을 쓴다 — 나머지 표는 상황 라벨 하나로 정해진다."""
+    name = target_table_name()
+    if name == "theta_z":
+        return margin_targets(situation, (observation or {}).get("capacity"))
+    return dict(TARGET_TABLES[name][situation])
 
 
 CONFIDENCE_FLOOR = 0.50
@@ -91,7 +141,8 @@ CONFIDENCE_SPAN = 0.30
 # 원본 :449~450 — 초과분의 20%, 한 슬라이스당 최대 0.1.
 CORRECTION_CAP = 0.1
 CORRECTION_GAIN = 0.2
-CORRECTION_DEFAULT = "on"   # D1 권고. 원본 동작
+# D1 권고(on · 원본 동작)였으나 2026-10-03 반복 1 에서 off — 머리말의 측정. 원본은 SLICE_RULE_CORRECTION=on.
+CORRECTION_DEFAULT = "off"
 
 
 def correction_enabled() -> bool:
@@ -162,9 +213,9 @@ def propose(observation: dict[str, Any], situation: str) -> dict[str, float]:
     """목표 배분. 평활·클립 없음.
 
     위반 보정은 `SLICE_RULE_CORRECTION`, 목표표는 `SLICE_TARGET_TABLE` 에 따른다.
-    둘 다 기본값이 원본 동작이다.
+    원본 동작은 `on` · `original` 이다 (기본값은 측정으로 바꿨다 — 위 주석들).
     """
-    target = targets(situation)
+    target = targets(situation, observation)
     if not correction_enabled() or correction_stage() == "post":
         return target                       # post: 보정량은 correction() 이 따로 낸다
     return _violation_correction(target, observation)
@@ -174,7 +225,7 @@ def correction(observation: dict[str, Any], situation: str) -> Optional[dict[str
     """①이 평활 뒤에 더할 보정량 (post 방식에서만). 끄거나 target 방식이면 None."""
     if not correction_enabled() or correction_stage() != "post":
         return None
-    return {k: round(v, 6) for k, v in correction_delta(targets(situation), observation).items()}
+    return {k: round(v, 6) for k, v in correction_delta(targets(situation, observation), observation).items()}
 
 
 def margin(observation: dict[str, Any]) -> float:
