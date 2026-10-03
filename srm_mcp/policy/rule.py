@@ -93,6 +93,14 @@ DEMAND_MULT = {                                                    # ① EVENT_M
 DEMAND_NOISE = 0.1                                                 # ① TRAFFIC_NOISE_SIGMA
 DEMAND_LEVEL = 1.2                                                 # 1 + ① WEEKLY_AMPLITUDE (월요일)
 
+# 긴급 슬라이스 우선 (반복 2 · 2026-10-03). 공통 z 는 슬라이스마다 위반 확률을 같게 만든다 — 전체 SLA 에는 맞지만
+# emergency 의 URLLC 를 다른 슬라이스와 똑같이 다룬다. 반복 1 에서 emergency URLLC 위반이 0.148 → 0.178 로
+# 나빠졌다(theta + 보정은 위반한 URLLC 를 즉시 밀어 주었다). 그래서 emergency 에서 URLLC 는 공통 여유에
+# δ σ 를 더 받는다. δ 는 "emergency URLLC 위반이 이전(after-F 0.150)보다 나빠지지 않는 가장 작은 값"으로
+# 정했다 — after-F 장부 재생: δ 0 → 0.176 · 0.25 → 0.142 · 0.5 → 0.127, 전체 SLA 0.541 → 0.537 → 0.530.
+CRITICAL_SLICE = {"emergency": "urllc"}
+CRITICAL_MARGIN = 0.25
+
 TARGET_TABLE_NAMES = (*TARGET_TABLES, "theta_z")
 # D7 결정 (2026-09-29): theta 가 본 조건, 원본표는 `SLICE_TARGET_TABLE=original` 로 민감도만.
 # 근거는 workplan-2 §1.6 — theta 60칸에서 사다리 첫 칸(arm1 − baseline)이 −0.043 → +0.073 으로
@@ -121,8 +129,9 @@ def margin_targets(situation: str, capacity: Optional[dict] = None) -> dict[str,
     mult = DEMAND_MULT[situation]
     need = {k: DEMAND_LEVEL * DEMAND_BASE[k] * mult[k] / (THRESHOLDS[k] * cap[k]) for k in SLICE_KEYS}
     spread = {k: DEMAND_NOISE * mult[k] / (THRESHOLDS[k] * cap[k]) for k in SLICE_KEYS}
-    z = (1.0 - sum(need.values())) / sum(spread.values())
-    raw = {k: max(1e-3, need[k] + z * spread[k]) for k in SLICE_KEYS}
+    bonus = {k: CRITICAL_MARGIN if CRITICAL_SLICE.get(situation) == k else 0.0 for k in SLICE_KEYS}
+    z = (1.0 - sum(need.values()) - sum(bonus[k] * spread[k] for k in SLICE_KEYS)) / sum(spread.values())
+    raw = {k: max(1e-3, need[k] + (z + bonus[k]) * spread[k]) for k in SLICE_KEYS}
     total = sum(raw.values())
     return {k: v / total for k, v in raw.items()}
 

@@ -101,7 +101,7 @@ def run_cell(cell, modules: dict, limit, extra_env: dict) -> dict:
     modules["market"]._last_step = -1                  # 프로세스가 새로 뜬 것과 같게
     modules["market"]._procurements.clear()
     modules["feedback"]._run_id = None
-    rule_mod._traffic_seen.pop(run_id, None)
+    rule_mod.reset_run(run_id)
 
     kind = arms.kind_of(cell.variant)
     base = rule_mod.rule_decider if arms.needs_base_decider(kind) else None

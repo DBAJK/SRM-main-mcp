@@ -8,7 +8,12 @@ LLM 을 붙이기 전에 루프 구조를 안정화하기 위한 것이다. 논�
 에스컬레이션은 Decision 이 파생시킨다 (schema.py).
 """
 
+import math
 import os
+from statistics import NormalDist
+from typing import Optional
+
+from srm_mcp.policy.rule import DEMAND_BASE, DEMAND_MULT, DEMAND_NOISE
 
 from ..schema import Decision, HISTORY_N, PROCURE_PRESSURE, StepContext
 
@@ -28,22 +33,48 @@ DOMINANT_RATIO = 1.15
 # 겹치지 않음) · 300스텝 평균, `runs/_matrix/calib-normal`. "운영자가 평소 구성을 안다"는 가정.
 # 창 5 · 기준 1.2 는 시드 0~2 장부로 고른 값이다(오프라인 평균 정확도 0.97) — 두 개뿐이지만
 # 같은 시드로 고른 것이라 M-0c 수치는 낙관 쪽일 수 있다.
-SITUATION_SIGNAL_DEFAULT = "traffic"
 NORMAL_TRAFFIC_SHARE = {"embb": 0.444, "urllc": 0.3311, "mmtc": 0.225}
 SHARE_RATIO = 1.2          # 구성비가 평시의 몇 배를 넘으면 그 슬라이스가 지배적인가
 TRAFFIC_WINDOW = 5         # 최근 몇 스텝을 평균하나
 
 SLICE_TO_SITUATION = {"urllc": "emergency", "embb": "special_event", "mmtc": "iot_surge"}
 
+# ── 우도 HMM (2026-10-03 · 반복 2) — 기본값 ────────────────────────────────────────
+#
+# C-23 은 구성비를 평시와 비교하는 문턱(1.2)이라 두 가지를 놓친다. (1) 잡음이 큰 mmtc 구성비가 평시에도
+# 문턱을 넘어 normal 을 iot_surge 로 부른다 (after-F arm1 의 normal 오답 32건 중 21건). (2) 각 이벤트의
+# 수요 모양(어느 슬라이스가 몇 배인가)을 안 쓰고 1등 슬라이스만 본다. 그래서 상황마다 "이 트래픽이 나올
+# 우도"를 계산하고, 상황은 잘 안 바뀐다는 사전(머무름 0.98)으로 스텝을 이어 붙인다 — HMM 전진 필터.
+#   우도: 가설 s 의 수요 모양 B·M_s 에 수준 f 를 최소제곱으로 맞추고(일·주 주기라 스텝마다), 잡음
+#         σ·M_s 의 정규 우도. 트래픽 하한 0.1 에 붙은 값은 "그 이하"로 본다(중도절단).
+#   모형은 ② rule_based `theta_z` 와 **같은 수요 모형**(rule.DEMAND_*)을 한 곳에서 읽는다 — 같은 지식이
+#   두 곳에서 갈라지지 않게. 구성비는 시드 10~19 측정과 0.002 안에서 같다.
+#   머무름 0.98 은 조정 시드 10~19 로 골랐다 (0.95 → 0.968 · 0.98 → 0.972 · 0.99 → 0.972).
+# 측정 (SliceEnv 궤적 · 전환 스텝 제외): 조정 시드 C-23 0.932 → 0.972, 평가 시드 0~2 0.956 → 0.982.
+# 확신(conf_situation)은 고른 상황의 사후확률이다.
+SITUATION_SIGNAL_DEFAULT = "likelihood"
+SITUATIONS = ("normal", "emergency", "special_event", "iot_surge")
+LIKELIHOOD_STAY = 0.98
+TRAFFIC_FLOOR = 0.1          # ① TRAFFIC_CLIP 하한
+_NORMAL = NormalDist()
+
 # 실행별 최근 트래픽. 판단자는 매 스텝 새로 불리는 함수라 여기 들고 있는다.
 # 같은 스텝을 다시 판단(재시도)해도 한 번만 센다 — step 을 키로 쓴다.
 _traffic_seen: dict[str, dict[int, dict]] = {}
+# 실행별 스텝마다의 사후 로그확률 (우도 HMM). 같은 스텝을 다시 판단해도 직전 스텝에서 다시 계산한다.
+_belief: dict[str, dict[int, dict[str, float]]] = {}
+
+
+def reset_run(run_id: str) -> None:
+    """한 프로세스에서 같은 run_id 를 다시 돌릴 때(tools/fast_matrix) 이전 상태를 버린다."""
+    _traffic_seen.pop(run_id, None)
+    _belief.pop(run_id, None)
 
 
 def situation_signal() -> str:
-    """`AGENT_SITUATION_SIGNAL` = traffic(기본) | utilization(옛 방식 · 대조용). 호출마다 읽는다."""
+    """`AGENT_SITUATION_SIGNAL` = likelihood(기본) | traffic(C-23) | utilization(옛 방식). 호출마다 읽는다."""
     name = os.environ.get("AGENT_SITUATION_SIGNAL", SITUATION_SIGNAL_DEFAULT).lower()
-    return name if name in ("traffic", "utilization") else SITUATION_SIGNAL_DEFAULT
+    return name if name in ("likelihood", "traffic", "utilization") else SITUATION_SIGNAL_DEFAULT
 
 
 def rule_decider(ctx: StepContext, proposer) -> Decision:
@@ -84,9 +115,72 @@ def infer_situation(ctx: StepContext) -> tuple[str, float]:
 
     정답 플래그를 쓰지 않는다 — 어차피 ①이 주지 않는다. 신호는 `situation_signal()`.
     """
-    if situation_signal() == "traffic":
+    signal = situation_signal()
+    if signal == "likelihood":
+        return _infer_from_likelihood(ctx)
+    if signal == "traffic":
         return _infer_from_traffic(ctx)
     return _infer_from_utilization(ctx)
+
+
+def _logsumexp(values: list[float]) -> float:
+    top = max(values)
+    return top + math.log(sum(math.exp(v - top) for v in values))
+
+
+def traffic_loglik(traffic: dict, situation: str) -> float:
+    """상황 가설 하나에서 이 트래픽이 나올 로그우도 (위 주석의 식). 수준 f 는 최소제곱으로 맞춘다."""
+    mult = DEMAND_MULT[situation]
+    keys = list(DEMAND_BASE)
+    free = [k for k in keys if traffic[k] > TRAFFIC_FLOOR + 1e-9] or keys
+    level = (sum(DEMAND_BASE[k] * traffic[k] / mult[k] for k in free)
+             / sum(DEMAND_BASE[k] ** 2 for k in free))
+    level = max(0.5, min(2.0, level))
+    ll = 0.0
+    for k in keys:
+        mean = mult[k] * DEMAND_BASE[k] * level
+        sd = DEMAND_NOISE * mult[k]
+        if traffic[k] <= TRAFFIC_FLOOR + 1e-9:
+            ll += math.log(max(_NORMAL.cdf((TRAFFIC_FLOOR - mean) / sd), 1e-300))
+        else:
+            z = (traffic[k] - mean) / sd
+            ll += -0.5 * z * z - math.log(sd)
+    return ll
+
+
+def _forward(prev: Optional[dict[str, float]], traffic: dict) -> dict[str, float]:
+    """전진 필터 한 스텝 — 직전 사후 로그확률(없으면 균등)과 이번 트래픽 → 이번 스텝의 사후 로그확률."""
+    if prev is None:
+        prev = {s: math.log(1 / len(SITUATIONS)) for s in SITUATIONS}
+    stay = math.log(LIKELIHOOD_STAY)
+    switch = math.log((1 - LIKELIHOOD_STAY) / (len(SITUATIONS) - 1))
+    traffic = {k: float(v) for k, v in traffic.items()}
+    post = {s: _logsumexp([prev[p] + (stay if p == s else switch) for p in SITUATIONS])
+               + traffic_loglik(traffic, s)
+            for s in SITUATIONS}
+    norm = _logsumexp(list(post.values()))
+    return {s: v - norm for s, v in post.items()}
+
+
+def situation_posterior(traffics: list[dict]) -> dict[str, float]:
+    """트래픽 열(오래된 것부터)의 마지막 스텝 사후확률 — 규칙 판단자와 같은 필터를 처음부터 돌린다.
+
+    오케스트레이터 게이트웨이의 `estimate_situation` 도구가 쓴다 (반복 5) — 두 드라이버가 같은 계산을 쓴다.
+    """
+    logp = None
+    for traffic in traffics:
+        logp = _forward(logp, traffic)
+    return {s: math.exp(v) for s, v in (logp or {}).items()}
+
+
+def _infer_from_likelihood(ctx: StepContext) -> tuple[str, float]:
+    """우도 HMM 전진 필터 한 스텝. (사후확률 최대 상황, 그 사후확률)."""
+    seen = _belief.setdefault(ctx.run_id, {})
+    earlier = [s for s in seen if s < ctx.step]
+    post = _forward(seen[max(earlier)] if earlier else None, ctx.observation["traffic"])
+    seen[ctx.step] = post
+    best = max(post, key=post.get)
+    return best, math.exp(post[best])
 
 
 def _infer_from_traffic(ctx: StepContext) -> tuple[str, float]:

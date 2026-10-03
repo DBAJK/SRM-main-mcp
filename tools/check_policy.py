@@ -153,9 +153,12 @@ def main() -> int:
         a = rule.margin_targets(situation, cap)
         m = rule.DEMAND_MULT[situation]
         # 여유를 σ 단위로 되돌리면 세 슬라이스가 같아야 한다: (θ·a·cap − μ) / σ
-        zs = [(THRESHOLDS[k] * a[k] * cap[k] - 1.2 * BASE_TRAFFIC[k] * m[k]) / (0.1 * m[k]) for k in keys]
-        check(f"[{situation}] 합 1 · 여유 z 가 세 슬라이스에서 같다",
+        # emergency 의 URLLC 만 δ(CRITICAL_MARGIN) 를 더 받는다 (반복 2).
+        zs = [(THRESHOLDS[k] * a[k] * cap[k] - 1.2 * BASE_TRAFFIC[k] * m[k]) / (0.1 * m[k])
+              - (rule.CRITICAL_MARGIN if rule.CRITICAL_SLICE.get(situation) == k else 0.0) for k in keys]
+        check(f"[{situation}] 합 1 · 여유 z 가 세 슬라이스에서 같다 (긴급 슬라이스는 +δ)",
               (round(sum(a.values()), 6), round(max(zs) - min(zs), 6)), (1.0, 0.0))
+    check("긴급 슬라이스 우선은 emergency 의 URLLC 뿐", rule.CRITICAL_SLICE, {"emergency": "urllc"})
     more = rule.margin_targets("emergency", {"embb": 1.6, "urllc": 2.1, "mmtc": 1.6})
     less = rule.margin_targets("emergency", {"embb": 1.6, "urllc": 1.6, "mmtc": 1.6})
     check("용량이 늘어난 슬라이스는 몫이 준다 (a* 의 capacity 항)", more["urllc"] < less["urllc"], True)

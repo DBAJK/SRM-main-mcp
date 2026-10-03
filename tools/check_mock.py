@@ -122,5 +122,53 @@ r = mb.call("audit", "record_decision",
             {**base, "step": 2, "confidence": {"situation": float("nan"), "intrinsic": 0.5, "empirical": 0.5, "combined": 0.5}})
 check("A-2b — NaN → malformed_confidence", r.get("error") == "malformed_confidence", r.get("error"))
 
+print("4. 규칙 판단자의 상황 추론 — 우도 HMM (반복 2) · 실제 ① 궤적")
+# 목의 트래픽은 가짜라 여기서는 실제 ① 시뮬레이터(SliceEnv)로 궤적만 뽑는다. 트래픽은 배분과 무관하다.
+import shutil                                         # noqa: E402
+from agent.deciders import rule as rule_mod           # noqa: E402
+from agent.schema import StepContext                  # noqa: E402
+from srm_mcp.observe.env import SliceEnv              # noqa: E402
+
+
+def _accuracy(signal: str) -> float:
+    os.environ["AGENT_SITUATION_SIGNAL"] = signal
+    ok = n = 0
+    for scenario in ("normal", "emergency", "special_event", "iot_surge", "mixed"):
+        rid = f"_check-mock-sit-{scenario}"
+        env = SliceEnv(rid)
+        env.reset(rid, scenario, 0)
+        rule_mod.reset_run(rid)
+        prev = None
+        for _ in range(env.total_steps):
+            obs = env.get_observation()
+            label = env._label()
+            ctx = StepContext(run_id=rid, step=obs["step"], observation=obs, history=None,
+                              reliability={}, demand_class=None)
+            guess, _conf = rule_mod.infer_situation(ctx)
+            if prev is None or prev == label:          # 전환 스텝은 뺀다 (eval/score.py)
+                n += 1
+                ok += guess == label
+            prev = label
+            env.step()
+        shutil.rmtree(ROOT / "runs" / rid, ignore_errors=True)
+    os.environ.pop("AGENT_SITUATION_SIGNAL", None)
+    return ok / n
+
+
+acc_lik, acc_c23 = _accuracy("likelihood"), _accuracy("traffic")
+check("기본 신호는 likelihood", rule_mod.situation_signal() == "likelihood", rule_mod.situation_signal())
+check("시드 0 다섯 시나리오 정확도 ≥ 0.95 이고 C-23 보다 높다", acc_lik >= 0.95 and acc_lik > acc_c23,
+      (round(acc_lik, 3), round(acc_c23, 3)))
+env = SliceEnv("_check-mock-sit-x")
+env.reset("_check-mock-sit-x", "emergency", 0)
+ctx = StepContext(run_id="_check-mock-sit-x", step=0, observation=env.get_observation(), history=None,
+                  reliability={}, demand_class=None)
+rule_mod.reset_run("_check-mock-sit-x")
+first = rule_mod.infer_situation(ctx)
+check("같은 스텝을 다시 판단해도 같은 답 (재시도에 상태가 두 번 쌓이지 않는다)",
+      rule_mod.infer_situation(ctx) == first, first)
+check("확신은 사후확률 (0.25 ~ 1)", 0.25 <= first[1] <= 1.0, first[1])
+shutil.rmtree(ROOT / "runs" / "_check-mock-sit-x", ignore_errors=True)
+
 print("\n" + ("전부 통과" if FAILS == 0 else f"실패 {FAILS}건"))
 sys.exit(1 if FAILS else 0)
