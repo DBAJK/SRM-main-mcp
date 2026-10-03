@@ -18,6 +18,8 @@ from .schema import (
     StepContext,
     StepResult,
 )
+from srm_mcp.common.const import CAPACITY_MAX, GAIN_SCALE
+
 from .tools import Tools
 
 logger = logging.getLogger(__name__)
@@ -304,10 +306,19 @@ def _procure(tools: Tools, obs: dict, step_no: int) -> Optional[dict]:
 
 
 def _most_pressured(obs: dict) -> str:
-    """이용률 / 임계값 비가 가장 큰 슬라이스."""
-    util = obs["utilization"]
-    thr = obs["thresholds"]
-    return max(util, key=lambda k: util[k] / max(thr[k], 1e-9))
+    """조달할 슬라이스 — 같은 양을 더했을 때 수요 압력이 가장 많이 내려가는 슬라이스 (반복 3 · 2026-10-03).
+
+    예전에는 이용률/임계가 가장 큰 슬라이스를 샀다. 이용률은 배분의 결과라 같은 트래픽에서도 비교군마다
+    다른 슬라이스를 사서 용량 궤적이 갈렸고(비교군 차이에 배분 말고 조달이 섞인다), 배분을 잘해 이용률이
+    낮아진 슬라이스는 수요가 커도 안 샀다. 압력은 배분과 무관하다 — p = Σ traffic_k / (θ_k · cap_k).
+    cap_k 에 g 를 더하면 p 가 traffic_k/θ_k · (1/cap_k − 1/(cap_k + g)) 만큼 준다. g 는 기준 대역폭 벤더의
+    증분 GAIN_SCALE 로 본다(실제는 벤더마다 0.20~0.34 — 순위를 정하는 데만 쓴다).
+    한 번 더 사면 상한(CAPACITY_MAX)을 넘는 슬라이스는 뺀다 — ①이 거부해도 ③의 비용은 이미 청구된다.
+    """
+    traffic, cap, thr = obs["traffic"], obs["capacity"], obs["thresholds"]
+    gain = GAIN_SCALE
+    room = [k for k in traffic if cap[k] + gain <= CAPACITY_MAX + 1e-9] or list(traffic)
+    return max(room, key=lambda k: traffic[k] / max(thr[k], 1e-9) * (1 / cap[k] - 1 / (cap[k] + gain)))
 
 
 def _qos_from_observation(obs: dict, key: str) -> dict:
