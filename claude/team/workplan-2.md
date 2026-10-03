@@ -268,7 +268,7 @@ $6.8 · 2026-09-29)** 대조 `orch-theta-tf-rule` 은 C-23 이후 규칙 판단�
 
 도구 **`tools/fast_matrix.py`(신규)** — run_matrix 의 규칙 칸을 한 프로세스에서 돈다. 루프 · 판단자 · 서버 코드는 그대로이고
 MCP 전송만 뺐다(인자 · 반환은 JSON 왕복). after-F 60칸과 summary 값이 **0개** 다르다(`--check after-F`) · 35분 → 8분.
-이 절의 수치는 전부 fast_matrix 다. 이전 코드와의 비교는 worktree `C:/aiagent/SRM-before` (33869bb) 에서 같은 도구로 돌렸다.
+이 절의 수치는 전부 fast_matrix 다. 이전 코드와의 비교는 33869bb 를 임시 worktree 로 꺼내 같은 도구로 돌렸다(결과 `runs/_matrix/before-10s`).
 진단은 장부 재생(`트래픽은 배분과 무관` — 기록된 트래픽 · 용량에서 배분 전략만 바꿔 SLA 를 다시 센다, 실측 baseline 0.498 · arm1
 0.489 를 그대로 재현)과 SliceEnv 궤적으로 했고, 상황 추론의 조정은 시드 10~19 · 평가는 매트릭스 시드로 갈랐다.
 
@@ -331,7 +331,7 @@ proposed − arm1 +0.015 ± 0.010 → −0.006 ± 0.010. 자율 배분은 5점 �
 
 **재현** — 반복 전 동작은 스위치로 돌아간다: `SLICE_TARGET_TABLE=theta` · `SLICE_RULE_CORRECTION=on` ·
 `AGENT_SITUATION_SIGNAL=traffic` (조달 슬라이스 규칙은 스위치가 없어 33869bb worktree). 결과 폴더
-`runs/_matrix/{fast-F, it1, it2, it3, x-dur20, x-dur30, x-fbm, after-10s, it4-10s}` · `C:/aiagent/SRM-before/runs/_matrix/before-10s`.
+`runs/_matrix/{fast-F, it1, it2, it3, x-dur20, x-dur30, x-fbm, after-10s, it4-10s}` · `before-10s` (33869bb 를 임시 worktree 에서 돌린 것).
 
 
 ---
