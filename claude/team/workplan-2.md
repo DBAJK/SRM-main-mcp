@@ -329,6 +329,27 @@ proposed − arm1 +0.015 ± 0.010 → −0.006 ± 0.010. 자율 배분은 5점 �
   자로 보이게 한다 — D6 을 다시 열지는 사용자 결정.
 - 실서버 대조: 현재 코드로 run_matrix(stdio) 6칸 = fast_matrix(it3) 6칸, summary 값 0개 차이 (`runs/_matrix/mcp-check`).
 
+**mixed 120스텝 Claude 실행 — 41스텝에서 중단 (2026-10-04)** (`runs/_matrix/orch-mixed/partial-41steps` · 사용량 $4.44).
+작업 환경의 백그라운드 30분 제한에 걸려 끊겼다 — 2시간짜리 실행은 사용자 터미널에서 돌려야 한다. 41스텝(전환 1회) 기준
+Claude: SLA 위반 16/41 · 개입 5 · 상황 맞힘 38/41 · 도구 실패 0 · 심판 위반 0 · estimate_situation 41회(추정과 다른 판단 0).
+같은 구간 고정 루프: 위반 19/41 · 개입 10. 차이 3건은 1시드라 우연 범위. Claude 는 13~23스텝에 lstm 으로 9번 넘어갔고
+lstm 스텝 위반 4/6 (rule 12/35).
+
+**lstm 전환의 원인 검증 (2026-10-04 · 채택 없음 — 코드 되돌림)**
+- 기록상 원인: 13스텝에 rule 의 empirical 이 연속 위반으로 0.465 로 내려가 결합 0.482, lstm 은 n=0 사전값(오차 0.2 →
+  intrinsic 0.549)으로 결합 0.524 → 전환. 전환 뒤 lstm intrinsic 은 a* 와의 **거리**(0.03~0.08)라 0.88~0.92 로 높게 남고,
+  17~19스텝엔 rule 은 개입 판정인데 lstm 은 아니어서 그대로 머물렀다(D6). C-24 하한 0.40 이 7스텝 만에 닫았다.
+- 오프라인(조달 없음 · 시드 0~2 · 10~14 · 5시나리오): 명세 intrinsic 의 실제 SLA 충족 구별력 AUC lstm **0.497**(정보 없음) ·
+  rule 0.586. 후보 "SLA 충족 예측 확률" `Π Φ((θ·a·cap − μ)/σ)` (a = 액추에이터를 거친 배분, μ·σ = theta_z 수요 모형)은
+  lstm 0.608 · rule 0.613. 정책 선택 모의: 항상 rule 0.408 · 명세 식 결합 1등 0.372(lstm 45%) · 후보 식 결합 1등 0.380 ·
+  **후보 예측 확률만 비교 0.418**(lstm 11.5%). 스텝별 lstm 만 충족 132 · rule 만 충족 155 / 2,480 — 오라클 상한 +0.053.
+  → 잘못된 전환의 주범은 결합 식의 empirical(잡음성 EMA)이다.
+- 실환경(fast_matrix · 조달 포함 · 3시드 · arm2 · proposed): `SLICE_INTRINSIC=pmet` 만 — SLA 그대로 · proposed 개입 26.4 → 29.0%.
+  + `AGENT_POLICY_PICK=pmet`(예측 확률 1등) — arm2 0.550 → 0.549 · 긴급 URLLC 위반 0.152 → **0.196**(lstm 배분엔 긴급 URLLC
+  여유가 없다) · lstm 선택 emergency 27% · iot 12%. 오프라인의 +1.0 이 재현되지 않아 **되돌렸다** (`runs/_matrix/x-pmet{1,2}`).
+- 남은 판단: lstm intrinsic 이 SLA 를 못 보는 것은 사실이고, Claude 의 전환(D6)은 신뢰도 숫자 + lstm 정책 자체의 약함이
+  겹친 결과다. 고치려면 신뢰도 명세 변경과 lstm 배분 개선이 같이 필요하다 — 결정 대기.
+
 **재현** — 반복 전 동작은 스위치로 돌아간다: `SLICE_TARGET_TABLE=theta` · `SLICE_RULE_CORRECTION=on` ·
 `AGENT_SITUATION_SIGNAL=traffic` (조달 슬라이스 규칙은 스위치가 없어 33869bb worktree). 결과 폴더
 `runs/_matrix/{fast-F, it1, it2, it3, x-dur20, x-dur30, x-fbm, after-10s, it4-10s}` · `before-10s` (33869bb 를 임시 worktree 에서 돌린 것).
