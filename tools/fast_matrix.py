@@ -38,7 +38,7 @@ sys.path.insert(0, str(ROOT / "tools"))
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
 
-RULE_VARIANTS = ("baseline", "arm1_rule", "arm2_rule", "proposed_rule")
+RULE_VARIANTS = ("baseline", "arm1_rule", "arm2_rule", "proposed_rule", "original")
 
 
 def _set_env(pairs: list[str]) -> dict:
@@ -107,6 +107,10 @@ def run_cell(cell, modules: dict, limit, extra_env: dict) -> dict:
         rule_mod._traffic_seen.pop(run_id, None)
 
     kind = arms.kind_of(cell.variant)
+    # 비교군이 요구하는 ② 설정 (original). 같은 프로세스에서 다른 칸과 섞이지 않게 칸이 끝나면 되돌린다.
+    preset = arms.ENV_PRESET.get(kind, {})
+    saved = {k: os.environ.get(k) for k in preset}
+    os.environ.update(preset)
     base = rule_mod.rule_decider if arms.needs_base_decider(kind) else None
     decide = arms.make(kind, base, ROOT)
     tools = Tools(InprocBackend(modules), Guard(enabled=True))
@@ -125,6 +129,12 @@ def run_cell(cell, modules: dict, limit, extra_env: dict) -> dict:
         code, err = 0, None
     except Exception as e:                             # noqa: BLE001 — 칸 하나가 전체를 죽이지 않게
         code, err = 1, f"{type(e).__name__}: {e}"
+    finally:
+        for k, v in saved.items():                     # 비교군 설정을 되돌린다 (위 preset)
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
     return {"exit": code, "error": err, "elapsed_sec": round(time.monotonic() - t0, 2), "usd_equiv": 0.0}
 
 

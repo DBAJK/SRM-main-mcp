@@ -15,7 +15,8 @@ from .schema import (
     escalation_check,
     escalation_mode,
     HISTORY_N,
-    PROCURE_PRESSURE,
+    procure_duration,
+    procure_pressure,
     Decision,
     StepContext,
     StepResult,
@@ -105,7 +106,7 @@ def run_step(
     # record_decision 에 기록해야 하고(spec/audit.md:20~21), ⑤가 그 vendor_id 를
     # 읽어 돌려주기 때문이다. tools.md:41 의 번호와 다른 점은 팀에 확인 필요.
     procurement = None
-    if decision.procure and ctx.demand_pressure >= PROCURE_PRESSURE:
+    if decision.procure and ctx.demand_pressure >= procure_pressure():
         procurement = _procure(tools, obs, step_no)
 
     # ── 5. 기록 (실행보다 먼저) ──────────────────────────────────────
@@ -304,7 +305,7 @@ def _procure(tools: Tools, obs: dict, step_no: int) -> Optional[dict]:
         vendor_id=scored[0]["vendor_id"],
         slice_type=slice_type,
         qos_requirements=qos,
-        duration_steps=PROCURE_DURATION_STEPS,
+        duration_steps=procure_duration(PROCURE_DURATION_STEPS),
         current_step=step_no,
     )
     if proc.get("status") != "active":

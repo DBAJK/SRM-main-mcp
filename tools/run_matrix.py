@@ -74,7 +74,7 @@ PYTHON = next((p for p in _VENV if p.is_file()), Path(sys.executable))
 SCENARIOS = ("normal", "emergency", "special_event", "iot_surge", "mixed")
 STEPS = {"mixed": 120}                       # 그 외 60 (observe env total_steps)
 VARIANTS = ("baseline", "arm1_rule", "arm1_llm", "arm2_rule", "arm2_llm",
-            "proposed_rule", "proposed_llm", "proposed_orch")
+            "proposed_rule", "proposed_llm", "proposed_orch", "original")
 
 # 추정용 실측 (2026-09-23~24, sonnet). 구독 사용량 환산이며 별도 청구가 아니다.
 PER_STEP = {                                 # (초, 사용량 환산 $)
@@ -106,7 +106,7 @@ class Cell:
 
     @property
     def mode(self) -> str:                   # rule · llm · orch
-        if self.variant == "baseline":
+        if self.variant in ("baseline", "original"):
             return "rule"
         return self.variant.rsplit("_", 1)[1]
 

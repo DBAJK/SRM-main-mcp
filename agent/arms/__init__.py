@@ -7,6 +7,7 @@
     run.py --arm arm1       상황=에이전트     정책=rule     개입 없음
     run.py --arm arm2       상황=에이전트     정책=에이전트 개입 없음
     run.py --arm proposed   상황=에이전트     정책=에이전트 개입=신뢰도
+    run.py --arm original   상황=정답(사람)   배분=원본 고정표 + 원본 보정   조달 없음 (2026-10-05)
 
 `--arm` 은 run_id 에도 박히는 이름이다. 첫 `_` 앞 토큰이 넷 중 하나면 그 동작이다 —
 `arm1_llm` · `arm1_rule` 처럼 같은 비교군을 판단자만 바꿔 돌려도 run_id 가 겹치지 않게
@@ -22,13 +23,26 @@ from typing import Optional
 
 from .supervised import ArmDecider, arm1, arm2
 
-KINDS = ("baseline", "arm1", "arm2", "proposed")
+KINDS = ("baseline", "arm1", "arm2", "proposed", "original")
+
+# 정답(사람이 선언한 상황)을 읽는 비교군. 판단자가 필요 없고 실서버(①이 쓰는 truth.jsonl)에서만 돈다.
+TRUTH_KINDS = ("baseline", "original")
+
+# 비교군이 요구하는 실행 환경. ②가 배분 숫자를 내는 유일한 곳이라는 원칙을 지키려고, original 은 판단자가
+# 숫자를 만들지 않고 ②의 설정을 원본으로 돌린다 — 원본 고정표(ml_orchestrator_demo.py:429~438) ·
+# 원본 위반 보정(:446~457, 평활 뒤에 더함). 실행기(run.py · fast_matrix)가 서버를 띄우기 전에 넣는다.
+ENV_PRESET = {
+    "original": {"SLICE_TARGET_TABLE": "original",
+                 "SLICE_RULE_CORRECTION": "on",
+                 "SLICE_CORRECTION_STAGE": "post"},
+}
 
 DESCRIBE = {
     "baseline": "상황=정답(사람) · 정책=rule_based · 조달=규칙 · 개입 없음",
     "arm1":     "상황=에이전트 · 정책=rule_based · 조달=규칙 · 개입 없음",
     "arm2":     "상황=에이전트 · 정책=에이전트 · 조달=판단자 · 개입 없음",
     "proposed": "상황=에이전트 · 정책=에이전트 · 조달=판단자 · 개입=신뢰도 기반",
+    "original": "상황=정답(사람 즉시 선언) · 배분=원본 고정표+원본 보정 · 조달 없음 · 개입 없음 (원본 재현)",
 }
 
 
@@ -43,7 +57,7 @@ def kind_of(label: str) -> str:
 
 def needs_base_decider(kind: str) -> bool:
     """baseline 은 판단자가 필요 없다 — 사람이 답을 줬다. LLM 로그인도 요구하지 않는다."""
-    return kind != "baseline"
+    return kind not in TRUTH_KINDS
 
 
 def make(kind: str, base=None, root: Optional[Path] = None):
@@ -52,6 +66,11 @@ def make(kind: str, base=None, root: Optional[Path] = None):
         if root is None:
             raise ValueError("baseline 은 runs/ 위치(root)가 필요하다")
         return BaselineDecider(root)
+    if kind == "original":
+        from .baseline import OriginalDecider   # 정답을 읽으므로 같은 모듈에서만
+        if root is None:
+            raise ValueError("original 은 runs/ 위치(root)가 필요하다")
+        return OriginalDecider(root)
     if base is None:
         raise ValueError(f"{kind} 는 판단자가 필요하다")
     if kind == "arm1":
@@ -61,4 +80,5 @@ def make(kind: str, base=None, root: Optional[Path] = None):
     return base                                  # proposed — 판단자 그대로
 
 
-__all__ = ["KINDS", "DESCRIBE", "ArmDecider", "kind_of", "needs_base_decider", "make"]
+__all__ = ["KINDS", "TRUTH_KINDS", "ENV_PRESET", "DESCRIBE", "ArmDecider", "kind_of",
+           "needs_base_decider", "make"]

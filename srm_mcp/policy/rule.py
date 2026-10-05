@@ -93,6 +93,28 @@ DEMAND_MULT = {                                                    # ① EVENT_M
 DEMAND_NOISE = 0.1                                                 # ① TRAFFIC_NOISE_SIGMA
 DEMAND_LEVEL = 1.2                                                 # 1 + ① WEEKLY_AMPLITUDE (월요일)
 
+# ── 강건성 실험 (2026-10-05) — 에이전트가 쓰는 수요 모형에 일부러 오차를 넣는다 ──
+# 위 상수는 ①의 생성 상수를 그대로 옮긴 것이라 "시뮬레이터의 정답 상수를 알고 푼 것" 이라는 비판을 받는다.
+# 환경(①)은 그대로 두고 **에이전트 쪽 지식만** 틀리게 해, 효과가 얼마나 버티는지 잰다. 기본은 오차 없음.
+#   SLICE_MODEL_EVENT  상황 효과 크기: M' = 1 + s·(M − 1)  (0.8 = 상황이 수요를 바꾸는 정도를 20% 과소 추정)
+#   SLICE_MODEL_LEVEL  평균 수요 수준 DEMAND_LEVEL 배율 (theta_z 만 쓴다 — HMM 은 수준을 관측에서 추정한다)
+#   SLICE_MODEL_NOISE  잡음 σ 배율 (theta_z 의 여유 · HMM 의 우도 폭)
+# **프로세스가 이 모듈을 처음 import 할 때 한 번 읽는다** — HMM(agent/deciders/rule.py)이 같은 dict 를 import 하므로
+# ②와 판단자가 같은 틀린 지식을 쓴다. 바꾸려면 새 프로세스(새 매트릭스)로 돈다. check_policy 는 오차 없을 때만 통과한다.
+def _model_scale(name: str) -> float:
+    try:
+        return float(os.environ.get(name, "") or 1.0)
+    except ValueError:
+        return 1.0
+
+
+MODEL_ERROR = {k: _model_scale(k) for k in ("SLICE_MODEL_EVENT", "SLICE_MODEL_LEVEL", "SLICE_MODEL_NOISE")}
+if MODEL_ERROR["SLICE_MODEL_EVENT"] != 1.0:
+    DEMAND_MULT = {sit: {k: 1.0 + MODEL_ERROR["SLICE_MODEL_EVENT"] * (m - 1.0) for k, m in row.items()}
+                   for sit, row in DEMAND_MULT.items()}
+DEMAND_LEVEL = DEMAND_LEVEL * MODEL_ERROR["SLICE_MODEL_LEVEL"]
+DEMAND_NOISE = DEMAND_NOISE * MODEL_ERROR["SLICE_MODEL_NOISE"]
+
 # 긴급 슬라이스 우선 (반복 2 · 2026-10-03). 공통 z 는 슬라이스마다 위반 확률을 같게 만든다 — 전체 SLA 에는 맞지만
 # emergency 의 URLLC 를 다른 슬라이스와 똑같이 다룬다. 반복 1 에서 emergency URLLC 위반이 0.148 → 0.178 로
 # 나빠졌다(theta + 보정은 위반한 URLLC 를 즉시 밀어 주었다). 그래서 emergency 에서 URLLC 는 공통 여유에

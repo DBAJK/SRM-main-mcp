@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from pathlib import Path
 from typing import Any
 
@@ -24,7 +25,17 @@ def write_json(path: Path, obj: Any) -> None:
     tmp = path.with_suffix(path.suffix + ".tmp")
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump(obj, f, ensure_ascii=False, indent=2)
-    os.replace(tmp, path)
+    # Windows 에서는 다른 프로세스(백신 · 색인 · 탐색기 미리보기)가 대상 파일을 잠깐 열고 있으면
+    # os.replace 가 PermissionError(WinError 5)로 실패한다. 2026-10-05 매트릭스 50칸 중 10칸이 이걸로 죽었다.
+    # 잠금은 수십 ms 단위라 짧게 물러섰다 다시 시도한다(최대 약 3초). 그래도 안 되면 원래 예외를 낸다.
+    for attempt in range(8):
+        try:
+            os.replace(tmp, path)
+            return
+        except PermissionError:
+            if attempt == 7:
+                raise
+            time.sleep(0.025 * 2 ** attempt)
 
 
 def to_builtin(obj: Any) -> Any:

@@ -30,7 +30,7 @@ reset(run_id, scenario, seed)
   1.  obs_t = ①.get_observation()             # util_t 는 a_{t-1}의 성적표
   2.  [에이전트 판단]  ②.classify_demand / propose_allocation
                       ⑤.get_reliability_table
-  2b. [조달 분기]  obs_t.demand_pressure ≥ 1.0 일 때만
+  2b. [조달 분기]  obs_t.demand_pressure ≥ 1.0 일 때만   (고정 루프: AGENT_PROCURE_PRESSURE · 임대 AGENT_PROCURE_DURATION=10)
         ③.score_offerings → ③.procure(..., current_step=t)
         ①.add_capacity(amount=capacity_gain, expires_at_step)
   3.  ④.record_decision(..., slice_id, vendor_id) → decision_id

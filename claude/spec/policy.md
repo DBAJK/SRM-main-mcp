@@ -80,6 +80,8 @@ TensorFlow 적재에 실패하면 서버는 죽지 않고 해당 정책만 `avai
 
 **목표표 (D7 · 2026-09-29 결정 → 2026-10-03 반복 1·2)** — `rule_based` 의 목표표는 환경변수 `SLICE_TARGET_TABLE` 이 고른다. 기본 **`theta_z`** = 잡음 여유 · 용량 반영 배분 `a_k = (μ_k + z·σ_k)/(θ_k·cap_k)`, `Σa = 1` 이 되는 공통 z (모든 슬라이스의 여유가 잡음 σ 단위로 같다). `μ = 1.2·BASE_TRAFFIC·배율`, `σ = 0.1·배율`, `cap` = 관측의 `capacity` — 전부 ①의 생성 상수에서 유도한 값이고(`rule.py DEMAND_*`, `target_audit` · `check_policy` 가 ①과 같은지 검사) 관측(capacity)을 쓰는 유일한 표다. emergency 에서는 URLLC 가 공통 여유에 `0.25σ` 를 더 받는다(`CRITICAL_MARGIN` — emergency URLLC 위반이 이전보다 나빠지지 않는 가장 작은 값). `theta` = `BASE_TRAFFIC × 배율 / θ` 를 합 1 로 정규화한 표(`rule.py TARGET_BY_SITUATION_THETA`, emergency `{0.329, 0.463, 0.208}`, D7 의 본 조건 · 지금은 재현용). `original` 은 원본 `ml_orchestrator_demo.py:429~438` 그대로(emergency `{0.2, 0.7, 0.1}`)이며 민감도 분석에만 쓴다. `theta_only` 는 원본 표를 θ 로만 나눈 것. 모르는 값은 `theta_z` 로 떨어진다. 어느 표로 돌았는지는 `rationale` 끝의 `목표표 <이름>` 으로 장부에 남는다. 근거는 `workplan-2` §1.6 · D7 · §1.7. **아래 예시는 `original` 기준이다.**
 
+**수요 모형 오차 (강건성 실험 · 2026-10-05)** — 위 `DEMAND_*` 는 ①의 생성 상수라 "정답 상수를 알고 푼다"는 비판을 받는다. `SLICE_MODEL_EVENT`(상황 효과 크기 `M' = 1 + s·(M−1)`) · `SLICE_MODEL_LEVEL`(평균 수준 배율, theta_z 만) · `SLICE_MODEL_NOISE`(σ 배율, theta_z 와 HMM) 로 **에이전트 쪽 지식만** 틀리게 한다. 기본 1.0(오차 없음). 프로세스가 `rule.py` 를 처음 import 할 때 한 번 읽고, 규칙 판단자의 HMM 도 같은 값을 쓴다. `check_policy` 의 ①과 같은지 검사는 오차가 없을 때만 통과한다. `original` 비교군은 이 상수를 쓰지 않는다.
+
 **예시 1 — 성공**
 
 ```json

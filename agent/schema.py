@@ -40,6 +40,28 @@ def empirical_floor() -> Optional[float]:
         return EMPIRICAL_FLOOR_DEFAULT
 
 
+# ─── 조달 기준 · 임대 길이 (2026-10-05 · SLA–비용 교환 측정) ───
+# 기본은 명세값(압력 1.0 · 10스텝) 그대로다. `AGENT_PROCURE_PRESSURE` · `AGENT_PROCURE_DURATION` 으로
+# 매트릭스에서 값을 바꿔 잰다. 호출마다 읽는다. 고정 루프(규칙 판단자 · loop.py)만 따른다 —
+# 오케스트레이터는 프롬프트의 "1.0 이상일 때만" 문장을 따른다.
+def procure_pressure() -> float:
+    import os  # noqa: PLC0415
+    raw = os.environ.get("AGENT_PROCURE_PRESSURE", "").strip()
+    try:
+        return float(raw) if raw else PROCURE_PRESSURE
+    except ValueError:
+        return PROCURE_PRESSURE
+
+
+def procure_duration(default: int) -> int:
+    import os  # noqa: PLC0415
+    raw = os.environ.get("AGENT_PROCURE_DURATION", "").strip()
+    try:
+        return int(raw) if raw else default
+    except ValueError:
+        return default
+
+
 # ─── 개입 판정 방식 (2026-10-05 · 개입 재설계) ───
 # confidence  예전 판정 — combined = √(intrinsic × empirical) < τ 또는 empirical < 하한(아래 escalation_check).
 #             empirical 은 최근 SLA 의 EMA 라 잡음성 위반 몇 번에 내려가, 누구도 못 지키는 스텝에서 사람을 부른다

@@ -16,6 +16,7 @@
 
 import argparse
 import logging
+import os
 import shutil
 import subprocess
 import sys
@@ -178,14 +179,18 @@ def main() -> int:
               "개입까지 스스로 정하는 구조라 proposed 에 해당한다 — --driver fixed 로 돌린다.",
               file=sys.stderr)
         return 1
-    if kind == "baseline" and args.backend != "mcp":
-        print("[오류] baseline 은 정답 파일(truth.jsonl)을 읽는데, 그건 실서버 ① 이 쓴다. "
+    if kind in arms.TRUTH_KINDS and args.backend != "mcp":
+        print(f"[오류] {kind} 는 정답 파일(truth.jsonl)을 읽는데, 그건 실서버 ① 이 쓴다. "
               "--backend mcp 로 돌린다.", file=sys.stderr)
         return 1
+    # 비교군이 요구하는 ② 설정 (original = 원본 고정표 · 원본 보정). 서버 기동 전에 넣어야 자식이 물려받는다.
+    for key, value in arms.ENV_PRESET.get(kind, {}).items():
+        os.environ[key] = value
+        print(f"[{kind}] {key}={value}")
     label = "" if args.arm == kind else f"  (라벨 '{args.arm}' → {kind} 동작)"
     print(f"비교군: {kind} — {arms.DESCRIBE[kind]}{label}")
-    if kind == "baseline" and args.decider != "rule":
-        print("[주의] baseline 은 판단자를 쓰지 않는다 (사람이 상황을 준다). --decider 는 무시한다.")
+    if kind in arms.TRUTH_KINDS and args.decider != "rule":
+        print(f"[주의] {kind} 는 판단자를 쓰지 않는다 (사람이 상황을 준다). --decider 는 무시한다.")
 
     # ④의 장부는 runs/<run_id>/ 에 누적된다. 같은 run_id 로 다시 돌리면 그 스텝이
     # 이미 있어 duplicate_decision 으로 거부당한다.

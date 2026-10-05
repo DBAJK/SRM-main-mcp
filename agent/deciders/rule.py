@@ -16,7 +16,7 @@ from typing import Optional
 from srm_mcp.policy.enabled import enabled_policies
 from srm_mcp.policy.rule import DEMAND_BASE, DEMAND_MULT, DEMAND_NOISE
 
-from ..schema import Decision, HISTORY_N, PROCURE_PRESSURE, StepContext
+from ..schema import Decision, HISTORY_N, StepContext, procure_pressure
 
 # 이용률이 임계의 몇 배를 넘으면 그 슬라이스가 지배적이라고 볼지 (utilization 방식)
 DOMINANT_RATIO = 1.15
@@ -104,7 +104,7 @@ def rule_decider(ctx: StepContext, proposer) -> Decision:
         conf_empirical=ctx.effective(prop["policy"]),
         conf_situation=conf_situation,
         rationale=prop.get("rationale", ""),
-        procure=ctx.demand_pressure >= PROCURE_PRESSURE,
+        procure=ctx.demand_pressure >= procure_pressure(),
         in_distribution=bool(prop.get("in_distribution", True)),
         considered=considered,
         demand_class=ctx.demand_class,

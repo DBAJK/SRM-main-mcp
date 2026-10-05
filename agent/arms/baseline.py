@@ -18,6 +18,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -97,3 +98,29 @@ def human_label_responder(root: Path):
         return reader._truth_situation(run_id, step)
 
     return answer
+
+
+class OriginalDecider(BaselineDecider):
+    """원본 시스템 재현 (2026-10-05) — 사람이 즉시 상황을 선언 · 원본 고정표 · 원본 보정 · 조달 없음.
+
+    baseline 과 **배분 규칙과 조달만** 다르다. baseline 은 상황만 사람에게서 받고 배분은 우리 공식(theta_z)과
+    조달 규칙을 쓰므로 원본보다 유리하다. 이 비교군은 원본 `ml_orchestrator_demo.py` 의 규칙 모드
+    (`update_allocation_rule_based` :422~465)를 그대로 따른다 — 원본 ML 데모에는 조달이 없다.
+
+    배분 숫자는 여전히 ②가 낸다. 실행기가 `arms.ENV_PRESET["original"]` 로 ②를 원본 표 · 보정 on(평활 뒤)으로
+    돌린다. 설정이 안 들어간 채 돌면 원본 재현이 아니므로 ②의 근거 문장으로 확인하고 멈춘다.
+    원본과 같은 입력에서 같은 배분이 나오는지는 tools/check_original.py 가 원본 코드와 직접 대조한다.
+    """
+    arm = "original"
+    REQUIRED = ("목표표 original", "보정 on · 평활 뒤")
+
+    def __call__(self, ctx: StepContext, proposer: Any) -> Decision:
+        d = super().__call__(ctx, proposer)
+        missing = [m for m in self.REQUIRED if m not in d.rationale]
+        if missing:
+            raise RuntimeError(
+                f"original 비교군인데 ②가 원본 설정이 아니다 ({missing}). 실행기가 arms.ENV_PRESET['original'] "
+                f"를 서버 기동 전에 넣어야 한다. 근거: {d.rationale[-120:]}")
+        return replace(d, procure=False,
+                       rationale=d.rationale.replace("baseline: 사람이 상황을 지정",
+                                                     "original: 사람이 상황을 선언(원본 재현)", 1))
