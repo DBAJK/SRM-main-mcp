@@ -397,6 +397,24 @@ arm1 **0** / proposed 개입 normal 9.6 · emergency 24.4 · special_event 25.0 
 판정하고(`situation_confidence` · 예전 공식 결과는 `confidence_formula_trigger`), LLM 이 `record_escalation` 을 부르면 게이트웨이가
 사람의 답(라벨)과 그 rule_based 배분을 ④로 넘기며, `estimate_situation` 도 그 답을 반영한다. 검사 통과 · Claude 실행 확인은 아직.
 
+**Claude 오케스트레이터 mixed 120스텝 — 개입 재설계 + 정책 전환 원칙 (2026-10-05 · `runs/_matrix/orch-mixed` · sonnet ·
+사용량 $12.47 · 사용자 터미널에서 실행)**
+
+| mixed s0 · 120스텝 | Claude 오케스트레이터 | 고정 루프 규칙 판단자 | 사람이 즉시 선언(baseline) |
+|---|---|---|---|
+| SLA 위반 (충족) | **41 (0.658)** | 42 (0.650) | 44 (0.633) |
+| 사람 손 | **호출 8회** (물을 때만) | 호출 8회 | 선언 5회 + 상시 감시 |
+| 상황 인지 (전환 제외) | 0.974 | 0.974 | 1.000 |
+| 조달 | 8건 (3,806) | 12건 (3,762) | 12건 (3,762) |
+| 도구 실패 · 심판 | 0 / 1,342 · no_confidence_check 1 (19스텝) | — | — |
+
+- 사람 호출: 0(시작) · 20 · 52 · 60 · 86 · 87 · 90 · 101 — 다섯 번의 상황 전환마다 한 번씩(52 는 2스텝 · 101 은 1스텝 늦게),
+  86 · 87 은 emergency 중 트래픽이 흔들렸을 때. 답을 들은 뒤 같은 질문을 반복하지 않았다. 고정 루프와 **같은 스텝**에서 불렀다 —
+  두 드라이버의 개입 규칙이 같은 상황 추정을 쓴다.
+- lstm 전환 7스텝(18 · 20 · 23 · 87 · 105 · 115 · 116, 위반 5) — 프롬프트 원칙(0ab1a45) 전 mixed 41스텝에서 9번이던 것.
+  lstm 스텝 위반율(5/7)은 여전히 rule 자율 스텝(33/107)보다 높다.
+- 1시드라 Claude − baseline 의 3건 차이는 우연 범위. 논문 수치로 쓰려면 반복이 필요하다(회당 약 $12).
+
 **재현** — 반복 전 동작은 스위치로 돌아간다: `SLICE_TARGET_TABLE=theta` · `SLICE_RULE_CORRECTION=on` ·
 `AGENT_SITUATION_SIGNAL=traffic` (조달 슬라이스 규칙은 스위치가 없어 33869bb worktree). 결과 폴더
 `runs/_matrix/{fast-F, it1, it2, it3, x-dur20, x-dur30, x-fbm, after-10s, it4-10s}` · `before-10s` (33869bb 를 임시 worktree 에서 돌린 것).
