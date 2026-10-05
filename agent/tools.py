@@ -221,6 +221,8 @@ class Tools:
         agent_allocation: Optional[dict] = None,
         agent_correction: Optional[dict] = None,
         config: Optional[dict] = None,
+        human_situation: Optional[str] = None,
+        human_allocation: Optional[dict] = None,
     ) -> dict:
         # 이 호출 자체가 개입 1회다 (spec/audit.md:53)
         # 조달 3필드는 record_decision 과 같은 중계선이다 (audit/server.py:84)
@@ -242,6 +244,9 @@ class Tools:
             agent_allocation=agent_allocation,
             agent_correction=agent_correction,
             config=config,
+            # 불려 온 사람이 답한 상황 라벨과 그 라벨의 rule_based 배분 (2026-10-05 개입 재설계)
+            human_situation=human_situation,
+            human_allocation=human_allocation,
         )
 
     def get_decisions(self, n: int = 10, kind: Optional[str] = None) -> list:

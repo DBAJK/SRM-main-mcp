@@ -228,7 +228,7 @@ def main() -> int:
         results = run_episode(
             tools, decide, run_id,
             scenario=args.scenario, seed=args.seed, max_steps=args.steps,
-            intent=args.intent, config=run_config(args),
+            intent=args.intent, config=run_config(args), human=human_for(kind, args),
         )
         _summarize(tools, results, run_id, decide)  # get_metrics 가 서버를 쓴다. 닫기 전에
     except ForbiddenLeak as e:
@@ -247,6 +247,17 @@ def main() -> int:
         if hasattr(backend, "close"):
             backend.close()
     return 0
+
+
+def human_for(kind: str, args):
+    """개입 때 불려 올 사람 (2026-10-05). proposed 만 사람을 부르고, 정답 파일은 실서버 ①이 쓰므로 mcp 백엔드에서만.
+
+    없으면(목 백엔드) 루프가 예전처럼 ④의 D4 폴백을 쓴다.
+    """
+    if kind != "proposed" or args.backend != "mcp":
+        return None
+    from agent.arms.baseline import human_label_responder   # 정답을 여는 코드는 이 모듈에만 있다
+    return human_label_responder(ROOT)
 
 
 def run_config(args) -> dict:

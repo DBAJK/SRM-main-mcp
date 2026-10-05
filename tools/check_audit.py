@@ -331,6 +331,24 @@ def main() -> int:
     check("agent_allocation 저장 (D5)", rec902.get("agent_allocation"),
           {"embb": 0.2, "urllc": 0.7, "mmtc": 0.1})
 
+    print("\n8. 개입 재설계 — 사람이 답한 상황 라벨의 배분 (2026-10-05)")
+    # 2026-10-05 개입 재설계 — 사람이 답한 상황 라벨의 배분을 넘기면 폴백 대신 그것을 적용 · 기록한다
+    human = book.record_escalation(
+        step=950, observation=obs, situation="normal", reason="low_situation_confidence",
+        confidence=CONF, human_situation="emergency",
+        human_allocation={"embb": 0.3, "urllc": 0.5, "mmtc": 0.2})
+    check("human_allocation → fallback_mode human_label", human.get("fallback_mode"), "human_label")
+    check("human_allocation → 적용 배분 = 사람 라벨의 배분", human.get("fallback_allocation"),
+          {"embb": 0.3, "urllc": 0.5, "mmtc": 0.2})
+    check("human_situation → fallback_situation", human.get("fallback_situation"), "emergency")
+    rec30 = next(r for r in read_json(paths.decisions_json(RUN))["decisions"]
+                 if r["step"] == 950 and r["kind"] == "decision")
+    check("장부의 에이전트 판단(situation)은 그대로", rec30["situation"], "normal")
+    bad_h = book.record_escalation(
+        step=951, observation=obs, situation="normal", reason="x", confidence=CONF,
+        human_allocation={"embb": -1, "urllc": 0.5, "mmtc": 0.2})
+    check("음수 human_allocation → 거부", bad_h.get("error"), "malformed_human_allocation")
+
     print(f"\n{'실패 ' + str(len(failures)) + '건: ' + ', '.join(failures) if failures else '전부 통과'}")
     return 1 if failures else 0
 

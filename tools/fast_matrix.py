@@ -116,8 +116,12 @@ def run_cell(cell, modules: dict, limit, extra_env: dict) -> dict:
               "backend": "inproc", "decider": "rule", "env": extra_env or None}
     t0 = time.monotonic()
     try:
+        human = None
+        if kind == "proposed":                         # run.py human_for 와 같다 — 개입 때 상황 라벨을 답하는 사람
+            from agent.arms.baseline import human_label_responder
+            human = human_label_responder(ROOT)
         run_episode(tools, decide, run_id, scenario=cell.scenario, seed=cell.seed,
-                    max_steps=limit, config=config)
+                    max_steps=limit, config=config, human=human)
         code, err = 0, None
     except Exception as e:                             # noqa: BLE001 — 칸 하나가 전체를 죽이지 않게
         code, err = 1, f"{type(e).__name__}: {e}"

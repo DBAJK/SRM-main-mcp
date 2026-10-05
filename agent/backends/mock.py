@@ -353,7 +353,7 @@ class MockBackend:
     def _record_escalation(self, step, observation, situation, reason, confidence,
                            slice_id=None, vendor_id=None, cost_total=None,
                            chosen_policy=None, agent_allocation=None, agent_correction=None,
-                           config=None, **_) -> dict:
+                           config=None, human_situation=None, human_allocation=None, **_) -> dict:
         # 실제 ④(audit/server.py:78) 와 같은 인자를 받는다. 고정 시그니처였을 때는
         # 조달 3필드나 config 가 넘어오면 TypeError 로 죽었다.
         bad = bad_confidence(confidence)
@@ -364,13 +364,18 @@ class MockBackend:
         did = f"{self.run_id}-{step:04d}"
         # 폴백은 ④와 같은 함수로 만든다 (D4 — 기본 expert a*(obs_t) · SLICE_FALLBACK=init 이면 상수).
         fallback, fb_mode = fallback_allocation(observation)
+        fb_situation = "normal"
+        if isinstance(human_allocation, dict):      # 사람이 답한 상황 라벨의 배분 (④와 같은 규칙)
+            total = sum(float(human_allocation[k]) for k in SLICES)
+            fallback = {k: round(float(human_allocation[k]) / total, 6) for k in SLICES}
+            fb_mode, fb_situation = "human_label", human_situation or "normal"
         self.decisions[did] = {
             "step": step, "kind": "decision", "chosen_policy": "rule_based",
             # 에이전트가 고르려던 정책 (A-1). 실행된 것은 폴백이라 chosen_policy 와 따로 둔다.
             "agent_policy": chosen_policy,
             # 에이전트의 판단을 보존한다 (audit/book.py:185). 폴백 라벨로 덮으면
             # 상황 인지 측정의 입력이 사라진다 — 실제 ④가 그렇게 한다.
-            "situation": situation, "fallback_situation": "normal",
+            "situation": situation, "fallback_situation": fb_situation,
             "allocation": fallback, "escalated": True, "fallback_mode": fb_mode,
             "agent_allocation": dict(agent_allocation) if isinstance(agent_allocation, dict) else None,
             "agent_correction": dict(agent_correction) if isinstance(agent_correction, dict) else None,
@@ -381,7 +386,7 @@ class MockBackend:
             "escalation_id": f"{self.run_id}-esc-{step:04d}",
             "decision_id": did,
             "fallback_policy": "rule_based",
-            "fallback_situation": "normal",
+            "fallback_situation": fb_situation,
             "fallback_allocation": dict(fallback),
             "instruction": "사람 호출을 기록했다. 대기하지 말고 fallback_allocation 을 "
                            "apply_allocation 에 넣어 진행한 뒤 report_outcome 을 호출하라.",

@@ -85,8 +85,13 @@ def record_escalation(step: int, observation: dict, situation: str, reason: str,
                       agent_allocation: Optional[dict] = None,
                       agent_correction: Optional[dict] = None,
                       run_id: Optional[str] = None,
-                      config: Optional[dict] = None) -> dict:
+                      config: Optional[dict] = None,
+                      human_situation: Optional[str] = None,
+                      human_allocation: Optional[dict] = None) -> dict:
     """한 호출이 개입 레코드와 폴백 결정 레코드를 같은 step 으로 남긴다.
+
+    `human_situation` · `human_allocation` 을 주면 불려 온 사람이 답한 상황 라벨과 그 라벨의 배분을
+    폴백 대신 적용 · 기록한다(fallback_mode `human_label` · 2026-10-05 개입 재설계).
 
     조달 3필드는 `record_decision` 과 같은 중계선이다 — 여기 없으면 에스컬레이션한 스텝의
     조달이 아무 데도 안 남고, 뒤이어 `record_decision` 을 부르는 길은 막혀 있다.
@@ -95,7 +100,8 @@ def record_escalation(step: int, observation: dict, situation: str, reason: str,
     """
     return book.record_escalation(step, observation, situation, reason, confidence,
                                   slice_id, vendor_id, cost_total, chosen_policy,
-                                  agent_allocation, agent_correction, run_id, config)
+                                  agent_allocation, agent_correction, run_id, config,
+                                  human_situation, human_allocation)
 
 
 @mcp.tool(description=TOOL_DESC["get_decisions"])

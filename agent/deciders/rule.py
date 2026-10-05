@@ -173,6 +173,22 @@ def situation_posterior(traffics: list[dict]) -> dict[str, float]:
     return {s: math.exp(v) for s, v in (logp or {}).items()}
 
 
+HUMAN_ANSWER_BELIEF = 0.99   # 사람이 답한 라벨에 두는 사후확률 — 다음 스텝 필터는 여기서 이어진다
+
+
+def absorb_label(run_id: str, step: int, label: str) -> None:
+    """개입 때 사람이 답한 상황을 믿음에 반영한다 (2026-10-05 개입 재설계).
+
+    반영하지 않으면 다음 스텝에도 같은 불확실성으로 또 묻는다 — 10시드 mixed 사람 호출 19.2 → 반영 8.0 회,
+    SLA 는 같다. 원본 운영자의 선언이 다음 변화까지 유지되던 것과 같다.
+    """
+    if label not in SITUATIONS:
+        return
+    rest = (1 - HUMAN_ANSWER_BELIEF) / (len(SITUATIONS) - 1)
+    _belief.setdefault(run_id, {})[step] = {
+        s: math.log(HUMAN_ANSWER_BELIEF if s == label else rest) for s in SITUATIONS}
+
+
 def _infer_from_likelihood(ctx: StepContext) -> tuple[str, float]:
     """우도 HMM 전진 필터 한 스텝. (사후확률 최대 상황, 그 사후확률)."""
     seen = _belief.setdefault(ctx.run_id, {})
@@ -250,3 +266,7 @@ def pick_policy(ctx: StepContext) -> str:
 
     proven = [p for p in candidates if ctx.samples(p) > 0]
     return max(proven or candidates, key=ctx.effective)
+
+
+# 루프가 개입 때 사람의 답을 넘겨주는 자리 (loop.run_step 이 getattr 로 찾는다).
+rule_decider.on_human_label = absorb_label

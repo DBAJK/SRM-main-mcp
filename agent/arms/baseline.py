@@ -82,3 +82,18 @@ class BaselineDecider:
                     raise TruthUnavailable(f"step {step} 정답 라벨이 겹쳤다: {row}")
                 return active[0] if active else "normal"
         raise TruthUnavailable(f"step {step} 의 정답 줄이 {path} 에 없다")
+
+
+def human_label_responder(root: Path):
+    """개입 때 불려 온 사람 (2026-10-05 개입 재설계) — 원본 운영자처럼 지금 상황 라벨을 답한다.
+
+    사람은 상황을 아는 존재라 baseline 과 같은 정답 파일을 읽는다. 정답을 여는 코드가 이 파일 하나에만 있게
+    여기 둔다(flow/forbidden.md). 답은 에이전트가 사람에게 **물어본 스텝에서만** 루프로 들어간다 — 도구
+    반환값 · LLM 프롬프트로는 가지 않는다.
+    """
+    reader = BaselineDecider(root)
+
+    def answer(run_id: str, step: int) -> str:
+        return reader._truth_situation(run_id, step)
+
+    return answer

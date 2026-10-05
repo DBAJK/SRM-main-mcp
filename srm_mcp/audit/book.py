@@ -14,7 +14,7 @@ import os
 from typing import Any, Optional
 
 from ..common import paths
-from ..common.const import INIT_ALLOCATION, TAU
+from ..common.const import INIT_ALLOCATION, SLICE_KEYS, TAU
 from ..common.store import read_json, to_builtin, write_json
 from . import metrics
 
@@ -37,6 +37,19 @@ FALLBACK_INSTRUCTION = (
 #   init    예전 동작. 늘 INIT_ALLOCATION {0.4, 0.4, 0.2} — 사람이 평시 배분만 한다(M-0 · after-B1 의 값).
 # 적용 설정은 레코드의 fallback_mode 로 남는다. 어느 쪽이든 ①의 평활을 거친다(액추에이터 제약).
 FALLBACK_MODE_DEFAULT = "expert"
+
+
+def _bad_allocation(allocation: Any) -> Optional[str]:
+    """세 슬라이스 값이 모두 있고 유한한 비음수이며 합이 0 보다 커야 한다."""
+    if not isinstance(allocation, dict):
+        return "dict 가 아니다"
+    try:
+        values = [float(allocation[k]) for k in SLICE_KEYS]
+    except (KeyError, TypeError, ValueError):
+        return f"{list(SLICE_KEYS)} 세 값이 모두 숫자여야 한다"
+    if any(not math.isfinite(v) or v < 0 for v in values) or sum(values) <= 0:
+        return "음수 · NaN · 합 0 은 안 된다"
+    return None
 
 
 def fallback_mode() -> str:
@@ -228,8 +241,15 @@ def record_escalation(step: int, observation: dict, situation: str, reason: str,
                       agent_allocation: Optional[dict] = None,
                       agent_correction: Optional[dict] = None,
                       run_id: Optional[str] = None,
-                      config: Optional[dict] = None) -> dict:
+                      config: Optional[dict] = None,
+                      human_situation: Optional[str] = None,
+                      human_allocation: Optional[dict] = None) -> dict:
     """한 호출이 `kind: "escalation"` 과 `kind: "decision"` 레코드를 같은 step 으로 남긴다.
+
+    `human_situation` · `human_allocation` (2026-10-05 · 개입 재설계): 불려 온 사람이 원본 시스템의 운영자처럼
+    **상황 라벨**로 답하고, 에이전트가 그 라벨로 rule_based 배분을 받아 넘긴 것이다. 주면 폴백(expert) 대신 이
+    배분이 적용 · 기록되고 `fallback_mode` 는 `human_label`, `fallback_situation` 은 사람이 답한 라벨이 된다.
+    안 주면 예전 그대로 D4 폴백이다(오케스트레이터 · 목 백엔드 · 정답이 없는 실행).
 
     `agent_allocation` 은 에이전트가 적용하려던 배분이다(workplan-2 D5 · A-6). ⑤가 개입 스텝에서도
     그 배분을 가상 채점해 `agent_policy` 의 성적을 쌓는다 — 없으면 개입 중 성적이 멈춰 한번 부르면
@@ -281,6 +301,15 @@ def record_escalation(step: int, observation: dict, situation: str, reason: str,
     decision_id = decision_id_for(resolved, step)
     escalation_id = escalation_id_for(resolved, step)
     fallback, fb_mode = fallback_allocation(observation)
+    fallback_situation = FALLBACK_SITUATION
+    if human_allocation is not None:
+        bad = _bad_allocation(human_allocation)
+        if bad is not None:
+            return {"error": "malformed_human_allocation", "reason": bad}
+        total = sum(float(human_allocation[k]) for k in SLICE_KEYS)
+        fallback = {k: round(float(human_allocation[k]) / total, 6) for k in SLICE_KEYS}
+        fb_mode = "human_label"
+        fallback_situation = human_situation or FALLBACK_SITUATION
 
     book["decisions"].append({
         "decision_id": escalation_id,
@@ -303,7 +332,7 @@ def record_escalation(step: int, observation: dict, situation: str, reason: str,
         "rationale": f"escalated: {reason}",
         "escalated": True,
         "escalation_id": escalation_id,
-        "fallback_situation": FALLBACK_SITUATION,
+        "fallback_situation": fallback_situation,
         "fallback_allocation": fallback,
         "fallback_mode": fb_mode,
         "agent_allocation": ({k: float(v) for k, v in agent_allocation.items()}
@@ -328,7 +357,7 @@ def record_escalation(step: int, observation: dict, situation: str, reason: str,
         "escalation_id": escalation_id,
         "decision_id": decision_id,
         "fallback_policy": FALLBACK_POLICY,
-        "fallback_situation": FALLBACK_SITUATION,
+        "fallback_situation": fallback_situation,
         "fallback_allocation": fallback,
         "fallback_mode": fb_mode,
         "instruction": FALLBACK_INSTRUCTION,

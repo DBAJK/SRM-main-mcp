@@ -40,6 +40,24 @@ def empirical_floor() -> Optional[float]:
         return EMPIRICAL_FLOOR_DEFAULT
 
 
+# ─── 개입 판정 방식 (2026-10-05 · 개입 재설계) ───
+# confidence  예전 판정 — combined = √(intrinsic × empirical) < τ 또는 empirical < 하한(아래 escalation_check).
+#             empirical 은 최근 SLA 의 EMA 라 잡음성 위반 몇 번에 내려가, 누구도 못 지키는 스텝에서 사람을 부른다
+#             (10시드: 에피소드당 9.6~26.5회 · 개입 스텝 SLA 는 폴백이든 에이전트 제안이든 40% 안팎).
+# situation   (기본) 상황 판단의 확신(conf_situation — 규칙 판단자의 HMM 사후확률)이 0.9 미만일 때만 부른다.
+#             불려 온 사람은 원본 시스템의 운영자처럼 상황 라벨을 답한다(루프가 human 응답자로 받는다).
+#             10시드 측정: 사람 호출 에피소드당 평균 3.6회(−84%) · SLA 0.514 = 즉시 아는 사람 baseline(−0.001 ± 0.002).
+#             0.9 는 0.99 · 0.9 · 0.7 중 SLA 를 baseline 과 같게 지키는 가장 적은 호출 쪽이다(0.7 은 −0.0025 ± 0.0021).
+ESCALATION_MODE_DEFAULT = "situation"
+SITUATION_ESCALATION_THRESHOLD = 0.9
+
+
+def escalation_mode() -> str:
+    import os  # noqa: PLC0415
+    mode = os.environ.get("AGENT_ESCALATION", ESCALATION_MODE_DEFAULT).lower()
+    return mode if mode in ("situation", "confidence") else ESCALATION_MODE_DEFAULT
+
+
 def escalation_check(intrinsic: float, empirical: float) -> dict:
     """개입 판정 — 두 드라이버가 **이 함수 하나**를 쓴다 (CLAUDE.md 규칙 7).
 
@@ -171,6 +189,8 @@ class Decision:
             return True
         if self.escalation is not None:
             return self.escalation
+        if escalation_mode() == "situation":
+            return self.conf_situation < SITUATION_ESCALATION_THRESHOLD
         return escalation_check(self.conf_intrinsic, self.conf_empirical)["escalate"]
 
     def confidence(self) -> dict:

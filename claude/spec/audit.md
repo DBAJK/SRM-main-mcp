@@ -67,6 +67,8 @@
 | `slice_id` | string \| null | 아니오 | ③ `procure().slice_id` |
 | `vendor_id` | string \| null | 아니오 | ③ `procure().vendor_id` |
 | `cost_total` | float \| null | 아니오 | ③ `procure().cost_total` |
+| `human_situation` | `Situation` \| null | 아니오 | 불려 온 사람이 답한 상황 라벨 (2026-10-05 개입 재설계) |
+| `human_allocation` | `SliceTriple` \| null | 아니오 | 그 라벨로 받은 `rule_based` 배분. 주면 폴백 대신 이것을 적용 · 기록한다 |
 
 **조달 3필드는 `record_decision` 과 같은 중계선이다 ⚠️** 에스컬레이션한 스텝에 조달했는데 여기에 넘기지 않으면 그 조달은 **아무 데도 남지 않는다** — 뒤이어 `record_decision` 을 부르는 길은 `duplicate_decision` 으로 막혀 있어 복구 경로도 없다. 그러면 `get_metrics.procurements` · `procurement_cost_total` 이 그만큼 적게 세고, ⑤ `report_outcome` 이 이 레코드에서 `vendor_id` 를 찾으므로 항상 `null` 이 되어 **⑤→③ 레이팅 되먹임이 끊긴다.** 하필 `demand_pressure` 가 가장 높아 조달이 가장 필요한 스텝에서만 끊기므로 마켓 자기 개선의 증거가 편향된 표본 위에 남는다.
 
@@ -75,9 +77,9 @@
 | `escalation_id` | string | 개입 1건의 식별자 |
 | **`decision_id`** | string | **폴백 결정의 ID. `report_outcome`에 쓴다** |
 | `fallback_policy` | `PolicyName` | **항상 `"rule_based"`** |
-| `fallback_situation` | `Situation` | **항상 `"normal"`** |
+| `fallback_situation` | `Situation` | `"normal"` — `human_allocation` 을 주면 사람이 답한 라벨 |
 | `fallback_allocation` | `SliceTriple` | 개입 스텝에 적용할 배분. **`apply_allocation`에 넣는다**. 기본(`SLICE_FALLBACK=expert`)은 결정 시점 관측의 최적 배분 `a*(obs_t)` = normalize(traffic / (θ × capacity)) — ⑤ `ideal_allocation` 과 같은 식(workplan-2 D4). `init` 이면 예전처럼 `{0.4, 0.4, 0.2}` 상수 |
-| `fallback_mode` | `"expert"` \| `"init"` | 위 배분을 어느 방식으로 만들었나 |
+| `fallback_mode` | `"expert"` \| `"init"` \| `"human_label"` | 위 배분을 어느 방식으로 만들었나. `human_label` = 사람이 답한 상황 라벨의 배분 (고정 루프 proposed 의 기본 개입 경로 — 2026-10-05) |
 | `instruction` | string | 에이전트에게 주는 다음 행동 지시 |
 
 ```json

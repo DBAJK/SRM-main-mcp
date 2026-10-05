@@ -42,6 +42,9 @@ check("effective 0.5 · fallback 은 표에 없음",
 print("2. 에피소드 — emergency 30스텝 · 규칙 판단자")
 # 보정 기본은 2026-10-03 부터 off 다(rule.py CORRECTION_DEFAULT). 아래 B-1 판정은 보정 배선을 보는 것이라 켠다.
 os.environ["SLICE_RULE_CORRECTION"] = "on"
+# 개입 판정 기본은 2026-10-05 부터 상황 확신(situation)이다. 아래 B-2 · D5 · A-1 · D4 는 예전 신뢰도 판정의 개입 경로
+# 계약을 보는 것이라 그 방식으로 돌린다. 새 경로(사람이 상황 라벨로 답한다)는 5절.
+os.environ["AGENT_ESCALATION"] = "confidence"
 mb = MockBackend(seed=0)
 # ①에 실제로 넘어간 보정량을 엿본다 (B-1 판정용 — 아래)
 _sent_corrections: list = []
@@ -100,6 +103,8 @@ check("B-1 — rule_based 근거에 보정 설정(보정 on)", any("보정 on" i
 nonzero = [c for c in _sent_corrections if c and any(abs(v) > 1e-9 for v in c.values())]
 check("B-1 · D1-b — 자율 스텝에서 0 아닌 보정량이 ①에 넘어간다", len(nonzero) > 0,
       (len(nonzero), len(_sent_corrections)))
+
+os.environ.pop("AGENT_ESCALATION", None)
 
 print("3. A-2 — confidence 검사")
 mb = MockBackend(seed=0)
@@ -169,6 +174,50 @@ check("같은 스텝을 다시 판단해도 같은 답 (재시도에 상태가 �
       rule_mod.infer_situation(ctx) == first, first)
 check("확신은 사후확률 (0.25 ~ 1)", 0.25 <= first[1] <= 1.0, first[1])
 shutil.rmtree(ROOT / "runs" / "_check-mock-sit-x", ignore_errors=True)
+
+print("5. 개입 재설계 — 상황 확신 < 0.9 면 사람을 부르고, 사람은 상황 라벨로 답한다 (2026-10-05)")
+from dataclasses import replace as _replace  # noqa: E402
+from agent.schema import Decision, SITUATION_ESCALATION_THRESHOLD, escalation_mode  # noqa: E402
+check("기본 판정은 situation", escalation_mode() == "situation", escalation_mode())
+base_d = dict(situation="emergency", policy="rule_based", allocation={"embb": 0.3, "urllc": 0.5, "mmtc": 0.2},
+              conf_intrinsic=0.9, conf_empirical=0.9, rationale="t")
+check("확신 0.85 < 0.9 → 부른다 · 0.95 → 안 부른다",
+      (Decision(conf_situation=0.85, **base_d).escalate, Decision(conf_situation=0.95, **base_d).escalate)
+      == (True, False), SITUATION_ESCALATION_THRESHOLD)
+os.environ["AGENT_ESCALATION"] = "confidence"
+check("AGENT_ESCALATION=confidence 면 예전 공식 (combined 0.9 ≥ τ → 안 부른다)",
+      Decision(conf_situation=0.1, **base_d).escalate is False)
+os.environ.pop("AGENT_ESCALATION")
+asked = []
+
+
+def _human(run_id, step):
+    asked.append(step)
+    return "emergency"
+
+
+def always_unsure(ctx, prop):
+    return _replace(rule_decider(ctx, prop), conf_situation=0.5)
+
+
+always_unsure.on_human_label = lambda run_id, step, label: asked.append(("absorb", step, label))
+mbh = MockBackend(seed=0)
+run_episode(Tools(mbh, Guard(enabled=True)), always_unsure, "mockhuman-emergency-s0",
+            scenario="emergency", seed=0, max_steps=5, human=_human)
+recs = [d for d in mbh.decisions.values() if d.get("escalated")]
+check("확신이 낮은 스텝마다 사람을 불렀다",
+      len(recs) == 5 and [a for a in asked if isinstance(a, int)] == [0, 1, 2, 3, 4], (len(recs), asked[:6]))
+check("폴백 대신 사람 라벨의 배분이 기록된다 (human_label · emergency)",
+      all(d.get("fallback_mode") == "human_label" and d.get("fallback_situation") == "emergency" for d in recs),
+      sorted({(d.get("fallback_mode"), d.get("fallback_situation")) for d in recs}))
+check("판단자에게 사람의 답이 전달된다 (on_human_label)", ("absorb", 0, "emergency") in asked, asked[:4])
+import math as _m  # noqa: E402
+from agent.deciders import rule as rule_mod2  # noqa: E402
+rule_mod2.reset_run("_absorb")
+rule_mod2.absorb_label("_absorb", 3, "iot_surge")
+check("absorb_label — 그 스텝 믿음이 답한 라벨 0.99",
+      round(_m.exp(rule_mod2._belief["_absorb"][3]["iot_surge"]), 2) == 0.99)
+rule_mod2.reset_run("_absorb")
 
 print("\n" + ("전부 통과" if FAILS == 0 else f"실패 {FAILS}건"))
 sys.exit(1 if FAILS else 0)

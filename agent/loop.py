@@ -11,7 +11,9 @@ from typing import Callable, Optional
 
 from .schema import (
     ESCALATION_THRESHOLD,
+    SITUATION_ESCALATION_THRESHOLD,
     escalation_check,
+    escalation_mode,
     HISTORY_N,
     PROCURE_PRESSURE,
     Decision,
@@ -70,7 +72,7 @@ class BoundProposer:
 
 def run_step(
     tools: Tools, decide: Decider, run_id: str, intent: Optional[str] = None,
-    config: Optional[dict] = None,
+    config: Optional[dict] = None, human: Optional[Callable[[str, int], str]] = None,
 ) -> StepResult:
     """한 스텝. 부작용 있는 도구의 호출 횟수는 명세가 정한 대로만 일어난다."""
     tools.reset_counts()
@@ -125,6 +127,18 @@ def run_step(
     }
 
     if decision.escalate:
+        # 불려 온 사람이 있으면 원본 운영자처럼 상황 라벨을 답한다 (2026-10-05 개입 재설계). 그 라벨로
+        # rule_based 배분을 받아 ④에 넘기면 ④가 폴백 대신 그 배분을 적용 · 기록한다. 사람이 없으면(목 백엔드 ·
+        # 오케스트레이터) 예전처럼 ④의 D4 폴백이다.
+        human_relay = {}
+        if human is not None:
+            label = human(run_id, step_no)
+            answered = proposer.propose("rule_based", label)
+            if answered.get("allocation"):
+                human_relay = {"human_situation": label, "human_allocation": answered["allocation"]}
+            hook = getattr(decide, "on_human_label", None)   # 판단자가 사람의 답을 상황 믿음에 반영
+            if hook is not None:
+                hook(run_id, step_no, label)
         # 고르려던 정책도 넘긴다 (workplan A-1). 실행되는 것은 폴백이라 ④의 chosen_policy 는
         # rule_based 로 남고, 이 값은 agent_policy 에 따로 남는다. 안 넘기면 "개입이 없었다면
         # 무엇을 골랐을까"가 장부에서 사라져 정책 선택을 장부로 입증할 수 없다.
@@ -139,6 +153,7 @@ def run_step(
             # 쌓는다 — 없으면 개입 중 성적이 멈춰 한번 부르면 끝까지 부른다 (workplan-2 D5).
             agent_allocation=decision.allocation,
             agent_correction=decision.correction,
+            **human_relay,
             **relay,
         )
         _require(esc, "record_escalation", step_no)
@@ -214,6 +229,7 @@ def run_episode(
     max_steps: Optional[int] = None,
     intent: Optional[str] = None,
     config: Optional[dict] = None,
+    human: Optional[Callable[[str, int], str]] = None,
 ) -> list[StepResult]:
     """한 에피소드 전체. reset 으로 시작한다.
 
@@ -229,7 +245,7 @@ def run_episode(
     results: list[StepResult] = []
     for i in range(limit):
         logger.debug("─── 스텝 %d %s", i, "─" * 56)
-        r = run_step(tools, decide, run_id, intent=intent, config=config)
+        r = run_step(tools, decide, run_id, intent=intent, config=config, human=human)
         results.append(r)
         if r.episode_done:
             break
@@ -338,6 +354,9 @@ def _qos_from_observation(obs: dict, key: str) -> dict:
 def _escalation_reason(d: Decision) -> str:
     if d.allocation is None:
         return f"policy_failed: {d.policy} returned no allocation"
+    if escalation_mode() == "situation":
+        return (f"low_situation_confidence: situation {d.conf_situation:.3f} < {SITUATION_ESCALATION_THRESHOLD} "
+                f"(agent guess {d.situation})")
     chk = escalation_check(d.conf_intrinsic, d.conf_empirical)
     if chk["trigger"] == "empirical_floor":
         return (f"low_empirical: empirical {d.conf_empirical:.3f} < floor {chk['empirical_floor']} "
