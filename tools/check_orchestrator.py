@@ -360,6 +360,18 @@ def main() -> int:
         if run_dir.exists():
             shutil.rmtree(run_dir, ignore_errors=True)
 
+    print("\n[정책 블록] 스텝 프롬프트가 쓸 수 있는 정책을 알려 준다 (SLICE_POLICIES · 2026-10-05)")
+    from agent.orchestrator.host import OrchestratorHost as Host
+    os.environ.pop("SLICE_POLICIES", None)
+    text = Host._prompt(None, 3, 20, None, [])
+    check("기본: rule_based 만 쓸 수 있다고 알린다", "쓸 수 있는 정책: rule_based\n" in text, text)
+    check("기본: lstm_forecast 를 꺼진 정책으로 알린다", "꺼진 정책(부르지 않는다): lstm_forecast · dqn" in text, text)
+    os.environ["SLICE_POLICIES"] = "all"
+    text = Host._prompt(None, 3, 20, None, [])
+    check("all: rule_based · lstm_forecast (dqn 은 가중치 없음)",
+          "쓸 수 있는 정책: rule_based · lstm_forecast\n꺼진 정책(부르지 않는다): dqn\n" in text, text)
+    os.environ.pop("SLICE_POLICIES")
+
     print("\n" + ("전부 통과" if FAILS == 0 else f"실패 {FAILS}건"))
     return 0 if FAILS == 0 else 1
 

@@ -11,7 +11,8 @@
      iot_surge      다수 소형 단말의 접속이 지배적
    한 스텝의 트래픽은 잡음이 커서 그것만 보면 자주 틀린다. estimate_situation 이 지금까지 관측한
    트래픽으로 상황별 사후확률을 낸다 — 판단 근거로 쓰되, 최종 판단은 네가 한다.
-2. policy — 배분을 어느 정책에 맡길지 (rule_based · lstm_forecast). 가능한 것만 고른다.
+2. policy — 배분을 어느 정책에 맡길지. 이번 실험에서 쓸 수 있는 정책은 매 스텝 [정책] 블록이 알려 준다.
+   거기 없는 정책은 꺼져 있어 unavailable 만 돌아오니 부르지도 비교하지도 않는다.
 3. procure — 외부 벤더에게서 용량을 조달할지, 한다면 어느 벤더에게서.
 4. escalate — 사람을 부를지. compute_confidence 의 escalate 가 true 면 부른다. 지금 상황을 확신하지
    못할 때만 true 가 된다. 불려 온 사람은 지금 상황을 알려 준다 — record_escalation 결과의

@@ -29,6 +29,9 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Optional
 
+from srm_mcp.policy import dqn
+from srm_mcp.policy.enabled import POLICY_NAMES, enabled_policies
+
 from ..guard import Guard
 from ..llm import LLMError, extract_json
 from ..llm.claude_cli import ClaudeCLI
@@ -343,6 +346,14 @@ class OrchestratorHost:
         if intent:
             blocks.append(f"[사람이 준 의도]\n{intent}")
         blocks.append(f"[스텝]\n{t} / {total}")
+        # 쓸 수 있는 정책 (SLICE_POLICIES · 2026-10-05 rule_based 고정). CLI 는 스텝마다 새 프로세스라
+        # 앞 스텝에서 본 unavailable 을 기억하지 못한다 — 안 알려 주면 매 스텝 lstm 을 한 번씩 물어본다
+        # (orch-policyset emergency 20: 9~19스텝 11회 · 전부 disabled_by_config).
+        # dqn 은 켜져 있어도 가중치가 없어 쓸 수 없다 — ② list_policies 와 같은 판정.
+        on = [p for p in enabled_policies() if p != "dqn" or dqn.available()[0]]
+        off = [p for p in POLICY_NAMES if p not in on]
+        blocks.append("[정책]\n쓸 수 있는 정책: " + " · ".join(on)
+                      + (f"\n꺼진 정책(부르지 않는다): {' · '.join(off)}" if off else ""))
 
         recent = history[-RECENT_N:]
         if recent:
