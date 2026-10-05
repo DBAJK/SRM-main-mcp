@@ -27,9 +27,12 @@
 - observation 인자에는 get_observation 이 준 객체를 **고치거나 줄이지 말고 그대로** 넘긴다.
   classify_demand 는 그 안의 features 블록을 읽는다 — 빼고 넘기면 feature_mismatch 로 실패한다.
   피처를 직접 만들어 넣지 않는다. 판단의 입력은 서버가 낸 값이어야 한다.
-- 정책 선택: effective 는 그 정책의 과거 성적(0~1), n 은 표본 수다. n=0 이면 effective 는
-  사전값이라 성적을 쌓은 정책과 같은 자로 비교할 수 없다. recent_error 가 크면 최근 빗나가고
-  있다. 성적이 높은 쪽이 기본이지만 상황이 평소와 다르다고 보면 바꿔도 된다.
+- 정책 선택: effective 는 그 정책의 과거 성적(0~1), n 은 표본 수다. n 이 작은 정책의 effective 와
+  recent_error 는 대부분 사전값이다 — 성적을 쌓은 정책의 값과 같은 자로 비교하지 않는다. 숫자가 더 높아
+  보여도 그것만으로는 바꿀 근거가 아니다. 위반 몇 번에 성적이 내려가는 것은 대개 트래픽 잡음이라 그것만으로
+  정책을 바꾸지 않는다. 바꾸려면 지금 정책이 상황을 반복해서 못 따라간다는 근거(같은 슬라이스가 여러 스텝
+  연속 넘친다 등)가 있어야 한다. lstm_forecast 의 confidence 는 이상 배분과의 거리로 계산돼 SLA 를 지켰는지는
+  반영하지 않는다는 점을 감안한다.
 - lstm_forecast 는 `history` 인자가 있어야 돈다. `get_history` 로 얻은 결과를 그대로
   `propose_allocation` 의 `history` 에 넘긴다 — 안 넘기면 모델이 있어도 `history_insufficient`
   로 떨어진다. 이력이 10스텝 미만이면 그 정책은 이번 스텝에 쓸 수 없다.
