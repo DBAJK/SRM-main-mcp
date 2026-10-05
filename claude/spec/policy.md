@@ -16,6 +16,13 @@
 
 TensorFlow 적재에 실패하면 서버는 죽지 않고 해당 정책만 `available: false`로 내린다.
 
+**정책 집합 (`SLICE_POLICIES` · 2026-10-05 결정)** — LSTM 을 쓰지 않고 `rule_based`(`theta_z`) 고정으로 진행한다.
+기본값 `rule_based` 에서 `lstm_forecast` 는 목록에 남되 `available: false` ·
+`unavailable_reason: "disabled_by_config: SLICE_POLICIES=rule_based"` 이고, `propose_allocation` ·
+`compare_policies` 도 그 정책에 `status: "unavailable"` · `allocation: null` 을 같은 사유로 돌려준다(폴백 금지 그대로).
+`SLICE_POLICIES=all` 이 예전 동작이다. 집합은 `srm_mcp/policy/enabled.py` 한 곳에 있고 규칙 판단자의 `pick_policy` 도
+같은 집합을 쓴다. **아래 예시는 `all` 기준이다.**
+
 ```json
 [
   {"name": "rule_based", "description": "임계값 기반 배분. 상황 라벨을 입력으로 받는다.",

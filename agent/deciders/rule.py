@@ -13,6 +13,7 @@ import os
 from statistics import NormalDist
 from typing import Optional
 
+from srm_mcp.policy.enabled import enabled_policies
 from srm_mcp.policy.rule import DEMAND_BASE, DEMAND_MULT, DEMAND_NOISE
 
 from ..schema import Decision, HISTORY_N, PROCURE_PRESSURE, StepContext
@@ -266,7 +267,8 @@ def pick_policy(ctx: StepContext) -> str:
     근거는 위의 "같은 자로 비교할 수 없다" 하나다.
     """
     candidates = ["rule_based"]
-    if (ctx.history or {}).get("n_available", 0) >= HISTORY_N:
+    # SLICE_POLICIES 로 lstm 을 끄면(2026-10-05 기본) 후보에도 넣지 않는다 — ②와 같은 집합.
+    if (ctx.history or {}).get("n_available", 0) >= HISTORY_N and "lstm_forecast" in enabled_policies():
         candidates.append("lstm_forecast")
 
     proven = [p for p in candidates if ctx.samples(p) > 0]

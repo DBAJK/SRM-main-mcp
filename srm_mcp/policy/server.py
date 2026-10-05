@@ -20,6 +20,7 @@ from fastmcp import FastMCP
 from ..common.store import to_builtin
 from . import classify as classify_mod
 from . import descriptions, dqn, lstm, rule
+from .enabled import disabled_reason
 
 mcp = FastMCP("slice-policy")
 
@@ -87,6 +88,9 @@ def _check_policy(policy: str) -> None:
 def _propose(policy: str, observation: dict, situation: str,
              history: Optional[dict], recent_error: Optional[float]) -> dict[str, Any]:
     """정책 하나를 평가한다. **policy 필드는 요청받은 값 그대로 돌려준다** (정정 H)."""
+    off = disabled_reason(policy)
+    if off is not None:   # SLICE_POLICIES 로 꺼진 정책 (2026-10-05 rule_based 고정 결정 · enabled.py)
+        return _unavailable(policy, off, "이 실험에서는 쓰지 않는 정책.")
     if policy == "rule_based":
         allocation = rule.propose(observation, situation)
         return {
@@ -122,6 +126,10 @@ def list_policies() -> list[dict]:
         "lstm_forecast": lstm.available(),
         "dqn": dqn.available(),
     }
+    for name in POLICIES:
+        off = disabled_reason(name)
+        if off is not None:
+            status[name] = (False, off)
     return [{
         "name": name,
         "description": descriptions.describe(name),

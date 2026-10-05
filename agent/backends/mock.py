@@ -23,6 +23,7 @@ from srm_mcp.feedback import reliability as rel      # ⑤ EMA · 축소 · rece
 from srm_mcp.common.actuator import actuate          # ① 액추에이터 식 (D1-b · D5 와 공용)
 from srm_mcp.feedback import scoring as fb_scoring   # ⑤ 가상 채점(D5)
 from srm_mcp.policy import rule                      # ② rule_based — 위반 보정(B-1) 포함
+from srm_mcp.policy.enabled import disabled_reason   # ② SLICE_POLICIES (2026-10-05 rule_based 고정)
 
 # ⑤가 개입 스텝의 성적을 담는 자리 (B-2). feedback/server.py 의 FALLBACK_BUCKET 과 같은 이름.
 # 정책이 아니므로 get_reliability_table 에는 안 나간다.
@@ -209,7 +210,7 @@ class MockBackend:
 
     # ── ② policy ─────────────────────────────────────────────────────
     def _list_policies(self) -> list:
-        return [
+        rows = [
             {"name": "rule_based", "description": "임계값 기반 배분. 상황 라벨을 입력으로 받는다.",
              "requires": None, "available": True, "unavailable_reason": None},
             {"name": "lstm_forecast", "description": "시계열 모델 기반 배분. 관측 이력 10스텝 필요.",
@@ -218,9 +219,17 @@ class MockBackend:
              "requires": "trained weights", "available": False,
              "unavailable_reason": "no trained weights"},
         ]
+        for row in rows:
+            off = disabled_reason(row["name"])
+            if off is not None:
+                row.update(available=False, unavailable_reason=off)
+        return rows
 
     def _propose_allocation(self, policy, observation, situation,
                             history=None, recent_error=None) -> dict:
+        off = disabled_reason(policy)
+        if off is not None:
+            return self._fail(policy, "unavailable", off)
         if policy == "dqn":
             return self._fail(policy, "unavailable", "no trained weights")
         if policy == "lstm_forecast":

@@ -192,9 +192,12 @@ def main() -> int:
     except ValueError as exc:
         print(f"  PASS  잘못된 situation → ValueError: {str(exc)[:70]}")
 
-    print("\n4. 조용한 폴백 금지 (정정 H)")
+    print("\n4. 조용한 폴백 금지 (정정 H) — lstm 을 켠 조건(SLICE_POLICIES=all)에서 이력 부족 경로")
     short = {"n": 4, "columns": [], "features": []}
+    os.environ["SLICE_POLICIES"] = "all"
     q = s.propose_allocation("lstm_forecast", OBS, "emergency", history=short)
+    os.environ.pop("SLICE_POLICIES")
+    check("꺼짐 사유가 아니다 (lstm 자체의 사유)", str(q["reason"]).startswith("disabled_by_config"), False)
     check("policy 필드가 바뀌지 않는다", q["policy"], "lstm_forecast")
     check("allocation 은 null", q["allocation"], None)
     check("status != ok", q["status"] in ("unavailable", "error"), True)
@@ -269,6 +272,26 @@ def main() -> int:
         check("11 → 9칸 행 거부", "IndexError", "FeatureError")
     check("온전한 행은 그대로", len(features.window_from_history(
         {"columns": columns, "n": 1, "features": [full]})[0]), len(columns))
+
+    print("\n12. SLICE_POLICIES — 기본은 rule_based 고정 (2026-10-05 결정 · enabled.py)")
+    os.environ.pop("SLICE_POLICIES", None)
+    full_hist = {"columns": columns, "n": SEQUENCE_LENGTH, "features": [full] * SEQUENCE_LENGTH}
+    q = s.propose_allocation("lstm_forecast", OBS, "emergency", history=full_hist)
+    check("기본: lstm 은 unavailable", q["status"], "unavailable")
+    check("기본: 사유가 설정으로 꺼짐", str(q["reason"]).startswith("disabled_by_config"), True)
+    check("기본: allocation null", q["allocation"], None)
+    check("기본: rule_based 는 그대로 ok", s.propose_allocation("rule_based", OBS, "emergency")["status"], "ok")
+    info = {i["name"]: i for i in s.list_policies()}
+    check("기본: list_policies 에서 lstm available=false", info["lstm_forecast"]["available"], False)
+    check("기본: 이름 목록은 그대로 3개", list(info), ["rule_based", "lstm_forecast", "dqn"])
+    rows = s.compare_policies(OBS, "emergency", history=full_hist)
+    check("기본: compare 도 lstm unavailable", rows[1]["status"], "unavailable")
+    os.environ["SLICE_POLICIES"] = "all"
+    q = s.propose_allocation("lstm_forecast", OBS, "emergency", history=full_hist)
+    check("all: 꺼짐 사유가 아니다", str(q["reason"]).startswith("disabled_by_config"), False)
+    check("all: list_policies 의 lstm 은 모델 적재 여부를 따른다",
+          {i["name"]: i for i in s.list_policies()}["lstm_forecast"]["available"], lstm.available()[0])
+    os.environ.pop("SLICE_POLICIES")
 
     print(f"\n{'실패 ' + str(len(failures)) + '건: ' + ', '.join(failures) if failures else '전부 통과'}")
     return 1 if failures else 0

@@ -219,5 +219,27 @@ check("absorb_label — 그 스텝 믿음이 답한 라벨 0.99",
       round(_m.exp(rule_mod2._belief["_absorb"][3]["iot_surge"]), 2) == 0.99)
 rule_mod2.reset_run("_absorb")
 
+print("\n6. SLICE_POLICIES — 기본은 rule_based 고정 (2026-10-05 결정)")
+import types as _types  # noqa: E402
+from agent.deciders.rule import pick_policy  # noqa: E402
+os.environ.pop("SLICE_POLICIES", None)
+_mb = MockBackend(seed=0)
+_mb._reset("mockpolicy-emergency-s0", "emergency", 0)
+_obs = _mb._get_observation()
+_hist10 = {"n_available": 10}
+_q = _mb._propose_allocation("lstm_forecast", _obs, "emergency", history=_hist10)
+check("기본: mock lstm 은 unavailable · disabled_by_config",
+      _q["status"] == "unavailable" and str(_q["reason"]).startswith("disabled_by_config"), _q.get("reason"))
+check("기본: mock list_policies 의 lstm available=false",
+      [r["available"] for r in _mb._list_policies()] == [True, False, False])
+# lstm 이 성적을 쌓아 rule 보다 높아도 기본에서는 고르지 않는다
+_ctx = _types.SimpleNamespace(history=_hist10, samples=lambda p: 5,
+                              effective=lambda p: {"rule_based": 0.4, "lstm_forecast": 0.9}[p])
+check("기본: pick_policy 는 rule_based", pick_policy(_ctx) == "rule_based", pick_policy(_ctx))
+os.environ["SLICE_POLICIES"] = "all"
+check("all: pick_policy 는 성적 높은 lstm", pick_policy(_ctx) == "lstm_forecast", pick_policy(_ctx))
+check("all: mock lstm 은 ok", _mb._propose_allocation("lstm_forecast", _obs, "emergency", history=_hist10)["status"] == "ok")
+os.environ.pop("SLICE_POLICIES")
+
 print("\n" + ("전부 통과" if FAILS == 0 else f"실패 {FAILS}건"))
 sys.exit(1 if FAILS else 0)
