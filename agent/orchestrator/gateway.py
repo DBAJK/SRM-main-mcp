@@ -36,7 +36,8 @@ from pydantic import PrivateAttr
 from ..backends.mcp import McpBackend
 from ..guard import ForbiddenLeak, Guard
 from ..deciders.rule import situation_posterior
-from ..schema import ESCALATION_THRESHOLD, escalation_check
+from ..schema import (ESCALATION_THRESHOLD, SITUATION_ESCALATION_THRESHOLD, escalation_check,
+                      escalation_mode)
 from ..trace import MARK, brief
 
 logger = logging.getLogger(__name__)
@@ -62,8 +63,10 @@ CONFIDENCE_DESC = (
     "결합 신뢰도를 계산한다. combined = √(intrinsic × empirical). "
     "intrinsic 은 propose_allocation 이 낸 confidence, "
     "empirical 은 get_reliability_table 의 그 정책 effective 다. "
-    f"combined 가 {ESCALATION_THRESHOLD} 미만이거나 empirical 이 하한(empirical_floor) 미만이면 "
-    "escalate 가 true 이며, 그 경우 record_decision 대신 record_escalation 을 부른다."
+    "escalate 가 true 면 record_decision 대신 record_escalation 을 부른다. 기본 판정은 상황 확신이다 — "
+    f"지금까지 관측한 트래픽으로 본 상황 사후확률의 최댓값(situation_confidence)이 {SITUATION_ESCALATION_THRESHOLD} "
+    "미만이면 escalate 가 true 다(에이전트가 지금 상황을 확신하지 못할 때만 사람을 부른다). "
+    f"예전 판정(combined 가 {ESCALATION_THRESHOLD} 미만이거나 empirical 이 하한 미만)은 trigger 로 함께 알려준다."
 )
 
 
@@ -178,6 +181,17 @@ class GatewayMiddleware(Middleware):
             context = context.copy(
                 message=context.message.model_copy(update={"arguments": args}))
 
+        # 사람에게 묻기 (2026-10-05 개입 재설계). LLM 이 record_escalation 을 부르면 불려 온 사람이 원본 운영자처럼
+        # 지금 상황 라벨을 답하고, 게이트웨이가 그 라벨의 rule_based 배분을 받아 ④에 넘긴다 — ④가 폴백 대신 그것을
+        # 적용 · 기록하고 LLM 은 반환된 fallback_allocation 을 적용한다. 사람의 답은 이 경로로만 들어온다.
+        human_answer = None
+        if name == "record_escalation" and gw.human is not None and isinstance(args.get("observation"), dict):
+            human_answer = gw.ask_human(int(args.get("step", gw.log.step or 0)), args["observation"])
+            if human_answer is not None:
+                args.update(human_answer)
+                context = context.copy(
+                    message=context.message.model_copy(update={"arguments": args}))
+
         if step is not None and len(gw.log.current()) >= gw.max_calls:
             out = {
                 "error": "call_budget_exceeded",
@@ -247,8 +261,12 @@ class Gateway:
         guard: Optional[Guard] = None,
         host: str = "127.0.0.1",
         port: int = 0,
+        human: Optional[Any] = None,
     ):
         self.run_id = run_id
+        # 개입 때 불려 올 사람 (2026-10-05 개입 재설계) — (run_id, step) → 지금 상황 라벨. 없으면 예전 D4 폴백.
+        self.human = human
+        self.human_labels: dict[int, str] = {}     # 사람이 답한 스텝 → 라벨. 상황 추정이 반영한다
         self.out_dir = Path(out_dir)
         self.out_dir.mkdir(parents=True, exist_ok=True)
         self.max_calls = max_calls
@@ -290,6 +308,7 @@ class Gateway:
         out = self.guard.check(out, f"{server}.{tool}")
         if tool == "reset":
             self.traffic_by_step = {}
+            self.human_labels = {}
             self.remember_traffic("reset", out)
         logger.debug(
             "  %s %s %s(%s)\n        → %s",
@@ -302,6 +321,24 @@ class Gateway:
     def begin_step(self, step: int, attempt: Optional[int] = None) -> None:
         self.log.begin_step(step, attempt)
         self.corrections = []
+
+    def situation_estimate(self) -> Optional[dict[str, float]]:
+        """관측된 트래픽 열의 상황 사후확률 — 사람이 답한 스텝은 그 라벨로 고정(규칙 판단자의 absorb_label 과 같다)."""
+        steps = sorted(self.traffic_by_step)
+        if not steps:
+            return None
+        anchors = {i: self.human_labels[s] for i, s in enumerate(steps) if s in self.human_labels}
+        return situation_posterior([self.traffic_by_step[s] for s in steps], anchors)
+
+    def ask_human(self, step: int, observation: dict) -> Optional[dict]:
+        """불려 온 사람의 답 → {human_situation, human_allocation}. 배분을 못 받으면 None (④ D4 폴백)."""
+        label = self.human(self.run_id, step)
+        prop = self.backend.call("policy", "propose_allocation",
+                                 {"policy": "rule_based", "observation": observation, "situation": label})
+        if not isinstance(prop, dict) or not prop.get("allocation"):
+            return None
+        self.human_labels[step] = label
+        return {"human_situation": label, "human_allocation": prop["allocation"]}
 
     def remember_traffic(self, tool: str, payload: Any) -> None:
         """관측(get_observation · step · reset 결과)의 트래픽을 스텝별로 모은다. 같은 스텝은 덮어쓴다."""
@@ -389,7 +426,7 @@ class Gateway:
         @mcp.tool(name="compute_confidence", description=CONFIDENCE_DESC)
         def compute_confidence(intrinsic: float, empirical: float) -> dict:
             chk = escalation_check(intrinsic, empirical)   # 고정 루프와 같은 함수 (schema.py)
-            return {
+            out = {
                 "intrinsic": round(float(intrinsic), 4),
                 "empirical": round(float(empirical), 4),
                 "combined": round(chk["combined"], 4),
@@ -398,6 +435,16 @@ class Gateway:
                 "escalate": chk["escalate"],
                 "trigger": chk["trigger"],
             }
+            # 기본 판정은 상황 확신 (고정 루프 schema.Decision.escalate 와 같은 규칙 · 2026-10-05).
+            post = self.situation_estimate() if escalation_mode() == "situation" else None
+            if post:
+                conf = max(post.values())
+                out.update(situation_confidence=round(conf, 4),
+                           situation_threshold=SITUATION_ESCALATION_THRESHOLD,
+                           escalate=conf < SITUATION_ESCALATION_THRESHOLD,
+                           trigger="situation" if conf < SITUATION_ESCALATION_THRESHOLD else None,
+                           confidence_formula_trigger=chk["trigger"])
+            return out
 
         self.server_of["compute_confidence"] = "gateway"
 
@@ -407,8 +454,8 @@ class Gateway:
             if not steps:
                 return {"error": "no_observation",
                         "detail": "관측한 트래픽이 없다. get_observation 을 먼저 부른다."}
-            # 규칙 판단자(고정 루프)와 같은 필터를 이 에피소드에서 관측된 트래픽 열에 돌린다.
-            post = situation_posterior([self.traffic_by_step[s] for s in steps])
+            # 규칙 판단자(고정 루프)와 같은 필터를 이 에피소드에서 관측된 트래픽 열에 돌린다 (사람이 답한 스텝 반영).
+            post = self.situation_estimate()
             return {"step": steps[-1], "steps_used": len(steps),
                     "posterior": {s: round(p, 4) for s, p in post.items()},
                     "most_likely": max(post, key=post.get)}

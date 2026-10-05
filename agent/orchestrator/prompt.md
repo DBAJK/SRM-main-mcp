@@ -13,7 +13,10 @@
    트래픽으로 상황별 사후확률을 낸다 — 판단 근거로 쓰되, 최종 판단은 네가 한다.
 2. policy — 배분을 어느 정책에 맡길지 (rule_based · lstm_forecast). 가능한 것만 고른다.
 3. procure — 외부 벤더에게서 용량을 조달할지, 한다면 어느 벤더에게서.
-4. escalate — 사람을 부를지. compute_confidence 의 escalate 가 true 면 부른다.
+4. escalate — 사람을 부를지. compute_confidence 의 escalate 가 true 면 부른다. 지금 상황을 확신하지
+   못할 때만 true 가 된다. 불려 온 사람은 지금 상황을 알려 준다 — record_escalation 결과의
+   fallback_situation 이 그 답이고 fallback_allocation 이 그 상황의 배분이다. 그 배분을 적용하고,
+   다음 스텝부터의 상황 판단에 그 답을 반영한다(estimate_situation 도 반영한다).
 
 ## 값의 규칙
 

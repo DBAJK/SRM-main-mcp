@@ -162,14 +162,19 @@ def _forward(prev: Optional[dict[str, float]], traffic: dict) -> dict[str, float
     return {s: v - norm for s, v in post.items()}
 
 
-def situation_posterior(traffics: list[dict]) -> dict[str, float]:
+def situation_posterior(traffics: list[dict], anchors: Optional[dict[int, str]] = None) -> dict[str, float]:
     """트래픽 열(오래된 것부터)의 마지막 스텝 사후확률 — 규칙 판단자와 같은 필터를 처음부터 돌린다.
 
-    오케스트레이터 게이트웨이의 `estimate_situation` 도구가 쓴다 (반복 5) — 두 드라이버가 같은 계산을 쓴다.
+    오케스트레이터 게이트웨이의 `estimate_situation` · `compute_confidence` 가 쓴다 — 두 드라이버가 같은 계산을 쓴다.
+    `anchors` 는 {열 위치: 사람이 답한 라벨} — 그 위치에서 믿음을 답한 라벨 0.99 로 둔다(absorb_label 과 같다).
     """
     logp = None
-    for traffic in traffics:
+    for i, traffic in enumerate(traffics):
         logp = _forward(logp, traffic)
+        label = (anchors or {}).get(i)
+        if label in SITUATIONS:
+            rest = (1 - HUMAN_ANSWER_BELIEF) / (len(SITUATIONS) - 1)
+            logp = {s: math.log(HUMAN_ANSWER_BELIEF if s == label else rest) for s in SITUATIONS}
     return {s: math.exp(v) for s, v in (logp or {}).items()}
 
 

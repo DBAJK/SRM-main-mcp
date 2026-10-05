@@ -393,7 +393,9 @@ arm1 **0** / proposed 개입 normal 9.6 · emergency 24.4 · special_event 25.0 
 
 → **사람 호출 −84%, SLA 는 변화를 즉시 아는 사람과 차이 없음, 45분 늦는 사람보다 +0.010 ± 0.005.** 사람의 역할이
 "계속 지켜보며 선언"에서 "물어볼 때만 답함"으로 바뀐다 — L2 → L3. 가정: 사람은 물으면 즉시 정확히 답한다.
-오케스트레이터(Claude)에는 아직 안 들어갔다 — 다음 작업.
+오케스트레이터(Claude)에도 같은 규칙을 넣었다(2026-10-05): 게이트웨이 `compute_confidence` 가 관측 트래픽의 상황 사후확률로
+판정하고(`situation_confidence` · 예전 공식 결과는 `confidence_formula_trigger`), LLM 이 `record_escalation` 을 부르면 게이트웨이가
+사람의 답(라벨)과 그 rule_based 배분을 ④로 넘기며, `estimate_situation` 도 그 답을 반영한다. 검사 통과 · Claude 실행 확인은 아직.
 
 **재현** — 반복 전 동작은 스위치로 돌아간다: `SLICE_TARGET_TABLE=theta` · `SLICE_RULE_CORRECTION=on` ·
 `AGENT_SITUATION_SIGNAL=traffic` (조달 슬라이스 규칙은 스위치가 없어 33869bb worktree). 결과 폴더

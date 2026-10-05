@@ -149,11 +149,15 @@ class OrchestratorHost:
         # 시스템 프롬프트도 컨텍스트다. 금지 문자열이 있으면 시작 전에 죽는다.
         self.guard.check_text(self.prompt_file.read_text(encoding="utf-8"), "prompt.md")
 
+        # 개입 때 불려 올 사람 (2026-10-05) — 오케스트레이터는 proposed 비교군이라 항상 붙인다. 정답을 여는 코드는
+        # arms/baseline.py 에만 있다. 사람의 답은 record_escalation 때 게이트웨이가 ④로만 넘긴다.
+        from ..arms.baseline import human_label_responder  # noqa: PLC0415
         self.gateway = Gateway(
             run_id, self.out_dir,
             desc_mode=desc_mode, memory_mode=memory_mode,
             server_log_dir=self.root / "runs" / run_id / "servers",
             max_calls=max_calls, guard=self.guard,
+            human=human_label_responder(self.root),
         )
         self.referee = RefereeLog(self.out_dir / "referee.jsonl")
         self._steps_fh = open(self.out_dir / "steps.jsonl", "a", encoding="utf-8")

@@ -151,6 +151,12 @@ LLM 이 게이트웨이(`agent/orchestrator/gateway.py`) 하나에 MCP 로 붙�
 (σ 0.1 이 mmtc 평균의 절반) 상황 인지가 0.65~0.75 에 머물렀다. 근거를 하나 더 줄 뿐 판단은 LLM 이 한다 —
 그래서 LLM 에 보이는 도구는 22개(서버 20 + `compute_confidence` + `estimate_situation`)다.
 
+**개입 재설계 (2026-10-05)** — 두 드라이버가 같은 규칙이다. 개입은 상황 확신(관측 트래픽의 상황 사후확률 최댓값)이 0.9
+미만일 때만 하고(`AGENT_ESCALATION=situation` · 예전 공식은 `=confidence`), 불려 온 사람은 원본 운영자처럼 상황 라벨을 답한다.
+고정 루프는 `loop.run_step` 이, 오케스트레이터는 게이트웨이가 `record_escalation` 때 그 라벨의 rule_based 배분을 ④에 넘긴다
+(`fallback_mode: human_label`). 사람의 답은 그 판단자 · 게이트웨이의 상황 믿음에 반영된다. 정답을 여는 코드는
+`agent/arms/baseline.py` 하나뿐이고, 답은 사람을 부른 스텝에만 들어온다.
+
 # 3.4 컨텍스트는 스텝마다 재구성한다
 
 120스텝 대화를 누적하면 후반에 **100k 토큰**을 넘는다. 비용·지연이 폭증하고, 모델이 20스텝 전의 낡은 관측에 주의를 뺏긴다.

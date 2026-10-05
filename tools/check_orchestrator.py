@@ -173,6 +173,35 @@ def main() -> int:
               and abs(est["posterior"][est["most_likely"]] - want[est["most_likely"]]) < 1e-3, est)
         check("estimate_situation — 리셋 관측부터 쌓인다", est.get("steps_used", 0) >= 1, est.get("steps_used"))
 
+        # 2026-10-05 개입 재설계 — compute_confidence 는 상황 확신으로 판정하고, record_escalation 때 게이트웨이가
+        # 불려 온 사람의 답(상황 라벨)과 그 배분을 ④로 넘긴다. 사람은 여기서 가짜로 세운다(정답 파일 대신).
+        gw.call("observe", "step", n=1)                 # 0스텝엔 이미 결정 기록이 있다 — 1스텝으로
+        gw.begin_step(1)
+        gw.human = lambda run_id, step: "iot_surge"
+
+        async def _human():
+            from fastmcp import Client
+            async with Client(url) as c:
+                obs1 = (await c.call_tool("get_observation", {})).data
+                conf1 = (await c.call_tool("compute_confidence", {"intrinsic": 0.9, "empirical": 0.9})).data
+                esc1 = (await c.call_tool("record_escalation", {
+                    "step": obs1["step"], "observation": obs1, "situation": "normal",
+                    "reason": "check", "confidence": {"situation": 0.5, "intrinsic": 0.9,
+                                                      "empirical": 0.9, "combined": 0.9}})).data
+                est1 = (await c.call_tool("estimate_situation", {})).data
+            return conf1, esc1, est1
+
+        conf1, esc1, est1 = asyncio.run(_human())
+        from agent.schema import SITUATION_ESCALATION_THRESHOLD  # noqa: PLC0415
+        check("compute_confidence — 상황 확신으로 판정 (situation_confidence · escalate 일치)",
+              "situation_confidence" in conf1
+              and conf1["escalate"] == (conf1["situation_confidence"] < SITUATION_ESCALATION_THRESHOLD), conf1)
+        check("record_escalation — 사람이 답한 라벨의 배분이 적용 · 기록된다",
+              (esc1.get("fallback_mode"), esc1.get("fallback_situation")) == ("human_label", "iot_surge"), esc1)
+        check("estimate_situation — 사람의 답이 반영된다 (그 스텝 iot_surge 0.99)",
+              est1.get("most_likely") == "iot_surge" and est1["posterior"]["iot_surge"] >= 0.98, est1)
+        gw.human = None
+
         print("\n4. 심판")
         good = judge(0, calls("get_observation", "get_reliability_table", "propose_allocation",
                               "compute_confidence", "record_decision", "apply_allocation",
