@@ -1,13 +1,13 @@
 """에이전트 전용 타입.
 
 서버가 만들지 않는 값만 여기 정의한다. 서버 응답은 dict 그대로 다룬다
-(`mcp/common/schema.py`에 의존하지 않기 위함 — 와이어 계약만 알면 된다).
+(서버 쪽 타입 모듈에 의존하지 않기 위함 — 와이어 계약만 알면 된다).
 
 근거: claude/flow/data-chain.md '에이전트가 만들어내는 값'
 """
 
 from dataclasses import dataclass, field
-from typing import Literal, Optional, Protocol
+from typing import Literal, Optional
 
 Situation = Literal["normal", "emergency", "special_event", "iot_surge"]
 PolicyName = Literal["rule_based", "lstm_forecast", "dqn"]
@@ -101,7 +101,7 @@ class StepContext:
     """한 스텝에서 판단자가 받는 재료 전부.
 
     situation 을 정하기 전에 얻을 수 있는 것만 들어 있다.
-    ② 호출은 situation 이 필요하므로 Proposer 를 통해 나중에 한다.
+    ② 호출은 situation 이 필요하므로 BoundProposer(loop.py) 를 통해 나중에 한다.
     """
 
     run_id: str
@@ -151,18 +151,6 @@ class StepContext:
         ②가 dict 든 float 든 받아 처리한다.
         """
         return self.reliability
-
-
-class Proposer(Protocol):
-    """② 호출 창구.
-
-    situation 을 정한 뒤에만 쓸 수 있다. 판단자가 직접 ②를 부르지 않고
-    이걸 통하게 해서 루프가 호출 횟수를 셀 수 있게 한다.
-    """
-
-    def propose(self, policy: str, situation: str) -> dict: ...
-
-    def compare(self, situation: str) -> list[dict]: ...
 
 
 @dataclass

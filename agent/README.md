@@ -78,7 +78,7 @@ run.py                                  시나리오 · 시드 · arm
 
 | 파일 | 역할 |
 |---|---|
-| `schema.py` | `Decision` · `StepContext` · `Proposer`. 에이전트가 만드는 값의 정의 |
+| `schema.py` | `Decision` · `StepContext`. 에이전트가 만드는 값의 정의 (② 호출 창구는 `loop.py` 의 `BoundProposer`) |
 | `guard.py` | FORBIDDEN 누출 검사. **유효성 검사가 아니다** |
 | `tools.py` | 도구 21개 얇은 래퍼. 반환값마다 guard 통과 |
 | `loop.py` | 9스텝 순서·시점 보장 |

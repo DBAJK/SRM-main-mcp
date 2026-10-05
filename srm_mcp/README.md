@@ -18,7 +18,7 @@ ImportError: FastMCP server support is not installed. Install `fastmcp` or `fast
 두 번째 줄이 특히 고약하다 — 원인은 이름 충돌인데 메시지는 설치 문제라고 말한다.
 아무리 `pip install` 해도 고쳐지지 않는다.
 
-**A·C도 `srm_mcp.common` 으로 import 해야 한다.** `mcp/common/schema.py` 를 기대하고
+**A·C도 `srm_mcp.common` 으로 import 해야 한다.** 예전 `mcp/common/...` 경로를 기대하고
 있다면 경로만 바꾸면 된다. 되돌리는 것은 권하지 않는다.
 
 ## 소유권
@@ -161,18 +161,14 @@ SLICE_MEMORY_MODE=warm python -m srm_mcp.feedback.server
 | `SLICE_DESC_MODE` | `minimal`(주 실험) / `advisory` | ② 도구 설명 |
 | `SLICE_MEMORY_MODE` | `warm`(주 결과) / `cold` | ③⑤ 상태 유지 위치 |
 
-## 통합 스모크 — 3개 프로세스 stdio 왕복
+## 통합 왕복 — 실서버 5개 MCP
 
 ```bash
-python tools/smoke_servers.py
+.venv310/Scripts/python tools/check_orchestrator.py
 ```
 
-`check_*.py` 는 도구 함수를 파이썬으로 직접 부르지만 이쪽은 **실제 MCP 전송**을 탄다 —
-프로세스 분리 · 핸드셰이크 · JSON 직렬화 · 스키마 검증까지 걸린다. `spec/tools.md` 의
-1스텝 표준 호출 순서를 ②③⑤ 구간만 그대로 밟고, ①④ 자리는 합성값으로 메운다.
-**M1(배선 검증)의 증거로 쓸 수 있다.** `fastmcp` 가 필요하다.
-
-끝나면 `data/vendors.json` 의 레이팅과 `runs/_smoke-s0/` 를 되돌린다.
+게이트웨이가 서버 5개를 실제 MCP 로 띄우고 도구를 HTTP 로 부른다. 초기의 3서버 stdio 스모크
+(`tools/smoke_servers.py`)는 이 검사로 대체되어 2026-10-06 정리했다.
 
 ## 구현할 때 걸릴 것 하나 더
 

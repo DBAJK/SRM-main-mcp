@@ -1,7 +1,6 @@
 """경로 상수 한 곳. (A 소유 · 임시 스텁)"""
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -32,7 +31,3 @@ def decisions_json(run_id: str) -> Path:
     return run_dir(run_id) / "decisions.json"
 
 
-def reliability_json(run_id: str) -> Path:
-    """MEMORY_MODE 에 따라 cold = runs/{run_id}/, warm = data/ (설계서 §5.0)."""
-    mode = os.environ.get("SLICE_MEMORY_MODE", "warm")
-    return RELIABILITY_WARM if mode == "warm" else run_dir(run_id) / "reliability.json"

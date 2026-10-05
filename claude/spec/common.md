@@ -1,6 +1,7 @@
 # 공통 타입
 
-모든 서버가 공유한다. `mcp/common/schema.py`에 pydantic 모델로 한 번만 정의한다.
+모든 서버가 공유하는 와이어 계약이다. 서버는 dict 로 주고받고, 값 검사는 각 서버 · `agent/guard.py` 가 한다
+(초기 pydantic 스텁 `srm_mcp/common/schema.py` 는 어디서도 import 되지 않아 2026-10-06 정리했다).
 
 ## `SliceTriple`
 

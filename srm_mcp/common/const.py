@@ -70,7 +70,6 @@ def cost_per_step(cost_per_hour: float) -> float:
 
 
 # ── 실행 ────────────────────────────────────────────────────────
-MEMORY_MODE = "warm"          # "cold" | "warm". ③⑤의 실행 간 유지 여부 (W5)
 SCENARIO_STEPS = {"normal": 60, "emergency": 60, "special_event": 60,
                   "iot_surge": 60, "mixed": 120}               # test_scenarios.py:54
 

@@ -7,7 +7,7 @@
 여기서 반드시 멈춘다.
 
 `fastmcp` 없이 돈다 (`observe/env.py` 와 `common/` 만 import 한다).
-실제 stdio 왕복은 `tools/smoke_servers.py` 가 본다.
+실서버 MCP 왕복은 `tools/check_orchestrator.py` 가 본다.
 """
 from __future__ import annotations
 

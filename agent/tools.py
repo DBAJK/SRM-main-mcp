@@ -65,10 +65,6 @@ class Tools:
         prev, self.calls = self.calls, {}
         return prev
 
-    @property
-    def side_effect_count(self) -> int:
-        return sum(n for t, n in self.calls.items() if t in self.SIDE_EFFECTS)
-
     # ── ① observe ────────────────────────────────────────────────────
     def get_observation(self) -> dict:
         return self._call("observe", "get_observation")

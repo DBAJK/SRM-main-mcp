@@ -57,10 +57,6 @@ class Verdict:
     def errors(self) -> int:
         return sum(1 for v in self.violations if v["severity"] == "error")
 
-    @property
-    def warns(self) -> int:
-        return sum(1 for v in self.violations if v["severity"] == "warn")
-
     def as_row(self) -> dict:
         return {
             "step": self.step,

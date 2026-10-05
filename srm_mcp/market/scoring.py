@@ -32,9 +32,6 @@ from __future__ import annotations
 import math
 from typing import Any
 
-# 핵심 QoS 기준 3개. 이것만 항상 채점된다.
-CORE_CRITERIA = ("latency", "bandwidth", "reliability")
-
 # engine.py:637~647 의 슬라이스별 기준가 (시간당)
 REFERENCE_PRICE = {"URLLC": 250.0, "eMBB": 150.0, "mMTC": 75.0}
 
