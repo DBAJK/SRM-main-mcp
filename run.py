@@ -34,7 +34,7 @@ from agent.trace import server_log_dir
 from agent.trace import setup as setup_trace
 
 ROOT = Path(__file__).resolve().parent
-SCENARIOS = ("normal", "emergency", "special_event", "iot_surge", "mixed")
+SCENARIOS = ("normal", "emergency", "special_event", "iot_surge", "mixed", "onset")
 
 
 def make_run_id(args) -> str:

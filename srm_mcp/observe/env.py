@@ -57,6 +57,13 @@ EVENT_MULTIPLIERS = {
 MIXED_SWITCHES = [(20, "special_event"), (50, "normal"), (60, "emergency"),
                   (90, "normal"), (100, "iot_surge")]
 
+# `onset` — 평상시 1시간(4스텝) 뒤 재난 발생. 원본 test_scenarios.py dynamic_changes 와 같은 방식
+# (실행 중 set_emergency_mode(True))으로 시작 시점만 정했다. 이름에 상황 단어를 넣지 않는다 —
+# run_id · decision_id 에 시나리오 이름이 박혀 LLM 에게 보일 수 있다.
+ONSET_SWITCHES = [(4, "emergency")]
+
+SCENARIO_SWITCHES = {"mixed": MIXED_SWITCHES, "onset": ONSET_SWITCHES}
+
 STEP_RANGE = (1, 10)          # rationale/observe.md — n=1000 으로 에피소드를 끝내지 못하게
 HISTORY_RANGE = (1, 100)
 HISTORY_KEEP = 100            # 원본 :534 와 동일
@@ -114,10 +121,11 @@ class SliceEnv:
     # ── 전개 ───────────────────────────────────────────────────
     def _label(self) -> str:
         """현재 스텝의 정답 라벨. **절대 도구로 나가지 않는다.**"""
-        if self.scenario != "mixed":
+        switches = SCENARIO_SWITCHES.get(self.scenario)
+        if switches is None:
             return self.scenario
         active = "normal"
-        for at, name in MIXED_SWITCHES:
+        for at, name in switches:
             if self.t >= at:
                 active = name
         return active

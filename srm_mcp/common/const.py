@@ -4,6 +4,8 @@
 """
 from __future__ import annotations
 
+import os
+
 # ── 환경 (ml_orchestrator_demo.py) ─────────────────────────────
 THRESHOLDS = {"embb": 0.9, "urllc": 1.2, "mmtc": 0.8}        # :174
 INIT_ALLOCATION = {"embb": 0.4, "urllc": 0.4, "mmtc": 0.2}   # :171
@@ -13,8 +15,10 @@ SEQUENCE_LENGTH = 10                                          # :190
 
 # ── 용량 배수 (정정 K · rationale/environment.md 재조정) ────────
 # handover §4-④ 에서 동결. 구버전 스텁은 CAPACITY_MAX = 2.0 · CAPACITY_BASE 없음이었다.
-CAPACITY_BASE = 1.6   # 조달 전 기본 용량. 평시 여유를 만들어 normal 압력 초과를 5.6% 로 내린다
-CAPACITY_MAX = 2.6    # 기본 + 조달 4회분. 3.6 이면 모든 스텝이 조달로 해소되어 에스컬레이션이 무의미해진다
+# SLICE_CAPACITY_BASE 로 바꿀 수 있다 — 민감도 검사용 (1.0 = 원본처럼 용량 배수 없음).
+# 서버 프로세스는 부모의 환경을 물려받으므로 run.py 를 띄우는 셸에서 설정하면 양쪽이 같은 값을 쓴다.
+CAPACITY_BASE = float(os.environ.get("SLICE_CAPACITY_BASE", "1.6"))  # 조달 전 기본 용량. 평시 여유를 만들어 normal 압력 초과를 5.6% 로 내린다
+CAPACITY_MAX = CAPACITY_BASE + 1.0   # 기본 + 조달 4회분(0.25 × 4). 3.6 이면 모든 스텝이 조달로 해소되어 에스컬레이션이 무의미해진다
 
 # ── 가상 시계 (정정 F) ──────────────────────────────────────────
 MINUTES_PER_STEP = 15
@@ -71,7 +75,8 @@ def cost_per_step(cost_per_hour: float) -> float:
 
 # ── 실행 ────────────────────────────────────────────────────────
 SCENARIO_STEPS = {"normal": 60, "emergency": 60, "special_event": 60,
-                  "iot_surge": 60, "mixed": 120}               # test_scenarios.py:54
+                  "iot_surge": 60, "mixed": 120,               # test_scenarios.py:54
+                  "onset": 60}                                 # normal → 4스텝부터 emergency (observe/env.py)
 
 # ── ML 피처 11개 (ml_orchestrator_demo.py:513~526) ─────────────
 FEATURE_COLUMNS = [
