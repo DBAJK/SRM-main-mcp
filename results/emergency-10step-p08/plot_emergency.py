@@ -23,7 +23,7 @@ plt.rcParams["font.family"] = "Malgun Gothic"
 plt.rcParams["axes.unicode_minus"] = False
 
 HERE = Path(__file__).resolve().parent
-RUNS = HERE.parents[1] / "runs"
+RUNS = next(p for p in (HERE / "runs", HERE.parent / "emergency-10step-p08" / "runs", HERE.parents[1] / "runs") if p.exists())
 SEED = int(sys.argv[1]) if len(sys.argv) > 1 else 0
 K = ("embb", "urllc", "mmtc")
 T = list(range(0, 11))

@@ -1,0 +1,94 @@
+{
+  "run_id": "proposed_p08-emergency-s3",
+  "driver": "orchestrator",
+  "scenario": "emergency",
+  "seed": 3,
+  "intent": null,
+  "model": "sonnet",
+  "prompt_file": "agent\\orchestrator\\prompt.md",
+  "steps": 10,
+  "attempts": 10,
+  "escalations": 2,
+  "sla_violations": 4,
+  "procurements": 5,
+  "situations": {
+    "special_event": 1,
+    "emergency": 9
+  },
+  "policies": {
+    "rule_based": 10
+  },
+  "malformed": 0,
+  "llm_failures": 0,
+  "procedure": {
+    "steps": 10,
+    "clean_steps": 10,
+    "procedure_adherence": 1.0,
+    "error_steps": 0,
+    "violations_by_code": {},
+    "mean_calls_per_step": 11.8,
+    "mean_failed_calls_per_step": 0.2,
+    "switched_under_threshold": 0
+  },
+  "metrics": {
+    "steps": 10,
+    "interventions": 2,
+    "autonomous_rate": 0.8,
+    "sla_violations": 4,
+    "mean_utilization": {
+      "embb": 0.760032,
+      "urllc": 0.828327,
+      "mmtc": 0.682411
+    },
+    "policy_usage": {
+      "rule_based": 10
+    },
+    "mttr": 4.0,
+    "unresolved": 0,
+    "procurements": 5,
+    "procurement_cost_total": 4975.0,
+    "mean_capacity": {
+      "embb": 1.6,
+      "urllc": 2.0,
+      "mmtc": 1.6
+    },
+    "pressure_exceeded": 0
+  },
+  "llm": {
+    "calls": 10,
+    "elapsed_sec": 404.8,
+    "tokens_in": 1397759,
+    "tokens_out": 37992,
+    "cost_usd": 0.9604,
+    "auth_retries": 0,
+    "mean_turns_per_step": 13.8
+  },
+  "gateway": {
+    "tools_exposed": [
+      "add_capacity",
+      "apply_allocation",
+      "classify_demand",
+      "compare_policies",
+      "compute_confidence",
+      "estimate_situation",
+      "explain_score",
+      "get_decisions",
+      "get_history",
+      "get_metrics",
+      "get_observation",
+      "get_reliability_table",
+      "list_offerings",
+      "list_policies",
+      "procure",
+      "propose_allocation",
+      "record_decision",
+      "record_escalation",
+      "report_outcome",
+      "score_offerings",
+      "step",
+      "update_rating"
+    ],
+    "budget_hits": 0,
+    "max_calls_per_step": 20
+  }
+}

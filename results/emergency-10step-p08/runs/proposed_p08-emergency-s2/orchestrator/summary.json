@@ -1,0 +1,93 @@
+{
+  "run_id": "proposed_p08-emergency-s2",
+  "driver": "orchestrator",
+  "scenario": "emergency",
+  "seed": 2,
+  "intent": null,
+  "model": "sonnet",
+  "prompt_file": "agent\\orchestrator\\prompt.md",
+  "steps": 10,
+  "attempts": 10,
+  "escalations": 0,
+  "sla_violations": 5,
+  "procurements": 6,
+  "situations": {
+    "emergency": 10
+  },
+  "policies": {
+    "rule_based": 10
+  },
+  "malformed": 0,
+  "llm_failures": 0,
+  "procedure": {
+    "steps": 10,
+    "clean_steps": 10,
+    "procedure_adherence": 1.0,
+    "error_steps": 0,
+    "violations_by_code": {},
+    "mean_calls_per_step": 12.1,
+    "mean_failed_calls_per_step": 0.0,
+    "switched_under_threshold": 0
+  },
+  "metrics": {
+    "steps": 10,
+    "interventions": 0,
+    "autonomous_rate": 1.0,
+    "sla_violations": 5,
+    "mean_utilization": {
+      "embb": 0.788108,
+      "urllc": 0.952897,
+      "mmtc": 0.633314
+    },
+    "policy_usage": {
+      "rule_based": 10
+    },
+    "mttr": 1.6667,
+    "unresolved": 0,
+    "procurements": 6,
+    "procurement_cost_total": 5225.0,
+    "mean_capacity": {
+      "embb": 1.66819,
+      "urllc": 2.05,
+      "mmtc": 1.6
+    },
+    "pressure_exceeded": 0
+  },
+  "llm": {
+    "calls": 10,
+    "elapsed_sec": 412.0,
+    "tokens_in": 1456207,
+    "tokens_out": 38480,
+    "cost_usd": 0.9824,
+    "auth_retries": 0,
+    "mean_turns_per_step": 14.1
+  },
+  "gateway": {
+    "tools_exposed": [
+      "add_capacity",
+      "apply_allocation",
+      "classify_demand",
+      "compare_policies",
+      "compute_confidence",
+      "estimate_situation",
+      "explain_score",
+      "get_decisions",
+      "get_history",
+      "get_metrics",
+      "get_observation",
+      "get_reliability_table",
+      "list_offerings",
+      "list_policies",
+      "procure",
+      "propose_allocation",
+      "record_decision",
+      "record_escalation",
+      "report_outcome",
+      "score_offerings",
+      "step",
+      "update_rating"
+    ],
+    "budget_hits": 0,
+    "max_calls_per_step": 20
+  }
+}

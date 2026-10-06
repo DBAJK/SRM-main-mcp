@@ -1,0 +1,1142 @@
+{
+  "run_id": "proposed_p08-emergency-s4",
+  "config": {
+    "scenario": "emergency",
+    "seed": 4,
+    "arm": "proposed_p08",
+    "desc_mode": "minimal",
+    "memory_mode": "cold",
+    "tau": 0.45,
+    "arm_kind": "proposed",
+    "repeat": null,
+    "driver": "orchestrator",
+    "intent": null,
+    "steps_limit": 10,
+    "llm_model": "sonnet",
+    "max_calls": 20,
+    "step_budget_usd": 0.5
+  },
+  "decisions": [
+    {
+      "decision_id": "proposed_p08-emergency-s4-0000",
+      "step": 0,
+      "kind": "decision",
+      "situation": "emergency",
+      "chosen_policy": "rule_based",
+      "allocation": {
+        "embb": 0.306164,
+        "urllc": 0.475098,
+        "mmtc": 0.218738
+      },
+      "confidence": {
+        "situation": 0.9873,
+        "intrinsic": 0.5324,
+        "empirical": 0.5,
+        "combined": 0.5159
+      },
+      "rationale": "estimate_situation 사후확률이 emergency 0.9873로 매우 높고 classify_demand 도 URLLC 지배(0.96)로 일치하며, demand_pressure 0.873≥0.8 기준에 따라 URLLC 용량을 vendor-1(최고 점수)에서 조달했다.",
+      "slice_id": "slice-urllc-0000-v1",
+      "vendor_id": "vendor-1",
+      "cost_total": 1250.0,
+      "in_distribution": true,
+      "demand_class": {
+        "dominant": "URLLC",
+        "probabilities": {
+          "eMBB": 0.02835196442902088,
+          "URLLC": 0.9597133994102478,
+          "mMTC": 0.011934619396924973
+        },
+        "margin": 0.9313614349812269
+      },
+      "considered": null,
+      "observation": {
+        "step": 0,
+        "sim_time": {
+          "hour_of_day": 0,
+          "day_of_week": 0,
+          "is_weekend": false
+        },
+        "traffic": {
+          "embb": 0.331857,
+          "urllc": 0.685057,
+          "mmtc": 0.365735
+        },
+        "allocation": {
+          "embb": 0.4,
+          "urllc": 0.4,
+          "mmtc": 0.2
+        },
+        "utilization": {
+          "embb": 0.518526,
+          "urllc": 1.070401,
+          "mmtc": 1.142922
+        },
+        "capacity": {
+          "embb": 1.6,
+          "urllc": 1.6,
+          "mmtc": 1.6
+        },
+        "thresholds": {
+          "embb": 0.9,
+          "urllc": 1.2,
+          "mmtc": 0.8
+        },
+        "violations": {
+          "embb": false,
+          "urllc": false,
+          "mmtc": true
+        },
+        "client_count": 0.712957,
+        "bs_count": 0.55586,
+        "demand_pressure": 0.872987,
+        "features": {
+          "traffic_load": 0.460883,
+          "time_of_day": 0,
+          "day_of_week": 0,
+          "embb_alloc": 0.4,
+          "urllc_alloc": 0.4,
+          "mmtc_alloc": 0.2,
+          "embb_util": 0.518526,
+          "urllc_util": 1.070401,
+          "mmtc_util": 1.142922,
+          "client_count": 0.712957,
+          "bs_count": 0.55586
+        }
+      },
+      "outcome": {
+        "sla_met": true,
+        "error": 0.0468,
+        "scored_at_step": 1,
+        "applied_allocation": {
+          "embb": 0.371849,
+          "urllc": 0.422529,
+          "mmtc": 0.205621
+        },
+        "requested_allocation": {
+          "embb": 0.306164,
+          "urllc": 0.475098,
+          "mmtc": 0.218738
+        },
+        "actuator_delta": 0.0657,
+        "observed_violations": {
+          "embb": false,
+          "urllc": false,
+          "mmtc": false
+        },
+        "counted_in_reliability": true,
+        "shadow": null
+      }
+    },
+    {
+      "decision_id": "proposed_p08-emergency-s4-0001",
+      "step": 1,
+      "kind": "decision",
+      "situation": "emergency",
+      "chosen_policy": "rule_based",
+      "allocation": {
+        "embb": 0.32268,
+        "urllc": 0.437679,
+        "mmtc": 0.239641
+      },
+      "confidence": {
+        "situation": 0.9985,
+        "intrinsic": 0.5385,
+        "empirical": 0.5167,
+        "combined": 0.5275
+      },
+      "rationale": "estimate_situation posterior가 emergency 0.9985로 매우 높고, demand_pressure(0.7137)가 emergency 조달 기준인 0.8 미만이라 조달 없이 rule_based 배분만 적용.",
+      "slice_id": null,
+      "vendor_id": null,
+      "cost_total": null,
+      "in_distribution": null,
+      "demand_class": null,
+      "considered": null,
+      "observation": {
+        "step": 1,
+        "sim_time": {
+          "hour_of_day": 0,
+          "day_of_week": 0,
+          "is_weekend": false
+        },
+        "traffic": {
+          "embb": 0.383584,
+          "urllc": 0.595307,
+          "mmtc": 0.229377
+        },
+        "allocation": {
+          "embb": 0.371849,
+          "urllc": 0.422529,
+          "mmtc": 0.205621
+        },
+        "utilization": {
+          "embb": 0.644723,
+          "urllc": 0.761575,
+          "mmtc": 0.697206
+        },
+        "capacity": {
+          "embb": 1.6,
+          "urllc": 1.85,
+          "mmtc": 1.6
+        },
+        "thresholds": {
+          "embb": 0.9,
+          "urllc": 1.2,
+          "mmtc": 0.8
+        },
+        "violations": {
+          "embb": false,
+          "urllc": false,
+          "mmtc": false
+        },
+        "client_count": 0.599591,
+        "bs_count": 0.744177,
+        "demand_pressure": 0.713735,
+        "features": {
+          "traffic_load": 0.402756,
+          "time_of_day": 0,
+          "day_of_week": 0,
+          "embb_alloc": 0.371849,
+          "urllc_alloc": 0.422529,
+          "mmtc_alloc": 0.205621,
+          "embb_util": 0.644723,
+          "urllc_util": 0.761575,
+          "mmtc_util": 0.697206,
+          "client_count": 0.599591,
+          "bs_count": 0.744177
+        }
+      },
+      "outcome": {
+        "sla_met": false,
+        "error": 0.0705,
+        "scored_at_step": 2,
+        "applied_allocation": {
+          "embb": 0.357098,
+          "urllc": 0.427074,
+          "mmtc": 0.215827
+        },
+        "requested_allocation": {
+          "embb": 0.32268,
+          "urllc": 0.437679,
+          "mmtc": 0.239641
+        },
+        "actuator_delta": 0.0344,
+        "observed_violations": {
+          "embb": false,
+          "urllc": true,
+          "mmtc": false
+        },
+        "counted_in_reliability": true,
+        "shadow": null
+      }
+    },
+    {
+      "decision_id": "proposed_p08-emergency-s4-0002",
+      "step": 2,
+      "kind": "decision",
+      "situation": "emergency",
+      "chosen_policy": "rule_based",
+      "allocation": {
+        "embb": 0.32268,
+        "urllc": 0.437679,
+        "mmtc": 0.239641
+      },
+      "confidence": {
+        "situation": 1.0,
+        "intrinsic": 0.5275,
+        "empirical": 0.4943,
+        "combined": 0.5106
+      },
+      "rationale": "estimate_situation 사후확률이 emergency=1.0로 전 스텝과 일관되고 URLLC 이용률이 임계를 9% 초과하는 등 긴급 통신 수요가 지배적이라 판단; demand_pressure 0.937(>=0.8)로 URLLC 용량을 vendor-1에서 조달.",
+      "slice_id": "slice-urllc-0002-v1",
+      "vendor_id": "vendor-1",
+      "cost_total": 625.0,
+      "in_distribution": null,
+      "demand_class": null,
+      "considered": null,
+      "observation": {
+        "step": 2,
+        "sim_time": {
+          "hour_of_day": 0,
+          "day_of_week": 0,
+          "is_weekend": false
+        },
+        "traffic": {
+          "embb": 0.40283,
+          "urllc": 1.035125,
+          "mmtc": 0.244498
+        },
+        "allocation": {
+          "embb": 0.357098,
+          "urllc": 0.427074,
+          "mmtc": 0.215827
+        },
+        "utilization": {
+          "embb": 0.705041,
+          "urllc": 1.31014,
+          "mmtc": 0.708026
+        },
+        "capacity": {
+          "embb": 1.6,
+          "urllc": 1.85,
+          "mmtc": 1.6
+        },
+        "thresholds": {
+          "embb": 0.9,
+          "urllc": 1.2,
+          "mmtc": 0.8
+        },
+        "violations": {
+          "embb": false,
+          "urllc": true,
+          "mmtc": false
+        },
+        "client_count": 0.705527,
+        "bs_count": 0.570688,
+        "demand_pressure": 0.93703,
+        "features": {
+          "traffic_load": 0.560818,
+          "time_of_day": 0,
+          "day_of_week": 0,
+          "embb_alloc": 0.357098,
+          "urllc_alloc": 0.427074,
+          "mmtc_alloc": 0.215827,
+          "embb_util": 0.705041,
+          "urllc_util": 1.31014,
+          "mmtc_util": 0.708026,
+          "client_count": 0.705527,
+          "bs_count": 0.570688
+        }
+      },
+      "outcome": {
+        "sla_met": false,
+        "error": 0.257,
+        "scored_at_step": 3,
+        "applied_allocation": {
+          "embb": 0.346773,
+          "urllc": 0.430256,
+          "mmtc": 0.222971
+        },
+        "requested_allocation": {
+          "embb": 0.32268,
+          "urllc": 0.437679,
+          "mmtc": 0.239641
+        },
+        "actuator_delta": 0.0241,
+        "observed_violations": {
+          "embb": true,
+          "urllc": false,
+          "mmtc": true
+        },
+        "counted_in_reliability": true,
+        "shadow": null
+      }
+    },
+    {
+      "decision_id": "proposed_p08-emergency-s4-esc-0003",
+      "step": 3,
+      "kind": "escalation",
+      "situation": "emergency",
+      "reason": "situation_confidence(0.4766)가 0.9 미만이라 상황 판단을 확신할 수 없어 사람 판단을 요청함",
+      "confidence": {
+        "situation": 0.4766,
+        "intrinsic": 0.5313,
+        "empirical": 0.4565,
+        "combined": 0.4925
+      },
+      "observation": {
+        "step": 3,
+        "sim_time": {
+          "hour_of_day": 0,
+          "day_of_week": 0,
+          "is_weekend": false
+        },
+        "traffic": {
+          "embb": 0.564218,
+          "urllc": 0.336871,
+          "mmtc": 0.315162
+        },
+        "allocation": {
+          "embb": 0.346773,
+          "urllc": 0.430256,
+          "mmtc": 0.222971
+        },
+        "utilization": {
+          "embb": 1.016909,
+          "urllc": 0.372836,
+          "mmtc": 0.883415
+        },
+        "capacity": {
+          "embb": 1.6,
+          "urllc": 2.1,
+          "mmtc": 1.6
+        },
+        "thresholds": {
+          "embb": 0.9,
+          "urllc": 1.2,
+          "mmtc": 0.8
+        },
+        "violations": {
+          "embb": true,
+          "urllc": false,
+          "mmtc": true
+        },
+        "client_count": 0.663505,
+        "bs_count": 0.631935,
+        "demand_pressure": 0.771718,
+        "features": {
+          "traffic_load": 0.405417,
+          "time_of_day": 0,
+          "day_of_week": 0,
+          "embb_alloc": 0.346773,
+          "urllc_alloc": 0.430256,
+          "mmtc_alloc": 0.222971,
+          "embb_util": 1.016909,
+          "urllc_util": 0.372836,
+          "mmtc_util": 0.883415,
+          "client_count": 0.663505,
+          "bs_count": 0.631935
+        }
+      }
+    },
+    {
+      "decision_id": "proposed_p08-emergency-s4-0003",
+      "step": 3,
+      "kind": "decision",
+      "situation": "emergency",
+      "chosen_policy": "rule_based",
+      "agent_policy": "rule_based",
+      "allocation": {
+        "embb": 0.336784,
+        "urllc": 0.405723,
+        "mmtc": 0.257492
+      },
+      "confidence": {
+        "situation": 0.4766,
+        "intrinsic": 0.5313,
+        "empirical": 0.4565,
+        "combined": 0.4925
+      },
+      "rationale": "escalated: situation_confidence(0.4766)가 0.9 미만이라 상황 판단을 확신할 수 없어 사람 판단을 요청함",
+      "escalated": true,
+      "escalation_id": "proposed_p08-emergency-s4-esc-0003",
+      "fallback_situation": "emergency",
+      "fallback_allocation": {
+        "embb": 0.336784,
+        "urllc": 0.405723,
+        "mmtc": 0.257492
+      },
+      "fallback_mode": "human_label",
+      "agent_allocation": {
+        "embb": 0.336784,
+        "urllc": 0.405723,
+        "mmtc": 0.257492
+      },
+      "agent_correction": null,
+      "slice_id": null,
+      "vendor_id": null,
+      "cost_total": null,
+      "in_distribution": null,
+      "demand_class": null,
+      "considered": null,
+      "observation": {
+        "step": 3,
+        "sim_time": {
+          "hour_of_day": 0,
+          "day_of_week": 0,
+          "is_weekend": false
+        },
+        "traffic": {
+          "embb": 0.564218,
+          "urllc": 0.336871,
+          "mmtc": 0.315162
+        },
+        "allocation": {
+          "embb": 0.346773,
+          "urllc": 0.430256,
+          "mmtc": 0.222971
+        },
+        "utilization": {
+          "embb": 1.016909,
+          "urllc": 0.372836,
+          "mmtc": 0.883415
+        },
+        "capacity": {
+          "embb": 1.6,
+          "urllc": 2.1,
+          "mmtc": 1.6
+        },
+        "thresholds": {
+          "embb": 0.9,
+          "urllc": 1.2,
+          "mmtc": 0.8
+        },
+        "violations": {
+          "embb": true,
+          "urllc": false,
+          "mmtc": true
+        },
+        "client_count": 0.663505,
+        "bs_count": 0.631935,
+        "demand_pressure": 0.771718,
+        "features": {
+          "traffic_load": 0.405417,
+          "time_of_day": 0,
+          "day_of_week": 0,
+          "embb_alloc": 0.346773,
+          "urllc_alloc": 0.430256,
+          "mmtc_alloc": 0.222971,
+          "embb_util": 1.016909,
+          "urllc_util": 0.372836,
+          "mmtc_util": 0.883415,
+          "client_count": 0.663505,
+          "bs_count": 0.631935
+        }
+      },
+      "outcome": {
+        "sla_met": true,
+        "error": 0.0669,
+        "scored_at_step": 4,
+        "applied_allocation": {
+          "embb": 0.343776,
+          "urllc": 0.422896,
+          "mmtc": 0.233328
+        },
+        "requested_allocation": {
+          "embb": 0.336784,
+          "urllc": 0.405723,
+          "mmtc": 0.257492
+        },
+        "actuator_delta": 0.0242,
+        "observed_violations": {
+          "embb": false,
+          "urllc": false,
+          "mmtc": false
+        },
+        "counted_in_reliability": false,
+        "shadow": {
+          "policy": "rule_based",
+          "sla_met": true,
+          "error": 0.0669,
+          "applied_allocation": {
+            "embb": 0.343776,
+            "urllc": 0.422896,
+            "mmtc": 0.233327
+          },
+          "counted": true
+        }
+      }
+    },
+    {
+      "decision_id": "proposed_p08-emergency-s4-0004",
+      "step": 4,
+      "kind": "decision",
+      "situation": "emergency",
+      "chosen_policy": "rule_based",
+      "allocation": {
+        "embb": 0.336784,
+        "urllc": 0.405723,
+        "mmtc": 0.257492
+      },
+      "confidence": {
+        "situation": 0.9997,
+        "intrinsic": 0.5346,
+        "empirical": 0.5032,
+        "combined": 0.5187
+      },
+      "rationale": "estimate_situation 사후확률 0.9997로 emergency 지속 확인, demand_pressure 0.705로 0.8 미만이라 조달 불필요, rule_based 제안대로 적용.",
+      "slice_id": null,
+      "vendor_id": null,
+      "cost_total": null,
+      "in_distribution": true,
+      "demand_class": null,
+      "considered": null,
+      "observation": {
+        "step": 4,
+        "sim_time": {
+          "hour_of_day": 1,
+          "day_of_week": 0,
+          "is_weekend": false
+        },
+        "traffic": {
+          "embb": 0.356344,
+          "urllc": 0.632184,
+          "mmtc": 0.264193
+        },
+        "allocation": {
+          "embb": 0.343776,
+          "urllc": 0.422896,
+          "mmtc": 0.233328
+        },
+        "utilization": {
+          "embb": 0.647848,
+          "urllc": 0.711854,
+          "mmtc": 0.707678
+        },
+        "capacity": {
+          "embb": 1.6,
+          "urllc": 2.1,
+          "mmtc": 1.6
+        },
+        "thresholds": {
+          "embb": 0.9,
+          "urllc": 1.2,
+          "mmtc": 0.8
+        },
+        "violations": {
+          "embb": false,
+          "urllc": false,
+          "mmtc": false
+        },
+        "client_count": 0.726261,
+        "bs_count": 0.868257,
+        "demand_pressure": 0.704729,
+        "features": {
+          "traffic_load": 0.417574,
+          "time_of_day": 0.041667,
+          "day_of_week": 0,
+          "embb_alloc": 0.343776,
+          "urllc_alloc": 0.422896,
+          "mmtc_alloc": 0.233328,
+          "embb_util": 0.647848,
+          "urllc_util": 0.711854,
+          "mmtc_util": 0.707678,
+          "client_count": 0.726261,
+          "bs_count": 0.868257
+        }
+      },
+      "outcome": {
+        "sla_met": true,
+        "error": 0.0862,
+        "scored_at_step": 5,
+        "applied_allocation": {
+          "embb": 0.341679,
+          "urllc": 0.417744,
+          "mmtc": 0.240577
+        },
+        "requested_allocation": {
+          "embb": 0.336784,
+          "urllc": 0.405723,
+          "mmtc": 0.257492
+        },
+        "actuator_delta": 0.0169,
+        "observed_violations": {
+          "embb": false,
+          "urllc": false,
+          "mmtc": false
+        },
+        "counted_in_reliability": true,
+        "shadow": null
+      }
+    },
+    {
+      "decision_id": "proposed_p08-emergency-s4-0005",
+      "step": 5,
+      "kind": "decision",
+      "situation": "emergency",
+      "chosen_policy": "rule_based",
+      "allocation": {
+        "embb": 0.336784,
+        "urllc": 0.405723,
+        "mmtc": 0.257492
+      },
+      "confidence": {
+        "situation": 1.0,
+        "intrinsic": 0.5817,
+        "empirical": 0.5529,
+        "combined": 0.5671
+      },
+      "rationale": "urllc 트래픽이 지배적이고 posterior가 emergency=1.0으로 수렴, demand_pressure(0.603)가 emergency 조달 기준(0.8) 미만이라 조달 없이 rule_based 배분만 적용한다.",
+      "slice_id": null,
+      "vendor_id": null,
+      "cost_total": null,
+      "in_distribution": null,
+      "demand_class": null,
+      "considered": null,
+      "observation": {
+        "step": 5,
+        "sim_time": {
+          "hour_of_day": 1,
+          "day_of_week": 0,
+          "is_weekend": false
+        },
+        "traffic": {
+          "embb": 0.262478,
+          "urllc": 0.765971,
+          "mmtc": 0.149691
+        },
+        "allocation": {
+          "embb": 0.341679,
+          "urllc": 0.417744,
+          "mmtc": 0.240577
+        },
+        "utilization": {
+          "embb": 0.480126,
+          "urllc": 0.873138,
+          "mmtc": 0.388886
+        },
+        "capacity": {
+          "embb": 1.6,
+          "urllc": 2.1,
+          "mmtc": 1.6
+        },
+        "thresholds": {
+          "embb": 0.9,
+          "urllc": 1.2,
+          "mmtc": 0.8
+        },
+        "violations": {
+          "embb": false,
+          "urllc": false,
+          "mmtc": false
+        },
+        "client_count": 0.770557,
+        "bs_count": 0.508194,
+        "demand_pressure": 0.60318,
+        "features": {
+          "traffic_load": 0.392714,
+          "time_of_day": 0.041667,
+          "day_of_week": 0,
+          "embb_alloc": 0.341679,
+          "urllc_alloc": 0.417744,
+          "mmtc_alloc": 0.240577,
+          "embb_util": 0.480126,
+          "urllc_util": 0.873138,
+          "mmtc_util": 0.388886,
+          "client_count": 0.770557,
+          "bs_count": 0.508194
+        }
+      },
+      "outcome": {
+        "sla_met": true,
+        "error": 0.128,
+        "scored_at_step": 6,
+        "applied_allocation": {
+          "embb": 0.34021,
+          "urllc": 0.414138,
+          "mmtc": 0.245652
+        },
+        "requested_allocation": {
+          "embb": 0.336784,
+          "urllc": 0.405723,
+          "mmtc": 0.257492
+        },
+        "actuator_delta": 0.0118,
+        "observed_violations": {
+          "embb": false,
+          "urllc": false,
+          "mmtc": false
+        },
+        "counted_in_reliability": true,
+        "shadow": null
+      }
+    },
+    {
+      "decision_id": "proposed_p08-emergency-s4-0006",
+      "step": 6,
+      "kind": "decision",
+      "situation": "emergency",
+      "chosen_policy": "rule_based",
+      "allocation": {
+        "embb": 0.336784,
+        "urllc": 0.405723,
+        "mmtc": 0.257492
+      },
+      "confidence": {
+        "situation": 1.0,
+        "intrinsic": 0.5665,
+        "empirical": 0.6007,
+        "combined": 0.5833
+      },
+      "rationale": "posterior가 emergency에 1.0으로 수렴했고 demand_pressure 0.66<0.8이라 조달 없이 rule_based 배분을 적용, URLLC 쪽 비중을 유지해 긴급 트래픽을 우선한다.",
+      "slice_id": null,
+      "vendor_id": null,
+      "cost_total": null,
+      "in_distribution": true,
+      "demand_class": null,
+      "considered": null,
+      "observation": {
+        "step": 6,
+        "sim_time": {
+          "hour_of_day": 1,
+          "day_of_week": 0,
+          "is_weekend": false
+        },
+        "traffic": {
+          "embb": 0.381351,
+          "urllc": 0.808622,
+          "mmtc": 0.1
+        },
+        "allocation": {
+          "embb": 0.34021,
+          "urllc": 0.414138,
+          "mmtc": 0.245652
+        },
+        "utilization": {
+          "embb": 0.700579,
+          "urllc": 0.929782,
+          "mmtc": 0.254425
+        },
+        "capacity": {
+          "embb": 1.6,
+          "urllc": 2.1,
+          "mmtc": 1.6
+        },
+        "thresholds": {
+          "embb": 0.9,
+          "urllc": 1.2,
+          "mmtc": 0.8
+        },
+        "violations": {
+          "embb": false,
+          "urllc": false,
+          "mmtc": false
+        },
+        "client_count": 0.781025,
+        "bs_count": 0.737871,
+        "demand_pressure": 0.663834,
+        "features": {
+          "traffic_load": 0.429991,
+          "time_of_day": 0.041667,
+          "day_of_week": 0,
+          "embb_alloc": 0.34021,
+          "urllc_alloc": 0.414138,
+          "mmtc_alloc": 0.245652,
+          "embb_util": 0.700579,
+          "urllc_util": 0.929782,
+          "mmtc_util": 0.254425,
+          "client_count": 0.781025,
+          "bs_count": 0.737871
+        }
+      },
+      "outcome": {
+        "sla_met": false,
+        "error": 0.1159,
+        "scored_at_step": 7,
+        "applied_allocation": {
+          "embb": 0.339183,
+          "urllc": 0.411614,
+          "mmtc": 0.249204
+        },
+        "requested_allocation": {
+          "embb": 0.336784,
+          "urllc": 0.405723,
+          "mmtc": 0.257492
+        },
+        "actuator_delta": 0.0083,
+        "observed_violations": {
+          "embb": true,
+          "urllc": false,
+          "mmtc": false
+        },
+        "counted_in_reliability": true,
+        "shadow": null
+      }
+    },
+    {
+      "decision_id": "proposed_p08-emergency-s4-0007",
+      "step": 7,
+      "kind": "decision",
+      "situation": "emergency",
+      "chosen_policy": "rule_based",
+      "allocation": {
+        "embb": 0.336784,
+        "urllc": 0.405723,
+        "mmtc": 0.257492
+      },
+      "confidence": {
+        "situation": 1.0,
+        "intrinsic": 0.5006,
+        "empirical": 0.5278,
+        "combined": 0.514
+      },
+      "rationale": "estimate_situation posterior가 emergency에 1.0으로 수렴했고 URLLC 이용률이 임계에 근접(1.1088<1.2지만 EMBB는 초과)하며 demand_pressure 0.831로 emergency 기준(0.8) 이상이라 URLLC 용량을 조달하고 rule_based 배분을 적용한다.",
+      "slice_id": "slice-urllc-0007-v1",
+      "vendor_id": "vendor-1",
+      "cost_total": 625.0,
+      "in_distribution": null,
+      "demand_class": null,
+      "considered": null,
+      "observation": {
+        "step": 7,
+        "sim_time": {
+          "hour_of_day": 1,
+          "day_of_week": 0,
+          "is_weekend": false
+        },
+        "traffic": {
+          "embb": 0.489395,
+          "urllc": 0.958424,
+          "mmtc": 0.141789
+        },
+        "allocation": {
+          "embb": 0.339183,
+          "urllc": 0.411614,
+          "mmtc": 0.249204
+        },
+        "utilization": {
+          "embb": 0.901792,
+          "urllc": 1.108789,
+          "mmtc": 0.355606
+        },
+        "capacity": {
+          "embb": 1.6,
+          "urllc": 2.1,
+          "mmtc": 1.6
+        },
+        "thresholds": {
+          "embb": 0.9,
+          "urllc": 1.2,
+          "mmtc": 0.8
+        },
+        "violations": {
+          "embb": true,
+          "urllc": false,
+          "mmtc": false
+        },
+        "client_count": 0.691874,
+        "bs_count": 0.699667,
+        "demand_pressure": 0.830958,
+        "features": {
+          "traffic_load": 0.52987,
+          "time_of_day": 0.041667,
+          "day_of_week": 0,
+          "embb_alloc": 0.339183,
+          "urllc_alloc": 0.411614,
+          "mmtc_alloc": 0.249204,
+          "embb_util": 0.901792,
+          "urllc_util": 1.108789,
+          "mmtc_util": 0.355606,
+          "client_count": 0.691874,
+          "bs_count": 0.699667
+        }
+      },
+      "outcome": {
+        "sla_met": false,
+        "error": 0.0829,
+        "scored_at_step": 8,
+        "applied_allocation": {
+          "embb": 0.338463,
+          "urllc": 0.409847,
+          "mmtc": 0.25169
+        },
+        "requested_allocation": {
+          "embb": 0.336784,
+          "urllc": 0.405723,
+          "mmtc": 0.257492
+        },
+        "actuator_delta": 0.0058,
+        "observed_violations": {
+          "embb": true,
+          "urllc": false,
+          "mmtc": false
+        },
+        "counted_in_reliability": true,
+        "shadow": null
+      }
+    },
+    {
+      "decision_id": "proposed_p08-emergency-s4-0008",
+      "step": 8,
+      "kind": "decision",
+      "situation": "emergency",
+      "chosen_policy": "rule_based",
+      "allocation": {
+        "embb": 0.348969,
+        "urllc": 0.378117,
+        "mmtc": 0.272914
+      },
+      "confidence": {
+        "situation": 1.0,
+        "intrinsic": 0.5027,
+        "empirical": 0.4619,
+        "combined": 0.4819
+      },
+      "rationale": "estimate_situation 사후확률이 emergency=1 로 수렴하고 URLLC 트래픽이 지속적으로 임계에 근접해 emergency 로 판단, demand_pressure 0.829 가 0.8 을 넘어 URLLC(최대 pressure 기여 슬라이스)를 vendor-1 에서 조달했다.",
+      "slice_id": "slice-urllc-0008-v1",
+      "vendor_id": "vendor-1",
+      "cost_total": 1250.0,
+      "in_distribution": null,
+      "demand_class": null,
+      "considered": null,
+      "observation": {
+        "step": 8,
+        "sim_time": {
+          "hour_of_day": 2,
+          "day_of_week": 0,
+          "is_weekend": false
+        },
+        "traffic": {
+          "embb": 0.491837,
+          "urllc": 0.980193,
+          "mmtc": 0.179128
+        },
+        "allocation": {
+          "embb": 0.338463,
+          "urllc": 0.409847,
+          "mmtc": 0.25169
+        },
+        "utilization": {
+          "embb": 0.908217,
+          "urllc": 1.017707,
+          "mmtc": 0.444813
+        },
+        "capacity": {
+          "embb": 1.6,
+          "urllc": 2.35,
+          "mmtc": 1.6
+        },
+        "thresholds": {
+          "embb": 0.9,
+          "urllc": 1.2,
+          "mmtc": 0.8
+        },
+        "violations": {
+          "embb": true,
+          "urllc": false,
+          "mmtc": false
+        },
+        "client_count": 0.74964,
+        "bs_count": 0.640218,
+        "demand_pressure": 0.829084,
+        "features": {
+          "traffic_load": 0.550386,
+          "time_of_day": 0.083333,
+          "day_of_week": 0,
+          "embb_alloc": 0.338463,
+          "urllc_alloc": 0.409847,
+          "mmtc_alloc": 0.25169,
+          "embb_util": 0.908217,
+          "urllc_util": 1.017707,
+          "mmtc_util": 0.444813,
+          "client_count": 0.74964,
+          "bs_count": 0.640218
+        }
+      },
+      "outcome": {
+        "sla_met": true,
+        "error": 0.0474,
+        "scored_at_step": 9,
+        "applied_allocation": {
+          "embb": 0.341615,
+          "urllc": 0.400328,
+          "mmtc": 0.258057
+        },
+        "requested_allocation": {
+          "embb": 0.348969,
+          "urllc": 0.378117,
+          "mmtc": 0.272914
+        },
+        "actuator_delta": 0.0222,
+        "observed_violations": {
+          "embb": false,
+          "urllc": false,
+          "mmtc": false
+        },
+        "counted_in_reliability": true,
+        "shadow": null
+      }
+    },
+    {
+      "decision_id": "proposed_p08-emergency-s4-0009",
+      "step": 9,
+      "kind": "decision",
+      "situation": "emergency",
+      "chosen_policy": "rule_based",
+      "allocation": {
+        "embb": 0.359602,
+        "urllc": 0.354028,
+        "mmtc": 0.286371
+      },
+      "confidence": {
+        "situation": 1.0,
+        "intrinsic": 0.565,
+        "empirical": 0.5325,
+        "combined": 0.5485
+      },
+      "rationale": "estimate_situation 사후확률이 emergency=1.0으로 강하게 수렴했고 demand_pressure(0.692)가 0.8 미만이라 조달 없이 rule_based 배분만 적용함.",
+      "slice_id": null,
+      "vendor_id": null,
+      "cost_total": null,
+      "in_distribution": true,
+      "demand_class": null,
+      "considered": null,
+      "observation": {
+        "step": 9,
+        "sim_time": {
+          "hour_of_day": 2,
+          "day_of_week": 0,
+          "is_weekend": false
+        },
+        "traffic": {
+          "embb": 0.385261,
+          "urllc": 0.762415,
+          "mmtc": 0.231137
+        },
+        "allocation": {
+          "embb": 0.341615,
+          "urllc": 0.400328,
+          "mmtc": 0.258057
+        },
+        "utilization": {
+          "embb": 0.704852,
+          "urllc": 0.732492,
+          "mmtc": 0.559799
+        },
+        "capacity": {
+          "embb": 1.6,
+          "urllc": 2.6,
+          "mmtc": 1.6
+        },
+        "thresholds": {
+          "embb": 0.9,
+          "urllc": 1.2,
+          "mmtc": 0.8
+        },
+        "violations": {
+          "embb": false,
+          "urllc": false,
+          "mmtc": false
+        },
+        "client_count": 0.882906,
+        "bs_count": 0.66936,
+        "demand_pressure": 0.692482,
+        "features": {
+          "traffic_load": 0.459604,
+          "time_of_day": 0.083333,
+          "day_of_week": 0,
+          "embb_alloc": 0.341615,
+          "urllc_alloc": 0.400328,
+          "mmtc_alloc": 0.258057,
+          "embb_util": 0.704852,
+          "urllc_util": 0.732492,
+          "mmtc_util": 0.559799,
+          "client_count": 0.882906,
+          "bs_count": 0.66936
+        }
+      },
+      "outcome": {
+        "sla_met": true,
+        "error": 0.09,
+        "scored_at_step": 10,
+        "applied_allocation": {
+          "embb": 0.347011,
+          "urllc": 0.386438,
+          "mmtc": 0.266551
+        },
+        "requested_allocation": {
+          "embb": 0.359602,
+          "urllc": 0.354028,
+          "mmtc": 0.286371
+        },
+        "actuator_delta": 0.0324,
+        "observed_violations": {
+          "embb": false,
+          "urllc": false,
+          "mmtc": false
+        },
+        "counted_in_reliability": true,
+        "shadow": null
+      }
+    }
+  ]
+}

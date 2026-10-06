@@ -22,7 +22,7 @@ plt.rcParams["axes.unicode_minus"] = False
 plt.rcParams["pdf.fonttype"] = 42
 
 HERE = Path(__file__).resolve().parent
-RUNS = HERE.parents[1] / "runs"
+RUNS = next(p for p in (HERE / "runs", HERE.parent / "emergency-10step-p08" / "runs", HERE.parents[1] / "runs") if p.exists())
 SEED = int(sys.argv[1]) if len(sys.argv) > 1 else 3
 N, CAP, THRESHOLD = 10, 1.6, 0.8
 K = ("embb", "urllc", "mmtc")

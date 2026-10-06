@@ -17,7 +17,7 @@ plt.rcParams["font.family"] = "Malgun Gothic"
 plt.rcParams["axes.unicode_minus"] = False
 
 HERE = Path(__file__).resolve().parent
-RUNS = HERE.parents[1] / "runs"
+RUNS = next(p for p in (HERE / "runs", HERE.parent / "emergency-10step-p08" / "runs", HERE.parents[1] / "runs") if p.exists())
 SEEDS = [0, 1, 2, 3, 4]
 SURFACE, INK, INK2, GRID = "#fcfcfb", "#0b0b0b", "#52514e", "#e4e3df"
 GRAY, ORANGE = "#8a8984", "#eb6834"
